@@ -1,0 +1,29 @@
+{
+  "name": "rdm-b2c",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "dev:native": "turbo run dev -F native --",
+    "dev:web": "turbo run dev -F web --",
+    "dev:server": "turbo run dev -F server --"
+  },
+  "dependencies": {
+    "@rdm-b2c/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@rdm-b2c/config": "workspace:*",
+    "@types/node": "catalog:",
+    "turbo": "^2.10.7",
+    "typescript": "^6.0.3"
+  },
+  "packageManager": "pnpm@10.26.0"
+}

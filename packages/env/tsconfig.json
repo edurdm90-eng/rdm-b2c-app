@@ -1,0 +1,3 @@
+{
+  "extends": "@rdm-b2c/config/tsconfig.base.json"
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@rdm-b2c/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@better-auth/expo": "catalog:",
+    "@rdm-b2c/db": "workspace:*",
+    "@rdm-b2c/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "mongodb": "^7.5.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@rdm-b2c/config": "workspace:*",
+    "typescript": "^6.0.3"
+  }
+}
