@@ -11,6 +11,7 @@ Run commands from the repository root with pnpm 10:
 - `pnpm install` installs workspace dependencies.
 - `pnpm dev` starts all apps; `pnpm dev:web`, `pnpm dev:server`, and `pnpm dev:native` start one.
 - `pnpm build` builds every package that defines a build task.
+- `pnpm test` runs the API domain tests through the server workspace.
 - `pnpm check-types` runs workspace TypeScript checks and the web production build.
 - `pnpm --filter native ios` or `pnpm --filter native android` launches a native development build.
 
@@ -22,7 +23,7 @@ TypeScript is strict, including unused-symbol and unchecked-index checks. Match 
 
 ## Testing Guidelines
 
-No test framework or coverage threshold is configured. Run `pnpm check-types` and `pnpm build`, then exercise the affected app locally. When adding a runner, colocate tests as `*.test.ts` or `*.test.tsx`, add package scripts, and wire the root task through Turbo.
+API domain tests use Node's built-in test runner through `tsx`; colocate them as `*.test.ts`, such as `packages/api/src/domain/rdm.test.ts`. Run `pnpm test`, `pnpm check-types`, and `pnpm build` before opening a pull request, then exercise affected mobile flows locally. No coverage threshold is configured; add focused tests for reward, progression, and allocation rules when those rules change.
 
 ## Commit & Pull Request Guidelines
 

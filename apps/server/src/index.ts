@@ -13,7 +13,16 @@ app.use(logger());
 app.use(
   "/*",
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: (origin) => {
+      const allowedOrigins = new Set([
+        env.CORS_ORIGIN,
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:8082",
+        "http://127.0.0.1:8082",
+      ]);
+      return allowedOrigins.has(origin) ? origin : env.CORS_ORIGIN;
+    },
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -41,7 +50,7 @@ import { serve } from "@hono/node-server";
 serve(
   {
     fetch: app.fetch,
-    port: 3000,
+    port: env.PORT,
   },
   (info) => {
     console.log(`Server is running on http://localhost:${info.port}`);
