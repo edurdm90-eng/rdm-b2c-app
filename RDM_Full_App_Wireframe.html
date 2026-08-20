@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RDM — Full App Wireframe</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:            #0E1117;
+    --panel:         #161B23;
+    --panel-raised:  #1B212B;
+    --ink:           #F3F1E9;
+    --ink-soft:      #8C93A1;
+    --line:          #262C38;
+
+    --growth:        #3FCB8B;
+    --growth-tint:   rgba(63,203,139,0.12);
+    --ai:            #5FA6ED;
+    --ai-tint:       rgba(95,166,237,0.12);
+    --gold:          #F0B429;
+    --gold-tint:     rgba(240,180,41,0.13);
+    --coral:         #E2705A;
+    --coral-tint:    rgba(226,112,90,0.13);
+    --plum:          #B39AE8;
+    --plum-tint:     rgba(179,154,232,0.14);
+
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 10px;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:#05060A; }
+  body{
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+  }
+
+  .gallery{
+    display:flex;
+    flex-wrap:wrap;
+    gap:36px;
+    padding:40px;
+    justify-content:center;
+    align-items:flex-start;
+    max-width:1500px;
+    margin:0 auto;
+  }
+  .frame-wrap{ display:flex; flex-direction:column; align-items:center; }
+  .frame-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px; font-weight:700; color:#C9CDD6;
+    letter-spacing:.05em; text-transform:uppercase;
+    margin-bottom:12px; display:flex; align-items:center; gap:8px;
+  }
+  .frame-label .n{
+    background:var(--growth); color:#06130C; border-radius:6px; padding:1px 7px; font-size:11px;
+  }
+
+  .device{
+    width:360px;
+    background:var(--bg);
+    border-radius:34px;
+    box-shadow:0 24px 55px rgba(0,0,0,0.55);
+    overflow:hidden;
+    border:7px solid #000;
+  }
+  .screen{ height:740px; overflow-y:auto; overflow-x:hidden; scrollbar-width:none; padding-bottom:88px; position:relative;}
+  .screen::-webkit-scrollbar{ display:none; }
+
+  /* shared header */
+  .hdr{ padding:16px 18px 6px 18px; display:flex; align-items:center; gap:10px; }
+  .hdr .back{ width:30px; height:30px; border-radius:9px; background:var(--panel); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .hdr .titles{ flex:1; }
+  .hdr h1{ font-family:'Fraunces',serif; font-size:19px; font-weight:600; margin:0; color:var(--ink); }
+  .hdr .sub{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-soft); margin-top:2px; letter-spacing:.03em; }
+  .hdr .streakpill{
+    display:flex; align-items:center; gap:5px; background:var(--gold-tint); color:var(--gold);
+    border-radius:999px; padding:6px 10px; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12.5px;
+    border:1px solid rgba(240,180,41,0.25); white-space:nowrap;
+  }
+
+  section{ padding:12px 18px; }
+  .section-label{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-soft); margin:2px 0 9px 2px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .section-label a{ color:var(--ink-soft); text-decoration:none; font-weight:600; }
+
+  /* tabs */
+  .tabs{ display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding:2px 18px 10px 18px; }
+  .tabs::-webkit-scrollbar{ display:none; }
+  .tab{
+    flex:0 0 auto; font-size:12px; font-weight:700; padding:7px 14px; border-radius:999px;
+    background:var(--panel); border:1px solid var(--line); color:var(--ink-soft);
+  }
+  .tab.active{ background:var(--growth); color:#06130C; border-color:var(--growth); }
+  .tab.active.ai{ background:var(--ai); color:#0A1622; border-color:var(--ai); }
+  .tab.active.plum{ background:var(--plum); color:#160F26; border-color:var(--plum); }
+  .tab.active.gold{ background:var(--gold); color:#1E1400; border-color:var(--gold); }
+
+  /* generic card */
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-md); padding:14px; }
+  .card + .card{ margin-top:10px; }
+
+  /* buttons */
+  .btn-solid, .btn-ghost{
+    font-family:'Inter',sans-serif; font-size:12px; font-weight:700; border-radius:999px;
+    padding:9px 14px; text-align:center; border:1px solid var(--plum); color:var(--plum); background:transparent;
+  }
+  .btn-solid{ background:var(--plum); color:#0E1117; border:none; }
+  .btn-solid.growth{ background:var(--growth); color:#06130C; }
+  .btn-ghost.coral{ border-color:var(--coral); color:var(--coral); }
+  .btn-solid.gold{ background:var(--gold); color:#1E1400; }
+
+  /* bottom nav */
+  .navbar{
+    position:absolute; bottom:0; left:0; right:0;
+    background:rgba(14,17,23,0.9); backdrop-filter: blur(8px);
+    border-top:1px solid var(--line);
+    display:flex; justify-content:space-around; align-items:center;
+    padding:9px 6px 12px 6px;
+  }
+  .navitem{ display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink-soft); }
+  .navitem.active{ color:var(--growth); }
+  .navitem span{ font-size:9.5px; font-weight:600; }
+  .navitem svg{ width:19px; height:19px; }
+
+  /* ========== SCREEN 1: HOME ========== */
+  .invite-banner{
+    margin:0 18px 0 18px; background:linear-gradient(120deg, rgba(179,154,232,0.18), rgba(63,203,139,0.10));
+    border:1px solid var(--line); border-radius:13px; padding:9px 11px; display:flex; align-items:center; gap:9px;
+  }
+  .invite-banner .ic{ width:26px; height:26px; border-radius:8px; background:var(--plum-tint); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .invite-banner p{ margin:0; font-size:10.5px; line-height:1.3; flex:1; }
+  .invite-banner .cta{ font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:700; color:var(--plum); white-space:nowrap; }
+
+  .grow-card{ background:radial-gradient(120% 140% at 15% 0%, rgba(63,203,139,0.16), transparent 60%), var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px; }
+  .grow-top{ display:flex; align-items:center; gap:14px; }
+  .plant-wrap{ width:74px; height:82px; flex-shrink:0; }
+  .grow-copy h2{ font-family:'Fraunces',serif; font-size:16.5px; font-weight:600; margin:2px 0 5px 0; color:var(--ink); }
+  .grow-copy .stage{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--growth); font-weight:700; text-transform:uppercase; }
+  .grow-copy p{ margin:0; font-size:11.5px; color:var(--ink-soft); line-height:1.35; }
+  .xp-row{ display:flex; align-items:center; gap:7px; margin-top:12px; }
+  .xp-badge{ font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; color:#05060A; background:var(--gold); border-radius:6px; padding:2px 6px; flex-shrink:0; }
+  .xp-meter{ flex:1; height:7px; border-radius:5px; background:#2A2F3A; overflow:hidden; }
+  .xp-meter i{ display:block; height:100%; width:64%; background:linear-gradient(90deg,var(--growth),#7EE8B4); border-radius:5px; }
+  .xp-label{ font-size:9.5px; color:var(--ink-soft); white-space:nowrap; }
+  .share-row{ display:flex; gap:7px; margin-top:12px; }
+  .share-btn, .risk-note{ flex:1; border-radius:11px; padding:8px 8px; font-size:10.5px; font-weight:700; text-align:center; }
+  .share-btn{ background:var(--growth); color:#06130C; }
+  .risk-note{ background:rgba(226,112,90,0.14); color:var(--coral); border:1px solid rgba(226,112,90,0.25); }
+
+  .path-row{ display:flex; gap:10px; }
+  .path-card{ flex:1; border-radius:var(--radius-md); padding:13px 12px; border:1px solid var(--line); background:var(--panel); min-height:112px; display:flex; flex-direction:column; gap:6px;}
+  .path-card .icon{ width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; }
+  .path-card.framework .icon{ background:var(--plum-tint); }
+  .path-card.ai .icon{ background:var(--ai-tint); }
+  .path-card h3{ font-family:'Fraunces',serif; font-size:13.5px; font-weight:600; margin:1px 0 0 0; color:var(--ink); }
+  .path-card p{ font-size:10.5px; color:var(--ink-soft); margin:0; line-height:1.3; flex:1; }
+  .path-card .go{ font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; }
+  .path-card.framework .go{ color:var(--plum); }
+  .path-card.ai .go{ color:var(--ai); }
+
+  .games-scroll{ display:flex; gap:9px; overflow-x:auto; scrollbar-width:none; }
+  .games-scroll::-webkit-scrollbar{ display:none; }
+  .game-chip{ flex:0 0 auto; width:98px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px; }
+  .game-chip .timer{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:10px; color:var(--ai); background:var(--ai-tint); padding:2px 5px; border-radius:5px; border:1px solid rgba(95,166,237,0.2); }
+  .game-chip h5{ font-size:11.5px; margin:7px 0 1px 0; font-weight:700; color:var(--ink); }
+  .game-chip span{ font-size:9.5px; color:var(--ink-soft); }
+
+  .wallet-row{ display:flex; }
+  .wallet-cell{ flex:1; padding:11px 6px; text-align:center; border-right:1px solid var(--line); }
+  .wallet-cell:last-child{ border-right:none; }
+  .wallet-cell .amt{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px; }
+  .wallet-cell .lbl{ font-size:9px; color:var(--ink-soft); margin-top:2px; }
+  .wallet-cell.gold .amt{ color:var(--gold); }
+  .wallet-cell.coral .amt{ color:var(--coral); }
+  .wallet-cell.plum .amt{ color:var(--plum); }
+  .wallet-cell.growth .amt{ color:var(--growth); }
+
+  /* ========== SCREEN 2: FRAMEWORK TEMPLATES ========== */
+  .tmpl-card{ display:flex; align-items:center; gap:11px; }
+  .tmpl-icon{ width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+  .tmpl-body{ flex:1; }
+  .tmpl-body h4{ font-size:13px; margin:0 0 2px 0; font-weight:700; color:var(--ink); }
+  .tmpl-body p{ font-size:10.5px; color:var(--ink-soft); margin:0; }
+  .tmpl-plus{ width:28px; height:28px; border-radius:50%; border:1.5px solid var(--growth); color:var(--growth); display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; }
+
+  /* ========== SCREEN 3: AI CHAT ========== */
+  .chat-hdr{ display:flex; align-items:center; gap:10px; padding:16px 18px 10px 18px; border-bottom:1px solid var(--line); }
+  .coach-avatar{ width:36px; height:36px; border-radius:50%; background:var(--ai-tint); border:1px solid rgba(95,166,237,0.3); display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .chat-hdr .who h1{ font-size:14.5px; margin:0; font-family:'Fraunces',serif; font-weight:600; }
+  .chat-hdr .who .status{ font-size:10px; color:var(--growth); font-family:'JetBrains Mono',monospace; }
+  .chat-body{ padding:14px 18px; display:flex; flex-direction:column; gap:10px; }
+  .bubble{ max-width:78%; padding:10px 13px; border-radius:16px; font-size:12px; line-height:1.4; }
+  .bubble.ai{ background:var(--panel); border:1px solid var(--line); border-bottom-left-radius:4px; align-self:flex-start; color:var(--ink); }
+  .bubble.me{ background:var(--ai); color:#0A1622; border-bottom-right-radius:4px; align-self:flex-end; font-weight:600; }
+  .chip-row{ display:flex; gap:7px; flex-wrap:wrap; margin-top:2px; }
+  .quick-chip{ font-size:10.5px; font-weight:700; padding:6px 11px; border-radius:999px; border:1px solid var(--ai); color:var(--ai); }
+  .chat-input{ position:absolute; bottom:0; left:0; right:0; background:rgba(14,17,23,0.92); backdrop-filter:blur(8px); border-top:1px solid var(--line); padding:12px 16px 16px 16px; display:flex; gap:8px; align-items:center; }
+  .chat-input .field{ flex:1; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:10px 14px; font-size:11.5px; color:var(--ink-soft); }
+  .chat-input .send{ width:36px; height:36px; border-radius:50%; background:var(--ai); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+  /* ========== SCREEN 4: GOAL DETAIL / PARR CYCLE ========== */
+  .parr-row{ display:flex; padding:4px 18px 14px 18px; gap:4px; }
+  .parr-step{ flex:1; text-align:center; }
+  .parr-dot{ width:30px; height:30px; border-radius:50%; margin:0 auto 5px auto; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; background:var(--panel); border:2px solid var(--line); color:var(--ink-soft); }
+  .parr-step.done .parr-dot{ background:var(--growth); border-color:var(--growth); color:#06130C; }
+  .parr-step.now .parr-dot{ background:var(--gold-tint); border-color:var(--gold); color:var(--gold); }
+  .parr-step span{ font-size:9px; color:var(--ink-soft); font-weight:600; }
+  .parr-line{ height:2px; background:var(--line); flex:0.5; align-self:flex-start; margin-top:15px; }
+  .journal-box{ background:var(--panel-raised); border:1px dashed var(--line); border-radius:12px; padding:12px; font-size:11.5px; color:var(--ink-soft); font-style:italic; }
+  .week-row{ display:flex; justify-content:space-between; margin-top:10px; }
+  .day-pip{ width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; background:var(--panel); border:1px solid var(--line); color:var(--ink-soft); }
+  .day-pip.hit{ background:var(--growth); color:#06130C; border:none; }
+
+  /* ========== SCREEN 5: GAMES HUB ========== */
+  .game-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .game-tile{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-md); padding:12px; }
+  .game-tile .timer{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:10px; color:var(--ai); background:var(--ai-tint); padding:2px 6px; border-radius:5px; border:1px solid rgba(95,166,237,0.2); }
+  .game-tile h5{ font-size:12.5px; margin:8px 0 2px 0; font-weight:700; color:var(--ink); }
+  .game-tile span{ font-size:10px; color:var(--ink-soft); }
+  .vs-tag{ font-size:9.5px; color:var(--plum); font-weight:700; display:block; margin-top:5px; }
+  .lockfoot{ text-align:center; font-size:10px; color:var(--ink-soft); padding:10px 20px; }
+
+  /* ========== SCREEN 6: GROUP GOALS ========== */
+  .group-card{ background:radial-gradient(120% 140% at 90% 0%, rgba(179,154,232,0.14), transparent 60%), var(--panel); border:1px solid var(--line); border-radius:var(--radius-md); padding:14px; }
+  .group-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .avatars{ display:flex; }
+  .avatars span{ width:24px; height:24px; border-radius:50%; border:2px solid var(--panel); background:var(--plum); display:inline-flex; align-items:center; justify-content:center; color:#fff; font-size:9.5px; font-weight:700; margin-left:-8px; }
+  .avatars span:first-child{ margin-left:0; }
+  .group-card h4{ font-family:'Fraunces',serif; font-size:14px; margin:0 0 3px 0; font-weight:600; color:var(--ink);}
+  .group-card p{ font-size:11px; color:var(--ink-soft); margin:0 0 9px 0; }
+  .group-progress{ height:6px; border-radius:4px; background:#2A2740; overflow:hidden; margin-bottom:9px;}
+  .group-progress i{ display:block; height:100%; background:var(--plum); border-radius:4px; }
+  .split-row{ display:flex; align-items:center; gap:8px; padding:7px 0; border-top:1px solid var(--line); }
+  .split-row:first-of-type{ border-top:none; }
+  .split-avatar{ width:24px; height:24px; border-radius:50%; background:var(--plum-tint); color:var(--plum); font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .split-name{ flex:1; font-size:11.5px; color:var(--ink); font-weight:600; }
+  .split-amt{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold); font-weight:700; }
+
+  /* ========== SCREEN 7: LEADERBOARD ========== */
+  .podium{ display:flex; align-items:flex-end; justify-content:center; gap:10px; padding:6px 18px 16px 18px; }
+  .podium-item{ text-align:center; }
+  .podium-avatar{ width:44px; height:44px; border-radius:50%; background:var(--plum); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; margin:0 auto 6px auto; }
+  .podium-item.first .podium-avatar{ width:54px; height:54px; font-size:16px; border:3px solid var(--gold); }
+  .podium-bar{ background:var(--panel); border:1px solid var(--line); border-radius:10px 10px 0 0; padding:8px 14px 6px 14px; }
+  .podium-item.first .podium-bar{ padding-top:16px; background:var(--gold-tint); border-color:rgba(240,180,41,0.3); }
+  .podium-bar .pts{ font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--gold); }
+  .podium-bar .nm{ font-size:10.5px; color:var(--ink-soft); margin-top:2px; }
+  .lb-row{ display:flex; align-items:center; gap:9px; padding:8px 9px; border-radius:11px; }
+  .lb-row.me{ background:var(--plum-tint); }
+  .lb-rank{ width:18px; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:11.5px; color:var(--ink-soft); text-align:center; }
+  .lb-avatar{ width:26px; height:26px; border-radius:50%; background:var(--plum); color:#fff; display:flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:700; flex-shrink:0; }
+  .lb-name{ flex:1; font-size:12px; font-weight:600; color:var(--ink); }
+  .lb-pts{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold); font-weight:700; }
+
+  /* ========== SCREEN 8: BADGES ========== */
+  .badge-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .badge{ text-align:center; }
+  .badge .ring{ width:52px; height:52px; border-radius:50%; margin:0 auto 6px auto; display:flex; align-items:center; justify-content:center; font-size:20px; background:var(--panel); border:2px solid var(--line); }
+  .badge.unlocked .ring{ border-color:var(--gold); background:var(--gold-tint); }
+  .badge.locked .ring{ opacity:0.32; filter:grayscale(1); }
+  .badge span{ font-size:9.5px; color:var(--ink-soft); font-weight:600; }
+  .tier-label{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; margin:14px 0 10px 2px; }
+
+  /* ========== SCREEN 9: WALLET ========== */
+  .balance-card{ background:radial-gradient(120% 140% at 20% 0%, rgba(240,180,41,0.14), transparent 60%), var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg); padding:18px; text-align:center; }
+  .balance-card .lbl{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; }
+  .balance-card .big{ font-family:'JetBrains Mono',monospace; font-size:32px; font-weight:700; color:var(--gold); margin:4px 0; }
+  .purse-card{ display:flex; align-items:center; gap:11px; }
+  .purse-ic{ width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+  .purse-body{ flex:1; }
+  .purse-body h4{ font-size:12.5px; margin:0 0 2px 0; font-weight:700; color:var(--ink); }
+  .purse-body .amt{ font-family:'JetBrains Mono',monospace; font-size:14.5px; font-weight:700; }
+  .purse-body p{ font-size:10px; color:var(--ink-soft); margin:2px 0 0 0; }
+  .tx-row{ display:flex; align-items:center; gap:9px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .tx-row:last-child{ border-bottom:none; }
+  .tx-tag{ width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .tx-body{ flex:1; }
+  .tx-body h5{ font-size:11.5px; margin:0; font-weight:600; color:var(--ink); }
+  .tx-body span{ font-size:9.5px; color:var(--ink-soft); }
+  .tx-amt{ font-family:'JetBrains Mono',monospace; font-size:11.5px; font-weight:700; }
+  .charity-row{ display:flex; align-items:center; gap:9px; padding:9px; border:1px solid var(--line); border-radius:11px; margin-top:8px; }
+  .charity-row img{ display:none; }
+  .charity-ic{ width:30px; height:30px; border-radius:9px; background:var(--growth-tint); color:var(--growth); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .charity-body{ flex:1; font-size:11px; color:var(--ink); font-weight:600; }
+  .charity-body span{ display:block; font-size:9.5px; color:var(--ink-soft); font-weight:400; }
+</style>
+</head>
+<body>
+
+<div class="gallery">
+
+<!-- ============ SCREEN 1: HOME ============ -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">1</span> Home</div>
+  <div class="device"><div class="screen">
+    <div class="invite-banner" style="margin-top:14px;">
+      <div class="ic">🤝</div>
+      <p>Invite 3 friends this week, unlock the <b>Golden Bloom</b> skin.</p>
+      <div class="cta">Invite →</div>
+    </div>
+    <div class="hdr">
+      <div class="titles">
+        <div class="sub">WED, 15 JUL</div>
+        <h1>Morning, Sankar</h1>
+      </div>
+      <div class="streakpill">🔥 18</div>
+    </div>
+    <section>
+      <div class="grow-card">
+        <div class="grow-top">
+          <div class="plant-wrap">
+            <svg viewBox="0 0 100 110" width="100%" height="100%">
+              <path d="M50 100 C50 70 42 55 46 30" stroke="#3FCB8B" stroke-width="4" fill="none" stroke-linecap="round"/>
+              <path d="M46 55 C30 50 22 38 24 24" stroke="#54D99C" stroke-width="4" fill="none" stroke-linecap="round"/>
+              <path d="M46 40 C64 36 72 24 70 12" stroke="#54D99C" stroke-width="4" fill="none" stroke-linecap="round"/>
+              <ellipse cx="24" cy="22" rx="12" ry="8" fill="#6EE8B4" transform="rotate(-25 24 22)"/>
+              <ellipse cx="70" cy="10" rx="12" ry="8" fill="#6EE8B4" transform="rotate(20 70 10)"/>
+              <ellipse cx="46" cy="26" rx="14" ry="9" fill="#82F2C4" transform="rotate(-4 46 26)"/>
+            </svg>
+          </div>
+          <div class="grow-copy">
+            <div class="stage">Level 7 · Budding</div>
+            <h2>Growing steady</h2>
+            <p>18-day streak on Deep Work Focus.</p>
+          </div>
+        </div>
+        <div class="xp-row">
+          <div class="xp-badge">LV 7</div>
+          <div class="xp-meter"><i></i></div>
+          <div class="xp-label">640/1000</div>
+        </div>
+        <div class="share-row">
+          <div class="share-btn">📤 Share streak</div>
+          <div class="risk-note">⚠ Streak at risk</div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Choose your path</div>
+      <div class="path-row">
+        <div class="path-card framework"><div class="icon">📋</div><h3>Framework</h3><p>Structured templates. Pledge → Act → Reflect → Reward.</p><div class="go">Browse →</div></div>
+        <div class="path-card ai"><div class="icon">✨</div><h3>AI-Guided</h3><p>Talk it through with your coach.</p><div class="go">Start →</div></div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Responsible games</div>
+      <div class="games-scroll">
+        <div class="game-chip"><span class="timer">1 MIN</span><h5>Breath Reset</h5><span>Calm down</span></div>
+        <div class="game-chip"><span class="timer">2 MIN</span><h5>Word Sprint</h5><span>Quick focus</span></div>
+        <div class="game-chip"><span class="timer">3 MIN</span><h5>Pattern Match</h5><span>Light reset</span></div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">RDM Wallet</div>
+      <div class="card" style="padding:6px;">
+        <div class="wallet-row">
+          <div class="wallet-cell growth"><div class="amt">1,240</div><div class="lbl">Balance</div></div>
+          <div class="wallet-cell gold"><div class="amt">320</div><div class="lbl">Reward</div></div>
+          <div class="wallet-cell coral"><div class="amt">40</div><div class="lbl">Remorse</div></div>
+          <div class="wallet-cell plum"><div class="amt">15</div><div class="lbl">Peer</div></div>
+        </div>
+      </div>
+    </section>
+    <div class="navbar">
+      <div class="navitem active"><svg viewBox="0 0 24 24" fill="none"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span></div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5a1 1 0 011-1h6v16H5a1 1 0 01-1-1z" stroke="currentColor" stroke-width="2"/><path d="M13 4h6a1 1 0 011 1v14a1 1 0 01-1 1h-6V4z" stroke="currentColor" stroke-width="2"/></svg><span>Habits</span></div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="9" r="2.4" stroke="currentColor" stroke-width="2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 20c0-2.2-1-4.1-2.6-5.3.5-.4 1.6-.7 2.6-.7 2.8 0 5 2 5 6" stroke="currentColor" stroke-width="2"/></svg><span>Groups</span></div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="13" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/></svg><span>Games</span></div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="14" r="1.4" fill="currentColor"/></svg><span>Wallet</span></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ SCREEN 2: FRAMEWORK TEMPLATES ============ -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">2</span> Framework Path — Templates</div>
+  <div class="device"><div class="screen">
+    <div class="hdr">
+      <div class="back">←</div>
+      <div class="titles"><h1>Framework Path</h1><div class="sub">PLEDGE → ACT → REFLECT → REWARD</div></div>
+    </div>
+    <div class="tabs">
+      <div class="tab active">All</div><div class="tab">Focus</div><div class="tab">Health</div><div class="tab">Money</div><div class="tab">Sustainability</div>
+    </div>
+    <section style="padding-top:2px;">
+      <div class="card tmpl-card"><div class="tmpl-icon" style="background:var(--growth-tint);">🎯</div><div class="tmpl-body"><h4>Deep Work Focus</h4><p>90 min undistracted blocks · Daily</p></div><div class="tmpl-plus">+</div></div>
+      <div class="card tmpl-card"><div class="tmpl-icon" style="background:var(--ai-tint);">💧</div><div class="tmpl-body"><h4>Hydration Habit</h4><p>8 glasses tracked · Daily</p></div><div class="tmpl-plus">+</div></div>
+      <div class="card tmpl-card"><div class="tmpl-icon" style="background:var(--gold-tint);">💰</div><div class="tmpl-body"><h4>No-Spend Days</h4><p>3 discretionary-free days/week</p></div><div class="tmpl-plus">+</div></div>
+      <div class="card tmpl-card"><div class="tmpl-icon" style="background:var(--plum-tint);">📵</div><div class="tmpl-body"><h4>Digital Sunset</h4><p>Screens off by 9:30pm · Daily</p></div><div class="tmpl-plus">+</div></div>
+      <div class="card tmpl-card"><div class="tmpl-icon" style="background:var(--coral-tint);">🏃</div><div class="tmpl-body"><h4>Movement Streak</h4><p>20 min activity · Daily</p></div><div class="tmpl-plus">+</div></div>
+      <div class="card tmpl-card"><div class="tmpl-icon" style="background:var(--growth-tint);">🌱</div><div class="tmpl-body"><h4>Community Hour</h4><p>1 volunteer hour · Weekly</p></div><div class="tmpl-plus">+</div></div>
+    </section>
+    <section>
+      <div class="btn-solid growth" style="text-align:center;">+ Build a custom framework goal</div>
+    </section>
+  </div></div>
+</div>
+
+<!-- ============ SCREEN 3: AI-GUIDED CHAT ============ -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">3</span> AI-Guided Path — Coach</div>
+  <div class="device"><div class="screen">
+    <div class="chat-hdr">
+      <div class="back">←</div>
+      <div class="coach-avatar">✨</div>
+      <div class="who"><h1>RDM Coach</h1><div class="status">● listening</div></div>
+    </div>
+    <div class="chat-body">
+      <div class="bubble ai">Hey Sankar — what's one thing in your day you'd like to change, even a little?</div>
+      <div class="bubble me">I keep getting distracted after lunch and lose the afternoon.</div>
+      <div class="bubble ai">That's a focus dip, not a discipline problem — very common around 2–3pm. Want to shape this into a habit, or a one-time goal?</div>
+      <div class="chip-row">
+        <div class="quick-chip">Make it a daily habit</div>
+        <div class="quick-chip">One-time goal</div>
+      </div>
+      <div class="bubble me">Daily habit</div>
+      <div class="bubble ai">Good. Let's pledge: 45 focused minutes right after lunch, no phone. I'll check in at 2pm and again tonight for a quick reflection. Sound fair?</div>
+    </div>
+    <div class="chat-input">
+      <div class="field">Type your reply…</div>
+      <div class="send">↑</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ SCREEN 4: GOAL DETAIL / PARR CYCLE ============ -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">4</span> Goal Detail — Pledge · Act · Reflect · Reward</div>
+  <div class="device"><div class="screen">
+    <div class="hdr">
+      <div class="back">←</div>
+      <div class="titles"><h1>Deep Work Focus</h1><div class="sub">DAY 18 · HABIT</div></div>
+      <div class="streakpill">🔥 18</div>
+    </div>
+    <div class="parr-row">
+      <div class="parr-step done"><div class="parr-dot">✓</div><span>Pledge</span></div>
+      <div class="parr-line"></div>
+      <div class="parr-step done"><div class="parr-dot">✓</div><span>Act</span></div>
+      <div class="parr-line"></div>
+      <div class="parr-step now"><div class="parr-dot">3</div><span>Reflect</span></div>
+      <div class="parr-line"></div>
+      <div class="parr-step"><div class="parr-dot">4</div><span>Reward</span></div>
+    </div>
+    <section style="padding-top:0;">
+      <div class="card">
+        <div class="section-label" style="margin-bottom:6px;">Your pledge</div>
+        <p style="font-size:12px; margin:0; color:var(--ink);">"90 minutes of undistracted work, phone in another room, every weekday after lunch."</p>
+      </div>
+      <div class="card">
+        <div class="section-label" style="margin-bottom:6px;">Today's act — checked in</div>
+        <p style="font-size:12px; margin:0; color:var(--ink-soft);">Logged at 2:47pm · 92 minutes · No interruptions</p>
+      </div>
+      <div class="card">
+        <div class="section-label" style="margin-bottom:6px;">Reflect</div>
+        <div class="journal-box">"Felt easier today — putting the phone in the other room really helped…"</div>
+      </div>
+      <div class="card">
+        <div class="section-label" style="margin-bottom:6px;">This week</div>
+        <div class="week-row">
+          <div class="day-pip hit">M</div><div class="day-pip hit">T</div><div class="day-pip hit">W</div>
+          <div class="day-pip">T</div><div class="day-pip">F</div><div class="day-pip">S</div><div class="day-pip">S</div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="btn-solid gold" style="text-align:center;">Complete reflection → claim reward</div>
+    </section>
+  </div></div>
+</div>
+
+<!-- ============ SCREEN 5: RESPONSIBLE GAMES HUB ============ -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">5</span> Responsible Games</div>
+  <div class="device"><div class="screen">
+    <div class="hdr">
+      <div class="back">←</div>
+      <div class="titles"><h1>Responsible Games</h1><div class="sub">MAX 3 MINUTES. ALWAYS.</div></div>
+    </div>
+    <div class="tabs">
+      <div class="tab active ai">All</div><div class="tab">1 min</div><div class="tab">2 min</div><div class="tab">3 min</div>
+    </div>
+    <section style="padding-top:2px;">
+      <div class="game-grid">
+        <div class="game-tile"><span class="timer">1 MIN</span><h5>Breath Reset</h5><span>Calm the mind</span></div>
+        <div class="game-tile"><span class="timer">2 MIN</span><h5>Word Sprint</h5><span>Quick focus play</span><span class="vs-tag">🏆 Beat Priya's 340</span></div>
+        <div class="game-tile"><span class="timer">3 MIN</span><h5>Pattern Match</h5><span>Light mental reset</span></div>
+        <div class="game-tile"><span class="timer">2 MIN</span><h5>Gratitude Tap</h5><span>Reflect briefly</span></div>
+        <div class="game-tile"><span class="timer">1 MIN</span><h5>Box Breathing</h5><span>4-4-4-4 pace</span></div>
+        <div class="game-tile"><span class="timer">3 MIN</span><h5>Sort Sprint</h5><span>Beat your best</span><span class="vs-tag">🏆 Beat Ravi's 12</span></div>
+      </div>
+    </section>
+    <div class="lockfoot">Every game auto-locks the moment its timer ends — no "just one more round."</div>
+  </div></div>
+</div>
+
+<!-- ============ SCREEN 6: GROUP GOALS ============ -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">6</span> Group Goals — List &amp; Award Split</div>
+  <div class="device"><div class="screen">
+    <div class="hdr">
+      <div class="titles"><h1>Group Goals</h1><div class="sub">2 ACTIVE GROUPS</div></div>
+      <div class="btn-ghost" style="padding:6px 10px; font-size:10.5px;">+ New</div>
+    </div>
+    <section style="padding-top:2px;">
+      <div class="group-card">
+        <div class="group-top">
+          <div class="avatars"><span>SN</span><span>RA</span><span>PK</span><span>+3</span></div>
+          <div class="btn-ghost" style="padding:4px 9px; font-size:10px;">Invite</div>
+        </div>
+        <h4>Family Fitness Streak</h4>
+        <p>6 members · Target: 500km walked this month · 210km so far</p>
+        <div class="group-progress"><i style="width:42%;"></i></div>
+        <div style="display:flex; gap:7px;">
+          <div class="btn-solid" style="flex:1; text-align:center;">Log km</div>
+          <div class="btn-ghost" style="flex:1; text-align:center;">View</div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Family Fitness Streak — award tokens <a href="#">Target hit ✓</a></div>
+      <div class="card">
+        <p style="font-size:10.5px; color:var(--ink-soft); margin:0 0 6px 0;">As group creator, split the 300 RDM reward pool:</p>
+        <div class="split-row"><div class="split-avatar">SN</div><div class="split-name">You</div><div class="split-amt">80</div></div>
+        <div class="split-row"><div class="split-avatar">RA</div><div class="split-name">Ravi A.</div><div class="split-amt">120</div></div>
+        <div class="split-row"><div class="split-avatar">PK</div><div class="split-name">Priya K.</div><div class="split-amt">60</div></div>
+        <div class="split-row"><div class="split-avatar">+3</div><div class="split-name">Others</div><div class="split-amt">40</div></div>
+      </div>
+    </section>
+    <section>
+      <div class="btn-solid growth" style="text-align:center;">Confirm & award tokens</div>
+    </section>
+  </div></div>
+</div>
+
+<!-- ============ SCREEN 7: LEADERBOARD ============ -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">7</span> Leaderboard</div>
+  <div class="device"><div class="screen">
+    <div class="hdr">
+      <div class="titles"><h1>Leaderboard</h1><div class="sub">THIS WEEK</div></div>
+    </div>
+    <div class="tabs">
+      <div class="tab active plum">Friends</div><div class="tab">My Groups</div><div class="tab">Global</div>
+    </div>
+    <div class="podium">
+      <div class="podium-item"><div class="podium-avatar">PK</div><div class="podium-bar"><div class="pts">1,760</div><div class="nm">Priya</div></div></div>
+      <div class="podium-item first"><div class="podium-avatar">👑</div><div class="podium-bar"><div class="pts">2,140</div><div class="nm">Ravi</div></div></div>
+      <div class="podium-item"><div class="podium-avatar">SN</div><div class="podium-bar"><div class="pts">1,980</div><div class="nm">You</div></div></div>
+    </div>
+    <section style="padding-top:0;">
+      <div class="card" style="padding:6px;">
+        <div class="lb-row"><div class="lb-rank">4</div><div class="lb-avatar">MJ</div><div class="lb-name">Meera J.</div><div class="lb-pts">1,510</div></div>
+        <div class="lb-row"><div class="lb-rank">5</div><div class="lb-avatar">AK</div><div class="lb-name">Arun K.</div><div class="lb-pts">1,290</div></div>
+        <div class="lb-row"><div class="lb-rank">6</div><div class="lb-avatar">TS</div><div class="lb-name">Tara S.</div><div class="lb-pts">1,110</div></div>
+      </div>
+    </section>
+    <section>
+      <div class="btn-solid" style="text-align:center; background:var(--plum); border:none; color:#160F26;">Invite friends to climb faster</div>
+    </section>
+  </div></div>
+</div>
+
+<!-- ============ SCREEN 8: BADGES ============ -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">8</span> Badges &amp; Achievements</div>
+  <div class="device"><div class="screen">
+    <div class="hdr">
+      <div class="titles"><h1>Badges</h1><div class="sub">9 OF 24 UNLOCKED</div></div>
+    </div>
+    <section style="padding-top:2px;">
+      <div class="tier-label">Bronze</div>
+      <div class="badge-grid">
+        <div class="badge unlocked"><div class="ring">🌱</div><span>First Sprout</span></div>
+        <div class="badge unlocked"><div class="ring">🔥</div><span>7-Day Streak</span></div>
+        <div class="badge unlocked"><div class="ring">🤝</div><span>Group Starter</span></div>
+      </div>
+      <div class="tier-label">Silver</div>
+      <div class="badge-grid">
+        <div class="badge unlocked"><div class="ring">🎯</div><span>30 Pledges</span></div>
+        <div class="badge unlocked"><div class="ring">💛</div><span>First Charity Gift</span></div>
+        <div class="badge locked"><div class="ring">🌸</div><span>Full Bloom</span></div>
+      </div>
+      <div class="tier-label">Gold</div>
+      <div class="badge-grid">
+        <div class="badge locked"><div class="ring">👑</div><span>Top 10 Weekly</span></div>
+        <div class="badge locked"><div class="ring">🏛️</div><span>100-Day Legend</span></div>
+        <div class="badge locked"><div class="ring">🌳</div><span>Ancient Growth</span></div>
+      </div>
+    </section>
+  </div></div>
+</div>
+
+<!-- ============ SCREEN 9: WALLET ============ -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">9</span> RDM Wallet — Balance, Purses &amp; Charity</div>
+  <div class="device"><div class="screen">
+    <div class="hdr">
+      <div class="titles"><h1>RDM Wallet</h1><div class="sub">ALL TRANSACTIONS &amp; PURSES</div></div>
+    </div>
+    <section style="padding-top:2px;">
+      <div class="balance-card">
+        <div class="lbl">RDM Balance</div>
+        <div class="big">1,240</div>
+        <div style="font-size:10.5px; color:var(--ink-soft);">Earned across habits, games &amp; groups</div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Your purses</div>
+      <div class="card purse-card">
+        <div class="purse-ic" style="background:var(--gold-tint); color:var(--gold);">🏆</div>
+        <div class="purse-body"><h4>Reward Purse</h4><div class="amt" style="color:var(--gold);">320 RDM</div><p>Redeemable for perks &amp; skins</p></div>
+        <div class="btn-solid gold" style="padding:7px 10px; font-size:10.5px;">Redeem</div>
+      </div>
+      <div class="card purse-card">
+        <div class="purse-ic" style="background:var(--coral-tint); color:var(--coral);">🕯️</div>
+        <div class="purse-body"><h4>Remorse Purse</h4><div class="amt" style="color:var(--coral);">40 RDM</div><p>From missed pledges — your call what happens next</p></div>
+        <div class="btn-ghost coral" style="padding:7px 10px; font-size:10.5px;">Decide</div>
+      </div>
+      <div class="card purse-card">
+        <div class="purse-ic" style="background:var(--plum-tint); color:var(--plum);">🎁</div>
+        <div class="purse-body"><h4>Peer Awards</h4><div class="amt" style="color:var(--plum);">15 RDM</div><p>Given to you by group members</p></div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Move remorse to charity</div>
+      <div class="charity-row">
+        <div class="charity-ic">🌳</div>
+        <div class="charity-body">Plant a Tree Trust<span>1 RDM ≈ 1 sapling funded</span></div>
+        <div class="btn-solid growth" style="padding:6px 10px; font-size:10px;">Give</div>
+      </div>
+      <div class="charity-row">
+        <div class="charity-ic">📚</div>
+        <div class="charity-body">Rural Education Fund<span>Supports first-gen learners</span></div>
+        <div class="btn-solid growth" style="padding:6px 10px; font-size:10px;">Give</div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Recent transactions</div>
+      <div class="card">
+        <div class="tx-row"><div class="tx-tag" style="background:var(--growth);"></div><div class="tx-body"><h5>Deep Work Focus — reflection</h5><span>Today, 2:47pm</span></div><div class="tx-amt" style="color:var(--growth);">+25</div></div>
+        <div class="tx-row"><div class="tx-tag" style="background:var(--ai);"></div><div class="tx-body"><h5>Word Sprint game</h5><span>Today, 11:02am</span></div><div class="tx-amt" style="color:var(--ai);">+8</div></div>
+        <div class="tx-row"><div class="tx-tag" style="background:var(--coral);"></div><div class="tx-body"><h5>Missed pledge — Hydration</h5><span>Yesterday</span></div><div class="tx-amt" style="color:var(--coral);">−10</div></div>
+        <div class="tx-row"><div class="tx-tag" style="background:var(--plum);"></div><div class="tx-body"><h5>Awarded by Family group</h5><span>2 days ago</span></div><div class="tx-amt" style="color:var(--plum);">+15</div></div>
+        <div class="tx-row"><div class="tx-tag" style="background:var(--growth);"></div><div class="tx-body"><h5>Gift to Plant a Tree Trust</h5><span>4 days ago</span></div><div class="tx-amt" style="color:var(--ink-soft);">−20</div></div>
+      </div>
+    </section>
+  </div></div>
+</div>
+
+</div>
+</body>
+</html>
