@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -248,6 +249,67 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   );
 }
 
+export function ActionDialog({
+  visible,
+  title,
+  message,
+  cancelLabel = "Cancel",
+  confirmLabel,
+  confirmColor = colors.growth,
+  loading = false,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  title: string;
+  message: string;
+  cancelLabel?: string;
+  confirmLabel: string;
+  confirmColor?: string;
+  loading?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onCancel}
+      statusBarTranslucent
+      transparent
+      visible={visible}
+    >
+      <View accessibilityViewIsModal style={styles.dialogOverlay}>
+        <Pressable
+          accessibilityLabel="Close dialog"
+          accessibilityRole="button"
+          onPress={onCancel}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.dialogCard}>
+          <Text style={styles.dialogTitle}>{title}</Text>
+          <Text style={styles.dialogMessage}>{message}</Text>
+          <View style={styles.dialogActions}>
+            <PrimaryButton
+              color={colors.inkSoft}
+              label={cancelLabel}
+              onPress={onCancel}
+              style={styles.dialogAction}
+              variant="outline"
+            />
+            <PrimaryButton
+              color={confirmColor}
+              label={confirmLabel}
+              loading={loading}
+              onPress={onConfirm}
+              style={styles.dialogAction}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export const rdmStyles = StyleSheet.create({
   title: { color: colors.ink, fontFamily: fonts.display, fontSize: 18 },
   body: { color: colors.ink, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
@@ -282,4 +344,10 @@ const styles = StyleSheet.create({
   centerState: { flex: 1, minHeight: 420, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 28 },
   stateLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, textAlign: "center" },
   errorTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 18, textAlign: "center" },
+  dialogOverlay: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5, 7, 10, 0.76)", padding: 24 },
+  dialogCard: { width: "100%", maxWidth: 420, borderRadius: radii.large, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, padding: 18, gap: 10 },
+  dialogTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 20 },
+  dialogMessage: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  dialogActions: { flexDirection: "row", gap: 10, marginTop: 8 },
+  dialogAction: { flex: 1 },
 });

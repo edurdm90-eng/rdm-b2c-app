@@ -11,6 +11,7 @@ import { queryClient, trpcClient } from "@/utils/trpc";
 type Mode = "sign-in" | "sign-up";
 
 export default function LoginScreen() {
+  const { refetch: refreshSession } = authClient.useSession();
   const [mode, setMode] = useState<Mode>("sign-in");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -50,8 +51,9 @@ export default function LoginScreen() {
         }
       }
 
+      await refreshSession();
       await queryClient.invalidateQueries();
-      router.replace("/");
+      router.replace("/(app)/(tabs)");
     } catch {
       setError("RDM could not reach the server. Check your connection and try again.");
     } finally {

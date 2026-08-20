@@ -103,9 +103,15 @@ export default function GamePlayScreen() {
   const [expiresAtMs, setExpiresAtMs] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const finishing = useRef(false);
+  const checkpointing = useRef(false);
+  const finishAfterCheckpoint = useRef(false);
+  const nextCheckpointAt = useRef(0);
 
   const startGame = useMutation(trpc.rdm.games.start.mutationOptions({
     onSuccess: (result) => {
+      checkpointing.current = false;
+      finishAfterCheckpoint.current = false;
+      nextCheckpointAt.current = 0;
       setSessionId(result.sessionId);
       setExpiresAtMs(Date.parse(result.expiresAt));
       setSecondsLeft(result.secondsRemaining);
@@ -119,6 +125,7 @@ export default function GamePlayScreen() {
 
   const completeGame = useMutation(trpc.rdm.games.complete.mutationOptions({
     onSuccess: async (result) => {
+      finishAfterCheckpoint.current = false;
       setReward(result.reward);
       setStatus("complete");
       finishing.current = false;
@@ -134,21 +141,33 @@ export default function GamePlayScreen() {
 
   const finish = useCallback(() => {
     if (!sessionId || finishing.current || (status !== "running" && status !== "retry")) return;
+    if (checkpointing.current) {
+      finishAfterCheckpoint.current = true;
+      return;
+    }
     finishing.current = true;
     setStatus("saving");
     completeGame.mutate({ sessionId });
   }, [completeGame, sessionId, status]);
 
   function addPoints() {
-    if (sessionId) checkpointScore.mutate(
-      { sessionId },
-      {
-        onSuccess: (result) => {
-          setScore(result.score);
-        },
-      },
-    );
-    setRound((current) => current + 1);
+    if (!sessionId || checkpointing.current || Date.now() < nextCheckpointAt.current) return;
+    checkpointing.current = true;
+    void checkpointScore.mutateAsync({ sessionId })
+      .then((result) => {
+        setError(null);
+        setScore(result.score);
+        setRound((current) => current + 1);
+        nextCheckpointAt.current = Date.now() + 350;
+      })
+      .catch((mutationError: Error) => setError(mutationError.message))
+      .finally(() => {
+        checkpointing.current = false;
+        if (finishAfterCheckpoint.current) {
+          finishAfterCheckpoint.current = false;
+          queueMicrotask(finish);
+        }
+      });
   }
 
   function begin() {
@@ -194,7 +213,7 @@ export default function GamePlayScreen() {
       {status === "idle" || status === "starting" ? <PrimaryButton label="Start session" color={colors.ai} icon="play" loading={status === "starting"} onPress={begin} /> : null}
       {status === "running" || status === "saving" ? (
         <>
-          <View pointerEvents={status === "running" ? "auto" : "none"}>
+          <View style={{ pointerEvents: status === "running" ? "auto" : "none" }}>
             <GameInteraction gameId={game.id} onScore={addPoints} round={round} />
           </View>
           <Text style={styles.score}>{score} points</Text>

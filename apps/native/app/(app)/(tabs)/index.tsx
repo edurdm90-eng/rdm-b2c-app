@@ -2,9 +2,10 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { Alert, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 
-import { AppScreen, ErrorState, IconBubble, LoadingState, ProgressBar, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { ActionDialog, AppScreen, ErrorState, IconBubble, LoadingState, ProgressBar, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
 import { authClient } from "@/lib/auth-client";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -12,6 +13,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 export default function HomeScreen() {
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const dashboard = useQuery(trpc.rdm.dashboard.queryOptions());
 
   if (dashboard.isLoading) return <LoadingState />;
@@ -60,7 +62,7 @@ export default function HomeScreen() {
           <MaterialCommunityIcons name="fire" size={18} color={colors.gold} />
           <Text style={styles.streakText}>{profile.streak}</Text>
         </View>
-        <Pressable accessibilityLabel="Sign out" hitSlop={8} onPress={() => Alert.alert("Sign out?", "Your progress is safely stored.", [{ text: "Cancel", style: "cancel" }, { text: "Sign out", style: "destructive", onPress: () => void signOut() }])} style={styles.accountButton}>
+        <Pressable accessibilityLabel="Sign out" hitSlop={8} onPress={() => setSignOutOpen(true)} style={styles.accountButton}>
           <MaterialCommunityIcons name="logout" size={18} color={colors.inkSoft} />
         </Pressable>
       </View>
@@ -146,6 +148,19 @@ export default function HomeScreen() {
           <Text style={styles.metaLinkText}>Badges</Text>
         </Pressable>
       </View>
+      <ActionDialog
+        cancelLabel="Stay signed in"
+        confirmColor={colors.coral}
+        confirmLabel="Sign out"
+        message="Your progress is safely stored and will be here when you return."
+        onCancel={() => setSignOutOpen(false)}
+        onConfirm={() => {
+          setSignOutOpen(false);
+          void signOut();
+        }}
+        title="Sign out?"
+        visible={signOutOpen}
+      />
     </AppScreen>
   );
 }

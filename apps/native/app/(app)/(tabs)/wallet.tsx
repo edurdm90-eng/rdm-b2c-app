@@ -1,9 +1,10 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { AppScreen, ErrorState, IconBubble, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { ActionDialog, AppScreen, ErrorState, IconBubble, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
 import { colors, fonts, formatRdm, formatTransactionDate, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -17,14 +18,16 @@ const transactionColors: Record<string, string> = {
 };
 
 export default function WalletScreen() {
+  const [decideOpen, setDecideOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions());
   const donate = useMutation(trpc.rdm.wallet.donate.mutationOptions({
-    onSuccess: async () => { await queryClient.invalidateQueries(); await wallet.refetch(); Alert.alert("Gift recorded", "5 RDM moved from remorse into a positive action."); },
-    onError: (error) => Alert.alert("Could not give", error.message),
+    onSuccess: async () => { await queryClient.invalidateQueries(); setNotice("Gift recorded — 5 RDM moved from remorse into a positive action."); },
+    onError: (error) => setNotice(`Could not give: ${error.message}`),
   }));
   const redeem = useMutation(trpc.rdm.wallet.redeem.mutationOptions({
-    onSuccess: async () => { await queryClient.invalidateQueries(); await wallet.refetch(); Alert.alert("Focus Garden unlocked", "The new plant skin is now yours."); },
-    onError: (error) => Alert.alert("Could not redeem", error.message),
+    onSuccess: async () => { await queryClient.invalidateQueries(); setNotice("Focus Garden unlocked — the new plant skin is now yours."); },
+    onError: (error) => setNotice(`Could not redeem: ${error.message}`),
   }));
 
   if (wallet.isLoading) return <LoadingState label="Counting your RDM…" />;
@@ -32,17 +35,6 @@ export default function WalletScreen() {
 
   const data = wallet.data;
   const focusGardenUnlocked = data.unlockedRewards.includes("focus-garden");
-
-  function decideRemorse() {
-    Alert.alert(
-      "Decide what happens next",
-      "Remorse is information, not punishment. Keep it for reflection or move 5 RDM into a positive action.",
-      [
-        { text: "Keep for later", style: "cancel" },
-        { text: "Give to a tree", onPress: () => donate.mutate({ charity: "Plant a Tree Trust", amount: 5 }) },
-      ],
-    );
-  }
 
   return (
     <AppScreen>
@@ -62,7 +54,7 @@ export default function WalletScreen() {
       <SurfaceCard style={styles.purseCard}>
         <IconBubble name="candle" color={colors.coral} backgroundColor={colors.coralTint} />
         <View style={styles.purseCopy}><Text style={styles.purseTitle}>Remorse Purse</Text><Text style={[styles.purseAmount, { color: colors.coral }]}>{formatRdm(data.wallet.remorse)} RDM</Text><Text style={styles.purseNote}>Missed pledges—decide what happens next</Text></View>
-        <PrimaryButton disabled={data.wallet.remorse < 5} label="Decide" color={colors.coral} loading={donate.isPending} style={styles.purseButton} variant="outline" onPress={decideRemorse} />
+        <PrimaryButton disabled={data.wallet.remorse < 5} label="Decide" color={colors.coral} loading={donate.isPending} style={styles.purseButton} variant="outline" onPress={() => setDecideOpen(true)} />
       </SurfaceCard>
       <SurfaceCard style={styles.purseCard}>
         <IconBubble name="gift-outline" color={colors.plum} backgroundColor={colors.plumTint} />
@@ -77,6 +69,7 @@ export default function WalletScreen() {
           <PrimaryButton label="Give 5" loading={donate.isPending} style={styles.purseButton} onPress={() => donate.mutate({ charity, amount: 5 })} />
         </SurfaceCard>
       ))}
+      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
 
       <SectionLabel>Recent transactions</SectionLabel>
       <SurfaceCard style={styles.transactionCard}>
@@ -88,6 +81,20 @@ export default function WalletScreen() {
           </View>
         ))}
       </SurfaceCard>
+      <ActionDialog
+        cancelLabel="Keep for later"
+        confirmColor={colors.coral}
+        confirmLabel="Give to a tree"
+        loading={donate.isPending}
+        message="Remorse is information, not punishment. Keep it for reflection or move 5 RDM into a positive action."
+        onCancel={() => setDecideOpen(false)}
+        onConfirm={() => {
+          setDecideOpen(false);
+          donate.mutate({ charity: "Plant a Tree Trust", amount: 5 });
+        }}
+        title="Decide what happens next"
+        visible={decideOpen}
+      />
     </AppScreen>
   );
 }
@@ -113,4 +120,5 @@ const styles = StyleSheet.create({
   transactionTitle: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 11 },
   transactionDate: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9, marginTop: 3 },
   transactionAmount: { fontFamily: fonts.monoBold, fontSize: 11 },
+  notice: { color: colors.growth, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18, textAlign: "center" },
 });

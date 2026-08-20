@@ -2,9 +2,9 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 
-import { AppScreen, ErrorState, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { ActionDialog, AppScreen, ErrorState, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
 import { colors, fonts, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -16,6 +16,7 @@ export default function HabitDetailScreen() {
   const [actionNote, setActionNote] = useState("");
   const [reflection, setReflection] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [missOpen, setMissOpen] = useState(false);
 
   useEffect(() => {
     if (habit.data?.lastAction) setActionNote(habit.data.lastAction);
@@ -72,14 +73,7 @@ export default function HabitDetailScreen() {
               if (actionNote.trim().length < 2) return setError("Add a short note about what you completed.");
               logAction.mutate({ id, note: actionNote.trim() });
             }} />
-            <PrimaryButton color={colors.coral} label="I missed this pledge" loading={miss.isPending} variant="outline" onPress={() => Alert.alert(
-              "Record a missed pledge?",
-              "Your streak resets and 10 RDM moves into the Remorse Purse for you to decide on later.",
-              [
-                { text: "Keep working", style: "cancel" },
-                { text: "Record honestly", style: "destructive", onPress: () => miss.mutate({ id }) },
-              ],
-            )} />
+            <PrimaryButton color={colors.coral} label="I missed this pledge" loading={miss.isPending} variant="outline" onPress={() => setMissOpen(true)} />
           </>
         ) : <Text style={rdmStyles.muted}>{data.lastAction ?? "Action logged for today."}</Text>}
       </SurfaceCard>
@@ -117,6 +111,20 @@ export default function HabitDetailScreen() {
           <PrimaryButton label="Start the next cycle" loading={startNext.isPending} onPress={() => startNext.mutate({ id })} />
         </View>
       ) : null}
+      <ActionDialog
+        cancelLabel="Keep working"
+        confirmColor={colors.coral}
+        confirmLabel="Record honestly"
+        loading={miss.isPending}
+        message="Your streak resets and 10 RDM moves into the Remorse Purse for you to decide on later."
+        onCancel={() => setMissOpen(false)}
+        onConfirm={() => {
+          setMissOpen(false);
+          miss.mutate({ id });
+        }}
+        title="Record a missed pledge?"
+        visible={missOpen}
+      />
     </AppScreen>
   );
 }
