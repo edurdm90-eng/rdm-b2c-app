@@ -1,9 +1,17 @@
 import { env } from "@rdm-b2c/env/server";
 import mongoose from "mongoose";
 
-await mongoose.connect(env.DATABASE_URL);
+const databaseName = "rdm-business";
+const connectionParts = env.DATABASE_URL.match(
+  /^(mongodb(?:\+srv)?:\/\/[^/?]+)(?:\/[^?]*)?(\?.*)?$/,
+);
+const authority = connectionParts?.[1];
+if (!authority) throw new Error("DATABASE_URL must be a valid MongoDB connection string");
+const databaseUrl = `${authority}/${databaseName}${connectionParts?.[2] ?? ""}`;
 
-const client = mongoose.connection.getClient().db();
+await mongoose.connect(databaseUrl);
 
-export { client };
+const client = mongoose.connection.getClient().db(databaseName);
+
+export { client, databaseName };
 export { GameSession, GoalGroup, Habit, RdmProfile, Referral, habitOutcomes, habitSources, habitStages, transactionKinds } from "./models/rdm.model";
