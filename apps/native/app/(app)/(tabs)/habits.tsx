@@ -28,7 +28,13 @@ export default function HabitsScreen() {
             <Text style={rdmStyles.muted}>{habit.target} · {habit.cadence}</Text>
             <View style={styles.metaRow}>
               <Text style={styles.stage}>{habit.stage}</Text>
-              <Text style={styles.streak}>{habit.streak} day streak</Text>
+              <View
+                accessibilityLabel={`${habit.streak} day streak`}
+                style={styles.streakBadge}
+              >
+                <MaterialCommunityIcons color={colors.gold} name="fire" size={14} />
+                <Text style={styles.streak}>{habit.streak}</Text>
+              </View>
             </View>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.inkSoft} />
@@ -49,9 +55,20 @@ const styles = StyleSheet.create({
   habitCard: { flexDirection: "row", alignItems: "center", gap: 12 },
   habitCopy: { flex: 1, gap: 4 },
   habitTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 14 },
-  metaRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
   stage: { color: colors.gold, backgroundColor: colors.goldTint, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2, fontFamily: fonts.monoBold, fontSize: 9, textTransform: "uppercase" },
-  streak: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9, paddingVertical: 2 },
+  streakBadge: {
+    minHeight: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: "rgba(240,180,41,0.25)",
+    backgroundColor: colors.goldTint,
+    paddingHorizontal: 7,
+  },
+  streak: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 10 },
   emptyCard: { alignItems: "center", gap: 10, paddingVertical: 26 },
   emptyTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 18 },
 });

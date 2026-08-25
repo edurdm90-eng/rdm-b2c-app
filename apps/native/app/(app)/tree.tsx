@@ -245,7 +245,7 @@ export default function TreeScreen() {
           icon="water"
           iconBackground={colors.aiTint}
           iconColor={colors.ai}
-          onPress={() => showNextStep("Say Thank You")}
+          onPress={() => router.push("/(app)/thank-you")}
           subtitle="Say Thank You"
           title="Add Water"
         />
