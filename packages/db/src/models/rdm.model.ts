@@ -28,6 +28,8 @@ const profileSchema = new Schema(
     level: { type: Number, required: true, default: 7 },
     streak: { type: Number, required: true, default: 18 },
     plantStage: { type: String, required: true, default: "Budding" },
+    treePledgeAmount: { type: Number, required: true, default: 0 },
+    treePledgedAt: { type: Date },
     walletBalance: { type: Number, required: true, default: 1240 },
     rewardBalance: { type: Number, required: true, default: 320 },
     remorseBalance: { type: Number, required: true, default: 40 },

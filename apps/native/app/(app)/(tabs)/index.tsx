@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 
-import { ActionDialog, AppScreen, ErrorState, IconBubble, LoadingState, ProgressBar, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { ActionDialog, AppScreen, ErrorState, IconBubble, LoadingState, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
 import { authClient } from "@/lib/auth-client";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -21,8 +21,7 @@ export default function HomeScreen() {
     return <ErrorState message={dashboard.error?.message ?? "The dashboard is unavailable."} onRetry={() => void dashboard.refetch()} />;
   }
 
-  const { user, profile, habits, games } = dashboard.data;
-  const featuredHabit = habits[0];
+  const { user, profile, games } = dashboard.data;
   const firstName = user.name.split(" ")[0] || user.name;
   const dateLabel = new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }).toUpperCase();
   const goldenBloomUnlocked = profile.unlockedBadges.includes("golden-bloom");
@@ -67,33 +66,24 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      <LinearGradient colors={["rgba(63,203,139,0.17)", colors.panel]} start={{ x: 0, y: 0 }} end={{ x: 0.75, y: 1 }} style={styles.growCard}>
-        <View style={styles.growTop}>
-          <View style={styles.plantWrap}>
-            <MaterialCommunityIcons name="sprout" size={70} color={colors.growth} />
-          </View>
-          <View style={styles.growCopy}>
-            <Text style={styles.stage}>Level {profile.level} · {profile.plantStage}</Text>
-            <Text style={styles.growTitle}>Growing steady</Text>
-            <Text style={rdmStyles.muted}>{featuredHabit ? `${featuredHabit.streak}-day streak on ${featuredHabit.title}.` : "Choose a habit to begin your streak."}</Text>
-          </View>
+      <SurfaceCard
+        onPress={() => router.push("/(app)/tree")}
+        style={styles.treeCard}
+      >
+        <IconBubble
+          backgroundColor={colors.growthTint}
+          color={colors.growth}
+          name="tree-outline"
+          size={25}
+        />
+        <View style={styles.treeCopy}>
+          <Text style={styles.treeTitle}>Grow Your Tree</Text>
+          <Text style={styles.treeMeta}>
+            Day {profile.streak} · {profile.plantStage} stage · Tap to tend it
+          </Text>
         </View>
-        <View style={styles.xpRow}>
-          <Text style={styles.xpBadge}>LV {profile.level}</Text>
-          <View style={styles.xpBar}><ProgressBar progress={(profile.xp % 1000) / 1000} /></View>
-          <Text style={styles.xpLabel}>{profile.xp % 1000}/1000</Text>
-        </View>
-        <View style={styles.shareRow}>
-          <Pressable onPress={() => void Share.share({ message: `I am on a ${profile.streak}-day RDM streak.` })} style={[styles.smallAction, styles.shareAction]}>
-            <MaterialCommunityIcons name="share-variant-outline" size={16} color={colors.backgroundDeep} />
-            <Text style={styles.shareActionText}>Share streak</Text>
-          </Pressable>
-          <Pressable onPress={() => featuredHabit && router.push({ pathname: "/(app)/habit/[id]", params: { id: featuredHabit.id } })} style={[styles.smallAction, styles.riskAction]}>
-            <MaterialCommunityIcons name="alert-outline" size={16} color={colors.coral} />
-            <Text style={styles.riskActionText}>Streak at risk</Text>
-          </Pressable>
-        </View>
-      </LinearGradient>
+        <MaterialCommunityIcons name="arrow-right" size={20} color={colors.inkSoft} />
+      </SurfaceCard>
 
       <SectionLabel>Choose your path</SectionLabel>
       <View style={styles.pathRow}>
@@ -176,22 +166,10 @@ const styles = StyleSheet.create({
   streakPill: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 4, borderRadius: radii.pill, paddingHorizontal: 10, backgroundColor: colors.goldTint, borderWidth: 1, borderColor: "rgba(240,180,41,0.25)" },
   streakText: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 13 },
   accountButton: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.line, alignItems: "center", justifyContent: "center" },
-  growCard: { borderRadius: radii.large, borderWidth: 1, borderColor: colors.line, padding: 16 },
-  growTop: { flexDirection: "row", alignItems: "center", gap: 14 },
-  plantWrap: { width: 78, height: 84, borderRadius: 22, backgroundColor: colors.growthTint, alignItems: "center", justifyContent: "center" },
-  growCopy: { flex: 1, gap: 4 },
-  stage: { color: colors.growth, fontFamily: fonts.monoBold, fontSize: 10, textTransform: "uppercase" },
-  growTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 18 },
-  xpRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 },
-  xpBadge: { color: colors.backgroundDeep, backgroundColor: colors.gold, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, fontFamily: fonts.monoBold, fontSize: 9 },
-  xpBar: { flex: 1 },
-  xpLabel: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9 },
-  shareRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-  smallAction: { flex: 1, minHeight: 40, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  shareAction: { backgroundColor: colors.growth },
-  shareActionText: { color: colors.backgroundDeep, fontFamily: fonts.bodyBold, fontSize: 11 },
-  riskAction: { backgroundColor: colors.coralTint, borderWidth: 1, borderColor: "rgba(226,112,90,0.25)" },
-  riskActionText: { color: colors.coral, fontFamily: fonts.bodyBold, fontSize: 11 },
+  treeCard: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 13, paddingHorizontal: 14 },
+  treeCopy: { flex: 1, gap: 3 },
+  treeTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 16 },
+  treeMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 16 },
   pathRow: { flexDirection: "row", gap: 10 },
   pathCard: { flex: 1, minHeight: 148, gap: 7 },
   pathTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 16 },

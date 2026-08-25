@@ -54,6 +54,10 @@ function serializeProfile(profile: any) {
     level: Number(profile.level),
     streak: Number(profile.streak),
     plantStage: String(profile.plantStage),
+    tree: {
+      pledgeAmount: Number(profile.treePledgeAmount ?? 0),
+      pledgedAt: profile.treePledgedAt ? new Date(profile.treePledgedAt).toISOString() : null,
+    },
     weeklyInvites: Number(profile.weeklyInvites ?? 0),
     referralCode: String(profile.referralCode ?? ""),
     wallet: {
@@ -373,6 +377,44 @@ export const rdmRouter = router({
     categories: habitCategories,
     templates: habitTemplates,
   })),
+
+  tree: router({
+    pledge: protectedProcedure
+      .input(z.object({ amount: z.number().int().min(10).max(100_000) }))
+      .mutation(async ({ ctx, input }) => {
+        await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
+        const profile = await RdmProfile.findOneAndUpdate(
+          {
+            userId: ctx.session.user.id,
+            walletBalance: { $gte: input.amount },
+            $or: [
+              { treePledgeAmount: 0 },
+              { treePledgeAmount: { $exists: false } },
+            ],
+          },
+          {
+            $set: {
+              treePledgeAmount: input.amount,
+              treePledgedAt: new Date(),
+            },
+          },
+          { returnDocument: "after" },
+        );
+        if (profile) return serializeProfile(profile);
+
+        const current = await RdmProfile.findOne({ userId: ctx.session.user.id });
+        if (Number(current?.treePledgeAmount ?? 0) > 0) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This tree already has an active pledge.",
+          });
+        }
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Your RDM balance is lower than this pledge.",
+        });
+      }),
+  }),
 
   habits: router({
     list: protectedProcedure.query(async ({ ctx }) => {
