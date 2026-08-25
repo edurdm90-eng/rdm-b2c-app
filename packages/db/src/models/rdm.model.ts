@@ -2,10 +2,11 @@ import mongoose from "mongoose";
 
 const { Schema, model, models } = mongoose;
 
-export const transactionKinds = ["habit", "game", "remorse", "peer", "charity", "redeem"] as const;
+export const transactionKinds = ["habit", "game", "gratitude", "remorse", "peer", "charity", "redeem"] as const;
 export const habitSources = ["template", "custom"] as const;
 export const habitStages = ["pledge", "act", "reflect", "reward"] as const;
 export const habitOutcomes = ["completed", "missed"] as const;
+export const gratitudeCategoryIds = ["life", "helper", "loved-ones", "friends", "colleagues"] as const;
 
 const transactionSchema = new Schema(
   {
@@ -30,6 +31,9 @@ const profileSchema = new Schema(
     plantStage: { type: String, required: true, default: "Budding" },
     treePledgeAmount: { type: Number, required: true, default: 0 },
     treePledgedAt: { type: Date },
+    treeWaterCount: { type: Number, required: true, default: 0 },
+    treeLastWateredAt: { type: Date },
+    treeCareOperations: { type: [String], required: true, default: [] },
     walletBalance: { type: Number, required: true, default: 1240 },
     rewardBalance: { type: Number, required: true, default: 320 },
     remorseBalance: { type: Number, required: true, default: 40 },
@@ -81,6 +85,24 @@ const habitSchema = new Schema(
   },
   { timestamps: true },
 );
+
+const gratitudeEntrySchema = new Schema(
+  {
+    userId: { type: String, required: true, index: true },
+    category: { type: String, enum: gratitudeCategoryIds, required: true },
+    categoryTitle: { type: String, required: true },
+    prompt: { type: String, required: true },
+    body: { type: String, required: true, maxlength: 1000 },
+    dayKey: { type: String, required: true },
+    reward: { type: Number, required: true, default: 15 },
+    growthPoints: { type: Number, required: true, default: 1 },
+    processedAt: { type: Date },
+  },
+  { timestamps: true },
+);
+
+gratitudeEntrySchema.index({ userId: 1, category: 1, dayKey: 1 }, { unique: true });
+gratitudeEntrySchema.index({ userId: 1, createdAt: -1 });
 
 const memberSchema = new Schema(
   {
@@ -139,6 +161,7 @@ const referralSchema = new Schema(
 
 type RdmProfileShape = mongoose.InferSchemaType<typeof profileSchema>;
 type HabitShape = mongoose.InferSchemaType<typeof habitSchema>;
+type GratitudeEntryShape = mongoose.InferSchemaType<typeof gratitudeEntrySchema>;
 type GoalGroupShape = mongoose.InferSchemaType<typeof groupSchema>;
 type GameSessionShape = mongoose.InferSchemaType<typeof gameSessionSchema>;
 type ReferralShape = mongoose.InferSchemaType<typeof referralSchema>;
@@ -149,6 +172,9 @@ const RdmProfile =
 const Habit =
   (models.Habit as mongoose.Model<HabitShape> | undefined) ??
   model<HabitShape>("Habit", habitSchema);
+const GratitudeEntry =
+  (models.GratitudeEntry as mongoose.Model<GratitudeEntryShape> | undefined) ??
+  model<GratitudeEntryShape>("GratitudeEntry", gratitudeEntrySchema);
 const GoalGroup =
   (models.GoalGroup as mongoose.Model<GoalGroupShape> | undefined) ??
   model<GoalGroupShape>("GoalGroup", groupSchema);
@@ -159,4 +185,4 @@ const Referral =
   (models.Referral as mongoose.Model<ReferralShape> | undefined) ??
   model<ReferralShape>("Referral", referralSchema);
 
-export { GameSession, GoalGroup, Habit, RdmProfile, Referral };
+export { GameSession, GoalGroup, GratitudeEntry, Habit, RdmProfile, Referral };

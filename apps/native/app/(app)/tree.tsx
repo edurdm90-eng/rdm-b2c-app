@@ -20,13 +20,13 @@ import { queryClient, trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
-function GrowingTreeArtwork() {
+function GrowingTreeArtwork({ width }: { width: number }) {
   return (
     <Svg
       accessibilityLabel="Three-leaf growing tree"
-      height={160}
+      height={Math.round(width * (16 / 15))}
       viewBox="0 0 100 110"
-      width={150}
+      width={width}
     >
       <Path
         d="M50 100 C50 70 42 55 46 30"
@@ -226,10 +226,13 @@ export default function TreeScreen() {
       </View>
 
       <View
-        accessibilityLabel={`${profile.plantStage} tree, day ${profile.streak}`}
+        accessibilityLabel={`${profile.plantStage} tree, ${profile.tree.growth.points} growth points from a ${profile.streak} day streak and ${profile.tree.waterCount} water actions`}
         style={styles.treeVisual}
       >
-        <GrowingTreeArtwork />
+        <GrowingTreeArtwork width={profile.tree.growth.artworkWidth} />
+        <Text style={styles.growthCaption}>
+          {profile.streak} streak + {profile.tree.waterCount} water · {profile.tree.growth.points} growth
+        </Text>
       </View>
 
       <View style={styles.actionRow}>
@@ -317,7 +320,14 @@ const styles = StyleSheet.create({
   pledgeNote: { flex: 1, color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, lineHeight: 15 },
   notice: { color: colors.coral, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 16 },
   noticeSuccess: { color: colors.growth },
-  treeVisual: { alignItems: "center", justifyContent: "center", minHeight: 166 },
+  treeVisual: { alignItems: "center", justifyContent: "center", minHeight: 184 },
+  growthCaption: {
+    color: colors.growth,
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    marginTop: 4,
+    textTransform: "uppercase",
+  },
   actionRow: { flexDirection: "row", gap: 9 },
   actionTile: {
     flex: 1,

@@ -2,6 +2,93 @@ export const habitCategories = ["Focus", "Health", "Money", "Sustainability"] as
 
 export type HabitCategory = (typeof habitCategories)[number];
 
+export const gratitudeCategories = [
+  {
+    id: "life",
+    icon: "notebook-heart-outline",
+    title: "All good things in your life",
+    subtitle: "Opens a journal entry",
+    journalTitle: "Gratitude Journal",
+    journalSubtitle: "ALL GOOD THINGS IN YOUR LIFE",
+    prompt: "What are you grateful for today?",
+    placeholder: "Today I'm grateful for a calm morning, a good cup of coffee, and…",
+  },
+  {
+    id: "helper",
+    icon: "handshake-outline",
+    title: "Anyone who helped you this week",
+    subtitle: "Pick a name, send thanks",
+    journalTitle: "Helped Me This Week",
+    journalSubtitle: "THANK SOMEONE WHO SHOWED UP",
+    prompt: "Who helped you this week, and what would you like to thank them for?",
+    placeholder: "This week, I'm thankful to… because…",
+  },
+  {
+    id: "loved-ones",
+    icon: "heart-outline",
+    title: "Your near and dear ones",
+    subtitle: "Family, always first",
+    journalTitle: "Loved Ones Journal",
+    journalSubtitle: "YOUR NEAR AND DEAR ONES",
+    prompt: "Who close to you are you grateful for today, and why?",
+    placeholder: "Today, someone close to me made a difference by…",
+  },
+  {
+    id: "friends",
+    icon: "party-popper",
+    title: "Your friends",
+    subtitle: "A quick note goes a long way",
+    journalTitle: "Friendship Journal",
+    journalSubtitle: "APPRECIATE A FRIEND",
+    prompt: "Which friend made life better recently, and how?",
+    placeholder: "I'm grateful for my friend… because…",
+  },
+  {
+    id: "colleagues",
+    icon: "briefcase-outline",
+    title: "Your colleagues",
+    subtitle: "Recognize a small assist",
+    journalTitle: "Colleague Appreciation",
+    journalSubtitle: "RECOGNIZE A SMALL ASSIST",
+    prompt: "Which colleague helped you recently, and what did you appreciate?",
+    placeholder: "A colleague helped me by… and I appreciated…",
+  },
+] as const;
+
+export type GratitudeCategoryId = (typeof gratitudeCategories)[number]["id"];
+
+export function gratitudeCategoryById(id: string) {
+  return gratitudeCategories.find((category) => category.id === id) ?? null;
+}
+
+const treeGrowthStages = [
+  { minimum: 0, stage: "Seedling" },
+  { minimum: 3, stage: "Sprouting" },
+  { minimum: 7, stage: "Growing" },
+  { minimum: 14, stage: "Budding" },
+  { minimum: 30, stage: "Flourishing" },
+  { minimum: 60, stage: "Thriving" },
+] as const;
+
+export function treeGrowthFor(streak: number, waterCount: number) {
+  const safeStreak = Math.max(0, Math.floor(streak));
+  const safeWaterCount = Math.max(0, Math.floor(waterCount));
+  const points = safeStreak + safeWaterCount;
+  const stageIndex = treeGrowthStages.findLastIndex((item) => points >= item.minimum);
+  const current = treeGrowthStages[Math.max(0, stageIndex)] ?? treeGrowthStages[0];
+  const next = treeGrowthStages[stageIndex + 1];
+  const progress = next
+    ? Math.min(1, (points - current.minimum) / (next.minimum - current.minimum))
+    : 1;
+
+  return {
+    points,
+    stage: current.stage,
+    progress,
+    artworkWidth: Math.min(180, 96 + points * 3),
+  };
+}
+
 export const habitTemplates = [
   {
     id: "deep-work",

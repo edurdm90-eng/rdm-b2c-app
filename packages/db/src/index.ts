@@ -14,4 +14,16 @@ await mongoose.connect(databaseUrl);
 const client = mongoose.connection.getClient().db(databaseName);
 
 export { client, databaseName };
-export { GameSession, GoalGroup, Habit, RdmProfile, Referral, habitOutcomes, habitSources, habitStages, transactionKinds } from "./models/rdm.model";
+export {
+  GameSession,
+  GoalGroup,
+  GratitudeEntry,
+  Habit,
+  RdmProfile,
+  Referral,
+  gratitudeCategoryIds,
+  habitOutcomes,
+  habitSources,
+  habitStages,
+  transactionKinds,
+} from "./models/rdm.model";

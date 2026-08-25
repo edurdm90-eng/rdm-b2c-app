@@ -8,6 +8,7 @@ import {
   debitPurseBalances,
   gameDayKey,
   gameSessionCanReward,
+  gratitudeCategories,
   groupAwardCredits,
   initialBadgeIds,
   inviteWeekKey,
@@ -15,6 +16,7 @@ import {
   missedPledgeBalances,
   rewardCatalog,
   rewardForGame,
+  treeGrowthFor,
 } from "./rdm";
 
 test("responsible games cap rewards and normalize duration", () => {
@@ -83,4 +85,27 @@ test("group awards deliver every real member's positive allocation", () => {
     groupAwardCredits([{ userId: "a" }, {}, { userId: "b" }], [80, 120, 100]),
     [{ userId: "a", amount: 80 }, { userId: "b", amount: 100 }],
   );
+});
+
+test("gratitude categories own their dynamic journal copy", () => {
+  assert.equal(gratitudeCategories.length, 5);
+  assert.equal(new Set(gratitudeCategories.map((category) => category.journalTitle)).size, 5);
+  assert.equal(gratitudeCategories.find((category) => category.id === "life")?.prompt, "What are you grateful for today?");
+});
+
+test("tree growth combines habit streak and completed water actions", () => {
+  assert.deepEqual(treeGrowthFor(0, 0), {
+    points: 0,
+    stage: "Seedling",
+    progress: 0,
+    artworkWidth: 96,
+  });
+  assert.deepEqual(treeGrowthFor(18, 0), {
+    points: 18,
+    stage: "Budding",
+    progress: 0.25,
+    artworkWidth: 150,
+  });
+  assert.equal(treeGrowthFor(18, 1).artworkWidth, 153);
+  assert.equal(treeGrowthFor(30, 0).stage, "Flourishing");
 });

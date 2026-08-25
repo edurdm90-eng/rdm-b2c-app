@@ -1,4 +1,15 @@
-import { GameSession, GoalGroup, Habit, RdmProfile, Referral, habitOutcomes, habitSources, habitStages } from "@rdm-b2c/db";
+import {
+  GameSession,
+  GoalGroup,
+  GratitudeEntry,
+  Habit,
+  RdmProfile,
+  Referral,
+  gratitudeCategoryIds,
+  habitOutcomes,
+  habitSources,
+  habitStages,
+} from "@rdm-b2c/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -9,6 +20,8 @@ import {
   gameDayKey,
   gameCatalog,
   gameSessionCanReward,
+  gratitudeCategories,
+  gratitudeCategoryById,
   groupAwardCredits,
   habitCategories,
   habitTemplates,
@@ -17,6 +30,7 @@ import {
   levelForXp,
   rewardCatalog,
   rewardForGame,
+  treeGrowthFor,
 } from "../domain/rdm";
 
 const nowIso = () => new Date().toISOString();
@@ -49,14 +63,23 @@ function serializeHabit(habit: any) {
 }
 
 function serializeProfile(profile: any) {
+  const streak = Number(profile.streak);
+  const waterCount = Number(profile.treeWaterCount ?? 0);
+  const growth = treeGrowthFor(streak, waterCount);
+
   return {
     xp: Number(profile.xp),
     level: Number(profile.level),
-    streak: Number(profile.streak),
-    plantStage: String(profile.plantStage),
+    streak,
+    plantStage: growth.stage,
     tree: {
       pledgeAmount: Number(profile.treePledgeAmount ?? 0),
       pledgedAt: profile.treePledgedAt ? new Date(profile.treePledgedAt).toISOString() : null,
+      waterCount,
+      lastWateredAt: profile.treeLastWateredAt
+        ? new Date(profile.treeLastWateredAt).toISOString()
+        : null,
+      growth,
     },
     weeklyInvites: Number(profile.weeklyInvites ?? 0),
     referralCode: String(profile.referralCode ?? ""),
@@ -75,6 +98,21 @@ function serializeProfile(profile: any) {
       kind: String(transaction.kind),
       createdAt: new Date(transaction.createdAt).toISOString(),
     })),
+  };
+}
+
+function serializeGratitudeEntry(entry: any) {
+  return {
+    id: String(entry._id),
+    category: String(entry.category),
+    categoryTitle: String(entry.categoryTitle),
+    prompt: String(entry.prompt),
+    body: String(entry.body),
+    dayKey: String(entry.dayKey),
+    reward: Number(entry.reward),
+    growthPoints: Number(entry.growthPoints),
+    processedAt: entry.processedAt ? new Date(entry.processedAt).toISOString() : null,
+    createdAt: new Date(entry.createdAt).toISOString(),
   };
 }
 
@@ -128,7 +166,7 @@ async function creditProfile({
   userId: string;
   amount: number;
   title: string;
-  kind: "habit" | "game" | "peer";
+  kind: "habit" | "game" | "gratitude" | "peer";
   purse: "reward" | "peer";
   operationId: string;
   badgeIds?: ReadonlyArray<string>;
@@ -413,6 +451,122 @@ export const rdmRouter = router({
           code: "BAD_REQUEST",
           message: "Your RDM balance is lower than this pledge.",
         });
+      }),
+  }),
+
+  gratitude: router({
+    categories: protectedProcedure.query(() => gratitudeCategories),
+    byCategory: protectedProcedure
+      .input(z.object({ category: z.enum(gratitudeCategoryIds) }))
+      .query(async ({ ctx, input }) => {
+        const category = gratitudeCategoryById(input.category);
+        if (!category) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Gratitude category not found" });
+        }
+        const entry = await GratitudeEntry.findOne({
+          userId: ctx.session.user.id,
+          category: input.category,
+          dayKey: gameDayKey(),
+        });
+        return {
+          category,
+          todayEntry: entry ? serializeGratitudeEntry(entry) : null,
+        };
+      }),
+    save: protectedProcedure
+      .input(z.object({
+        category: z.enum(gratitudeCategoryIds),
+        body: z.string().trim().min(4).max(1000),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
+        const category = gratitudeCategoryById(input.category);
+        if (!category) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Gratitude category not found" });
+        }
+
+        const dayKey = gameDayKey();
+        let entry = await GratitudeEntry.findOne({
+          userId: ctx.session.user.id,
+          category: input.category,
+          dayKey,
+        });
+        if (!entry) {
+          try {
+            entry = await GratitudeEntry.create({
+              userId: ctx.session.user.id,
+              category: input.category,
+              categoryTitle: category.title,
+              prompt: category.prompt,
+              body: input.body,
+              dayKey,
+              reward: 15,
+              growthPoints: 1,
+            });
+          } catch (error: any) {
+            if (error?.code !== 11000) throw error;
+            entry = await GratitudeEntry.findOne({
+              userId: ctx.session.user.id,
+              category: input.category,
+              dayKey,
+            });
+          }
+        }
+
+        if (!entry) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Could not save the gratitude entry",
+          });
+        }
+
+        const wasProcessed = Boolean(entry.processedAt);
+        if (!wasProcessed && entry.body !== input.body) {
+          entry.body = input.body;
+          await entry.save();
+        }
+
+        const waterOperationId = `tree-water:${entry._id}`;
+        await RdmProfile.findOneAndUpdate(
+          {
+            userId: ctx.session.user.id,
+            treeCareOperations: { $ne: waterOperationId },
+          },
+          {
+            $inc: { treeWaterCount: entry.growthPoints },
+            $set: { treeLastWateredAt: new Date() },
+            $addToSet: { treeCareOperations: waterOperationId },
+          },
+        );
+
+        const profile = await creditProfile({
+          userId: ctx.session.user.id,
+          amount: entry.reward,
+          title: `${category.title} — gratitude entry`,
+          kind: "gratitude",
+          purse: "reward",
+          operationId: `gratitude:${entry._id}`,
+          badgeIds: ["reflection-journal"],
+        });
+
+        let processedNow = false;
+        if (!wasProcessed) {
+          const processedAt = new Date();
+          const processingResult = await GratitudeEntry.updateOne(
+            { _id: entry._id, processedAt: { $exists: false } },
+            { $set: { processedAt } },
+          );
+          processedNow = processingResult.modifiedCount === 1;
+          if (processedNow) entry.processedAt = processedAt;
+        }
+
+        return {
+          category,
+          entry: serializeGratitudeEntry(entry),
+          profile: serializeProfile(profile),
+          reward: processedNow ? entry.reward : 0,
+          alreadySaved: !processedNow,
+        };
       }),
   }),
 

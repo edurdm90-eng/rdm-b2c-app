@@ -1,54 +1,39 @@
-# Design QA — Fertilizer Streak and Say Thank You
+# Design QA — Dynamic Gratitude Journal
 
-**Comparison Target**
+## Evidence
 
-- Source visual truth: `/Users/yashdiwan/Documents/rdm-b2c/RDM_Grow_Habits_Wisdom_Family_Update.html`
-- Source board: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-grow-habits-audit/00-full-wireframe.png` (1280 × 3312 px)
-- Normalized Say Thank You source: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-thank-you-implementation/00-source-say-thank-you-normalized.png` (352 × 740 px)
-- Say Thank You implementation: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-thank-you-implementation/02-say-thank-you.jpg` (390 × 844 px)
-- Focused streak source: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-thank-you-implementation/00-source-streak-card.png` (306 × 70 px)
-- Focused streak implementation: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-thank-you-implementation/01-implementation-streak-card.png` (354 × 100 px)
-- Viewport: 390 × 844 CSS px, device scale factor 1. The wireframe phone was captured at 176 × 370 and normalized 2× to its 352 × 740 CSS size; the implementation capture is 1:1.
-- State: authenticated dark-theme app, Say Thank You before option selection; Habits with an 18-day Deep Work Focus streak.
+- Source visual truth: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-grow-habits-audit/00-full-wireframe.png`
+- Source journal crop: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-journal-implementation/00-reference-journal.jpg`
+- Source reward crop: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-journal-implementation/00-reference-reward.jpg`
+- Source tree crop: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-journal-implementation/13-reference-tree.jpg`
+- Implementation journal: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-journal-implementation/01-life-journal-mobile.png`
+- Implementation reward: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-journal-implementation/03-reward-dialog-mobile.png`
+- Implementation tree: `/Users/yashdiwan/.codex/visualizations/2026/08/25/rdm-journal-implementation/04-tree-grown-mobile.png`
+- Browser viewport: 390 × 844 CSS px at device scale factor 1.
+- Source crops: 176 × 372 px from the half-scale overview. They were proportionally resized to 390 × 824 and padded to 390 × 844 for equal-frame comparison (`10-reference-journal-normalized.jpg`, `12-reference-reward-normalized.jpg`, and `15-reference-tree-normalized.jpg`).
+- State: authenticated user; empty journal, completed journal reward modal, and tree after one water action.
 
-**Findings**
+## Findings
 
-- No actionable P0, P1, or P2 mismatches remain within this step's scope.
-- [P3] The source uses emoji inside the thank-you circles; the implementation uses the product's Material Community icon system. The meaning, size, blue tint, and visual hierarchy remain equivalent and the icon treatment is consistent with the rest of the app.
+No actionable P0, P1, or P2 differences remain.
 
-**Required Fidelity Surfaces**
+- Fonts and typography: display serif, mono labels, hierarchy, wrapping, and weights match the established app and source direction.
+- Spacing and layout: header, prompt, journal field, CTA, centered reward dialog, tree, and action tiles preserve the source composition. Web safe-area spacing differs slightly from the framed source but does not affect native layout or hierarchy.
+- Colors and tokens: dark background, raised panels, green primary action, gold reward treatment, and muted text remain consistent with project tokens.
+- Image and icon fidelity: no journal imagery is required. Existing source-style tree artwork is retained and scales from server-calculated growth; category and reward symbols use the project's icon library.
+- Copy and content: the `life` prompt matches the wireframe exactly. Added water/growth copy is intentional functional feedback. Other categories use distinct server-owned copy.
+- Accessibility and resilience: labeled multiline input, alert states, disabled saved state, modal semantics, practical tap targets, and 1,000-character bounds were verified at the target mobile viewport.
 
-- Fonts and typography: Fraunces, Inter, and JetBrains Mono reproduce the display, body, and utility hierarchy with matching weights, line heights, and wrapping.
-- Spacing and layout rhythm: the header, five stacked cards, 12 px internal gaps, circular icons, chevrons, borders, radii, and vertical rhythm match the source proportions.
-- Colors and visual tokens: background, panels, borders, blue icon tint, primary copy, and muted subtitles use the established wireframe tokens with sufficient contrast.
-- Image quality and asset fidelity: this screen contains standard semantic icons rather than custom imagery; the closest matching installed icon-library assets are sharp at native density.
-- Copy and content: all five titles, subtitles, header text, and punctuation match the wireframe.
+## Comparison History
 
-**Full-view Comparison Evidence**
+- Pass 1: full-view and focused comparisons covered the journal form, CTA, success dialog, and grown tree. No P0/P1/P2 mismatch was found, so no visual repair iteration was required.
+- Focused evidence: `05-reference-form-focus.jpg` vs `06-implementation-form-focus.jpg`, and `07-reference-modal-focus.jpg` vs `08-implementation-modal-focus.jpg`. These confirm CTA sizing, gold dialog border, reward hierarchy, and button treatment.
 
-The normalized source and browser-rendered Say Thank You screen were opened together. Information order, card density, typography, alignment, and above-the-fold composition match. The taller implementation viewport adds only expected bottom breathing room.
+## Functional Verification
 
-**Focused Region Comparison Evidence**
-
-The source Deep Work Focus row and implementation habit card were opened together. Both expose the current streak beside a gold fire treatment; the implementation intentionally retains the existing target, cadence, stage, and chevron because the user scoped this change to the current Habits cards rather than the complete Goals toggle screen.
-
-**Comparison History**
-
-1. Initial post-build comparison found no P0/P1/P2 differences, so no blocking visual-fix iteration was required.
-
-**Interaction and Runtime Evidence**
-
-- `Add Fertilizer` opened `/habits`; the card exposed an accessible `18 day streak` fire badge sourced from the stored habit streak.
-- `Add Water` opened `/thank-you` and rendered five accessible option buttons.
-- Deeper journal, contact, family, friend, and colleague flows remain explicit next-step alerts, matching the requested step-by-step scope.
-- Browser console errors after the final route and interaction checks: none.
-- `pnpm test`, `pnpm check-types`, `pnpm build`, and `git diff --check` passed.
-
-**Implementation Checklist**
-
-- [x] Live fire streak badge on every rendered habit card
-- [x] Add Water navigation
-- [x] Faithful Say Thank You screen
-- [x] Mobile visual, accessibility-tree, interaction, console, type, test, and build checks
+- Opened all five categories and confirmed distinct headings, prompts, and placeholders.
+- Saved the life entry, received one `+15 RDM` reward, and navigated to a tree showing `18 streak + 1 water · 19 growth`.
+- Reloaded the saved category and confirmed the editor and CTA are disabled for that day.
+- Checked a fresh browser tab: no console errors or warnings.
 
 final result: passed

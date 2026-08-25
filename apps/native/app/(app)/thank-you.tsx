@@ -1,52 +1,25 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { router } from "expo-router";
+import { StyleSheet, Text, View } from "react-native";
 
-import { AppScreen, PageHeader, SurfaceCard } from "@/components/rdm-ui";
+import { AppScreen, ErrorState, LoadingState, PageHeader, SurfaceCard } from "@/components/rdm-ui";
 import { colors, fonts } from "@/lib/theme";
+import { trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
-const thankYouOptions: Array<{
-  icon: IconName;
-  title: string;
-  subtitle: string;
-  nextStep: string;
-}> = [
-  {
-    icon: "notebook-heart-outline",
-    title: "All good things in your life",
-    subtitle: "Opens a journal entry",
-    nextStep: "Gratitude Journal",
-  },
-  {
-    icon: "handshake-outline",
-    title: "Anyone who helped you this week",
-    subtitle: "Pick a name, send thanks",
-    nextStep: "Send Thanks",
-  },
-  {
-    icon: "heart-outline",
-    title: "Your near and dear ones",
-    subtitle: "Family, always first",
-    nextStep: "Family Thanks",
-  },
-  {
-    icon: "party-popper",
-    title: "Your friends",
-    subtitle: "A quick note goes a long way",
-    nextStep: "Friend Thanks",
-  },
-  {
-    icon: "briefcase-outline",
-    title: "Your colleagues",
-    subtitle: "Recognize a small assist",
-    nextStep: "Colleague Thanks",
-  },
-];
-
 export default function ThankYouScreen() {
-  function showNextStep(title: string) {
-    Alert.alert(title, "We will build this thank-you flow in the next step.");
+  const categories = useQuery(trpc.rdm.gratitude.categories.queryOptions());
+
+  if (categories.isLoading) return <LoadingState label="Loading your gratitude prompts…" />;
+  if (categories.error || !categories.data) {
+    return (
+      <ErrorState
+        message={categories.error?.message ?? "Gratitude prompts are unavailable."}
+        onRetry={() => void categories.refetch()}
+      />
+    );
   }
 
   return (
@@ -54,14 +27,17 @@ export default function ThankYouScreen() {
       <PageHeader back subtitle="GIVE THANKS TO —" title="Say Thank You" />
 
       <View style={styles.optionList}>
-        {thankYouOptions.map((option) => (
+        {categories.data.map((option) => (
           <SurfaceCard
-            key={option.title}
-            onPress={() => showNextStep(option.nextStep)}
+            key={option.id}
+            onPress={() => router.push({
+              pathname: "/(app)/journal/[category]",
+              params: { category: option.id },
+            })}
             style={styles.optionCard}
           >
             <View style={styles.optionIcon}>
-              <MaterialCommunityIcons color={colors.ai} name={option.icon} size={20} />
+              <MaterialCommunityIcons color={colors.ai} name={option.icon as IconName} size={20} />
             </View>
             <View style={styles.optionCopy}>
               <Text style={styles.optionTitle}>{option.title}</Text>
