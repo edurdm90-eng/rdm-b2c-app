@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RDM — Grow, Habits, Wisdom & Family Update</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:            #0E1117;
+    --panel:         #161B23;
+    --panel-raised:  #1B212B;
+    --ink:           #F3F1E9;
+    --ink-soft:      #8C93A1;
+    --line:          #262C38;
+
+    --growth:        #3FCB8B; --growth-tint: rgba(63,203,139,0.12);
+    --ai:            #5FA6ED; --ai-tint: rgba(95,166,237,0.12);
+    --gold:          #F0B429; --gold-tint: rgba(240,180,41,0.13);
+    --coral:         #E2705A; --coral-tint: rgba(226,112,90,0.13);
+    --plum:          #B39AE8; --plum-tint: rgba(179,154,232,0.14);
+
+    --radius-lg: 22px; --radius-md: 16px; --radius-sm: 10px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:#05060A; }
+  body{ font-family:'Inter',sans-serif; color:var(--ink); }
+
+  .gallery{ display:flex; flex-wrap:wrap; gap:34px; padding:40px; justify-content:center; align-items:flex-start; max-width:1560px; margin:0 auto; }
+  .frame-wrap{ display:flex; flex-direction:column; align-items:center; }
+  .frame-label{ font-family:'JetBrains Mono',monospace; font-size:11.5px; font-weight:700; color:#C9CDD6; letter-spacing:.05em; text-transform:uppercase; margin-bottom:12px; display:flex; align-items:center; gap:8px; text-align:center; max-width:340px; }
+  .frame-label .n{ background:var(--growth); color:#06130C; border-radius:6px; padding:1px 7px; font-size:11px; flex-shrink:0; }
+
+  .device{ width:352px; background:var(--bg); border-radius:34px; box-shadow:0 24px 55px rgba(0,0,0,0.55); overflow:hidden; border:7px solid #000; }
+  .screen{ height:730px; overflow-y:auto; overflow-x:hidden; scrollbar-width:none; padding-bottom:88px; position:relative;}
+  .screen::-webkit-scrollbar{ display:none; }
+
+  .hdr{ padding:16px 18px 4px 18px; display:flex; align-items:center; gap:10px; }
+  .hdr .back{ width:30px; height:30px; border-radius:9px; background:var(--panel); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
+  .hdr .titles{ flex:1; }
+  .hdr h1{ font-family:'Fraunces',serif; font-size:18.5px; font-weight:600; margin:0; color:var(--ink); }
+  .hdr .sub{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-soft); margin-top:2px; letter-spacing:.03em; }
+  .hdr .streakpill{ display:flex; align-items:center; gap:5px; background:var(--gold-tint); color:var(--gold); border-radius:999px; padding:6px 10px; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12px; border:1px solid rgba(240,180,41,0.25); white-space:nowrap; }
+  .hdr .ic-btn{ width:30px; height:30px; border-radius:9px; background:var(--panel); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:13px; }
+
+  section{ padding:12px 18px; }
+  .section-label{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); margin:2px 0 9px 2px; display:flex; justify-content:space-between; align-items:center; }
+
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-md); padding:14px; }
+  .card + .card{ margin-top:10px; }
+
+  .btn-solid, .btn-ghost{ font-family:'Inter',sans-serif; font-size:12.5px; font-weight:700; border-radius:999px; padding:12px 14px; text-align:center; border:1px solid var(--plum); color:var(--plum); background:transparent; }
+  .btn-solid{ background:var(--plum); color:#160F26; border:none; }
+  .btn-solid.growth{ background:var(--growth); color:#06130C; }
+  .btn-solid.gold{ background:var(--gold); color:#1E1400; }
+  .btn-ghost.coral{ border-color:var(--coral); color:var(--coral); }
+
+  .ai-chip{ font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:700; color:var(--ai); background:var(--ai-tint); border:1px solid rgba(95,166,237,0.3); border-radius:999px; padding:6px 11px; display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+  .ai-inline{ display:flex; justify-content:center; padding:4px 18px 10px 18px; }
+
+  /* ===== 1. HOME (modified tree row) ===== */
+  .tree-row-card{ display:flex; align-items:center; gap:13px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-md); padding:13px 14px; }
+  .tree-ic-wrap{ width:44px; height:44px; border-radius:13px; background:var(--growth-tint); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+  .tree-row-body{ flex:1; }
+  .tree-row-body h4{ font-family:'Fraunces',serif; font-size:14.5px; margin:0 0 2px 0; color:var(--ink); font-weight:600; }
+  .tree-row-body span{ font-size:10.5px; color:var(--ink-soft); }
+  .tree-chevron{ color:var(--ink-soft); font-size:16px; }
+
+  .path-row{ display:flex; gap:10px; }
+  .path-card{ flex:1; border-radius:var(--radius-md); padding:13px 12px; border:1px solid var(--line); background:var(--panel); min-height:108px; display:flex; flex-direction:column; gap:6px;}
+  .path-card .icon{ width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; }
+  .path-card.framework .icon{ background:var(--plum-tint); }
+  .path-card.ai .icon{ background:var(--ai-tint); }
+  .path-card h3{ font-family:'Fraunces',serif; font-size:13.5px; font-weight:600; margin:1px 0 0 0; color:var(--ink); }
+  .path-card p{ font-size:10.5px; color:var(--ink-soft); margin:0; line-height:1.3; flex:1; }
+  .path-card .go{ font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; }
+  .path-card.framework .go{ color:var(--plum); }
+  .path-card.ai .go{ color:var(--ai); }
+
+  .navbar{ position:absolute; bottom:0; left:0; right:0; background:rgba(14,17,23,0.9); backdrop-filter: blur(8px); border-top:1px solid var(--line); display:flex; justify-content:space-around; align-items:center; padding:9px 6px 12px 6px; }
+  .navitem{ display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink-soft); }
+  .navitem.active{ color:var(--growth); }
+  .navitem span{ font-size:9.5px; font-weight:600; }
+  .navitem svg{ width:19px; height:19px; }
+
+  /* ===== 2. GROW EVERY DAY ===== */
+  .score-card{ background:radial-gradient(120% 140% at 15% 0%, rgba(63,203,139,0.16), transparent 60%), var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px; text-align:center; }
+  .score-card .lbl{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; }
+  .score-big{ font-family:'JetBrains Mono',monospace; font-size:30px; font-weight:700; color:var(--growth); margin:4px 0 10px 0; }
+  .purse-mini-row{ display:flex; gap:8px; }
+  .purse-mini{ flex:1; background:var(--panel-raised); border-radius:11px; padding:9px; }
+  .purse-mini .amt{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; }
+  .purse-mini .lbl2{ font-size:9px; color:var(--ink-soft); margin-top:2px; }
+  .pledge-card{ margin-top:10px; }
+  .pledge-row{ display:flex; gap:8px; align-items:center; margin-top:8px; }
+  .pledge-input{ flex:1; background:var(--panel-raised); border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--ink); }
+  .pledge-note{ font-size:10px; color:var(--ink-soft); margin-top:7px; line-height:1.4; }
+
+  .tree-big-wrap{ width:150px; height:160px; margin:8px auto 0 auto; }
+
+  .action-row{ display:flex; gap:9px; margin-top:4px; }
+  .action-tile{ flex:1; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-md); padding:12px 8px; text-align:center; }
+  .action-tile .ic{ width:38px; height:38px; border-radius:50%; margin:0 auto 7px auto; display:flex; align-items:center; justify-content:center; font-size:17px; }
+  .action-tile.fert .ic{ background:var(--gold-tint); }
+  .action-tile.water .ic{ background:var(--ai-tint); }
+  .action-tile.sun .ic{ background:var(--coral-tint); }
+  .action-tile h5{ font-size:11px; margin:0 0 2px 0; font-weight:700; color:var(--ink); }
+  .action-tile span{ font-size:9px; color:var(--ink-soft); display:block; }
+
+  .warn-banner{ display:flex; align-items:center; gap:9px; background:var(--coral-tint); border:1px solid rgba(226,112,90,0.3); border-radius:12px; padding:10px 12px; margin-top:4px; }
+  .warn-banner p{ margin:0; font-size:10.5px; color:var(--coral); line-height:1.35; }
+
+  /* ===== 3. HABITS & GOALS TOGGLE ===== */
+  .toggle-wrap{ display:flex; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:4px; margin:0 18px 12px 18px; }
+  .toggle-opt{ flex:1; text-align:center; padding:9px; border-radius:999px; font-size:12px; font-weight:700; color:var(--ink-soft); }
+  .toggle-opt.on{ background:var(--growth); color:#06130C; }
+  .cat-chip-row{ display:flex; gap:7px; overflow-x:auto; scrollbar-width:none; padding:0 18px 10px 18px; }
+  .cat-chip-row::-webkit-scrollbar{ display:none; }
+  .cat-chip{ flex:0 0 auto; font-size:11px; font-weight:700; padding:7px 13px; border-radius:999px; background:var(--panel); border:1px solid var(--line); color:var(--ink-soft); }
+  .cat-chip.on{ background:var(--plum-tint); border-color:var(--plum); color:var(--plum); }
+  .goal-row{ display:flex; align-items:center; gap:11px; }
+  .goal-ic{ width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+  .goal-body{ flex:1; }
+  .goal-body h4{ font-size:12.5px; margin:0 0 2px 0; font-weight:700; color:var(--ink); }
+  .goal-body span{ font-size:10px; color:var(--ink-soft); }
+  .fab{ position:absolute; right:20px; bottom:100px; width:50px; height:50px; border-radius:50%; background:var(--growth); color:#06130C; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; box-shadow:0 10px 24px rgba(63,203,139,0.35); }
+
+  /* ===== 4. ADD GOAL ===== */
+  .field-label{ font-size:11px; color:var(--ink-soft); font-weight:600; margin-bottom:6px; display:block; }
+  .field-box{ background:var(--panel-raised); border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:12.5px; color:var(--ink); margin-bottom:14px; }
+  .chip-row{ display:flex; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
+  .chip{ font-size:11px; font-weight:700; padding:7px 12px; border-radius:999px; border:1px solid var(--line); color:var(--ink-soft); background:var(--panel); }
+  .chip.on{ border-color:var(--plum); color:var(--plum); background:var(--plum-tint); }
+
+  /* ===== 5. SAY THANK YOU ===== */
+  .thanks-row{ display:flex; align-items:center; gap:12px; }
+  .thanks-ic{ width:38px; height:38px; border-radius:50%; background:var(--ai-tint); color:var(--ai); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+  .thanks-body{ flex:1; }
+  .thanks-body h4{ font-size:12.5px; margin:0 0 2px 0; font-weight:700; color:var(--ink); }
+  .thanks-body span{ font-size:10px; color:var(--ink-soft); }
+
+  /* ===== 6. JOURNAL ===== */
+  .journal-area{ background:var(--panel-raised); border:1px solid var(--line); border-radius:14px; padding:14px; min-height:150px; font-size:12px; color:var(--ink-soft); font-style:italic; line-height:1.5; }
+
+  /* ===== 7. CONGRATS POPUP ===== */
+  .backdrop{ position:absolute; inset:0; background:rgba(5,6,10,0.6); display:flex; align-items:center; justify-content:center; padding:30px; }
+  .popup-card{ background:var(--panel); border:1.5px solid var(--gold); border-radius:var(--radius-lg); padding:26px 20px; text-align:center; width:100%; }
+  .popup-card .em{ font-size:44px; }
+  .popup-card h3{ font-family:'Fraunces',serif; font-size:18px; margin:8px 0 4px 0; color:var(--ink); }
+  .popup-card .amt{ font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:var(--gold); margin:6px 0; }
+  .popup-card p{ font-size:11px; color:var(--ink-soft); margin:0 0 16px 0; }
+
+  /* ===== 8. GOOD DEEDS REGISTER ===== */
+  .deed-row{ display:flex; align-items:center; gap:11px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .deed-row:last-child{ border-bottom:none; }
+  .deed-check{ width:22px; height:22px; border-radius:7px; border:2px solid var(--line); flex-shrink:0; }
+  .deed-row.done .deed-check{ background:var(--growth); border-color:var(--growth); }
+  .deed-body{ flex:1; }
+  .deed-body h5{ font-size:12px; margin:0; font-weight:600; color:var(--ink); }
+  .deed-rdm{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--gold); font-weight:700; }
+
+  /* ===== 9. STREAK MISSED WARNING ===== */
+  .flow-arrow{ text-align:center; font-size:18px; color:var(--ink-soft); padding:2px 0; }
+  .purse-flow-card{ display:flex; align-items:center; gap:12px; justify-content:center; padding:6px 0; }
+  .flow-purse{ text-align:center; flex:1; }
+  .flow-purse .v{ font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:700; }
+  .flow-purse .l{ font-size:9.5px; color:var(--ink-soft); margin-top:2px; }
+
+  /* ===== 10. JAPANESE WISDOM HUB ===== */
+  .wisdom-row{ display:flex; align-items:center; gap:12px; }
+  .wisdom-ic{ width:42px; height:42px; border-radius:13px; background:var(--plum-tint); color:var(--plum); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  .wisdom-body{ flex:1; }
+  .wisdom-body h4{ font-family:'Fraunces',serif; font-size:14px; margin:0 0 2px 0; color:var(--ink); font-weight:600; }
+  .wisdom-body .jp{ font-size:10px; color:var(--plum); font-weight:700; margin-left:6px; }
+  .wisdom-body p{ font-size:10.5px; color:var(--ink-soft); margin:2px 0 0 0; }
+
+  /* ===== 11. KAIZEN COACH DETAIL ===== */
+  .asked-bubble{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:13px 14px; }
+  .asked-bubble .lbl{ font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+  .asked-bubble h4{ font-size:14px; margin:0; color:var(--ink); font-weight:700; }
+  .kaizen-card{ background:var(--gold-tint); border:1px solid rgba(240,180,41,0.3); border-radius:var(--radius-md); padding:14px; }
+  .kaizen-card .tag{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--gold); font-weight:700; display:flex; align-items:center; gap:5px; }
+  .kaizen-card h4{ font-size:13.5px; margin:7px 0 3px 0; color:var(--ink); font-weight:700; }
+  .kaizen-card p{ font-size:11.5px; color:var(--ink-soft); margin:0; line-height:1.4; }
+  .why-list{ display:flex; flex-direction:column; gap:8px; }
+  .why-item{ display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--ink); }
+  .why-item .chk{ color:var(--growth); font-weight:700; }
+  .small-action{ background:var(--panel-raised); border:1px dashed var(--line); border-radius:12px; padding:12px 13px; }
+  .small-action h5{ font-size:11.5px; margin:0 0 4px 0; color:var(--ink); font-weight:700; }
+  .small-action p{ font-size:11px; color:var(--ink-soft); margin:0; font-style:italic; }
+
+  /* ===== 12. FAMILY EMPATHY INDEX ===== */
+  .fam-avatars{ display:flex; gap:10px; padding:2px 18px 10px 18px; }
+  .fam-av{ text-align:center; }
+  .fam-av .circ{ width:42px; height:42px; border-radius:50%; background:var(--plum-tint); color:var(--plum); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; margin:0 auto 4px auto; }
+  .fam-av span{ font-size:9px; color:var(--ink-soft); }
+  .ring-card{ display:flex; align-items:center; gap:16px; }
+  .ring-wrap{ width:76px; height:76px; border-radius:50%; background:conic-gradient(var(--growth) 78%, #262C38 0); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ring-inner{ width:58px; height:58px; border-radius:50%; background:var(--panel); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--growth); }
+  .ring-stats{ flex:1; display:flex; flex-direction:column; gap:5px; }
+  .ring-stats .r{ display:flex; justify-content:space-between; font-size:11px; color:var(--ink-soft); }
+  .ring-stats .r b{ color:var(--ink); font-family:'JetBrains Mono',monospace; }
+  .checkin-row{ display:flex; gap:8px; }
+  .checkin-field{ flex:1; background:var(--panel-raised); border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:11.5px; color:var(--ink-soft); }
+  .action-feed-row{ display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .action-feed-row:last-child{ border-bottom:none; }
+  .af-avatar{ width:26px; height:26px; border-radius:50%; background:var(--plum-tint); color:var(--plum); font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .af-body{ flex:1; }
+  .af-body h5{ font-size:11px; margin:0; font-weight:600; color:var(--ink); }
+  .af-body span{ font-size:9.5px; color:var(--ink-soft); }
+  .af-amt{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--growth); font-weight:700; }
+  .empathy-row{ margin-bottom:11px; }
+  .empathy-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+  .empathy-name{ display:flex; align-items:center; gap:8px; font-size:11.5px; font-weight:600; color:var(--ink); }
+  .empathy-pct{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--plum); font-weight:700; }
+  .empathy-meter{ height:6px; border-radius:4px; background:#2A2740; overflow:hidden; }
+  .empathy-meter i{ display:block; height:100%; background:var(--plum); border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="gallery">
+
+<!-- 1: HOME (MODIFIED) -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">1</span> Home — Modified (Tree icon replaces plant card)</div>
+  <div class="device"><div class="screen">
+    <div class="hdr">
+      <div class="titles"><div class="sub">WED, 15 JUL</div><h1>Morning, Sankar</h1></div>
+      <div class="streakpill">🔥 18</div>
+    </div>
+    <section>
+      <div class="tree-row-card">
+        <div class="tree-ic-wrap">🌳</div>
+        <div class="tree-row-body"><h4>Grow Your Tree</h4><span>Day 18 · Budding stage · Tap to tend it</span></div>
+        <div class="tree-chevron">→</div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Choose your path</div>
+      <div class="path-row">
+        <div class="path-card framework"><div class="icon">📋</div><h3>Framework</h3><p>Structured templates.</p><div class="go">Browse →</div></div>
+        <div class="path-card ai"><div class="icon">✨</div><h3>AI-Guided</h3><p>Talk to your coach.</p><div class="go">Start →</div></div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">RDM Wallet</div>
+      <div class="card" style="padding:6px;">
+        <div style="display:flex;">
+          <div style="flex:1; text-align:center; padding:10px 4px; border-right:1px solid var(--line);"><div style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px; color:var(--growth);">1,240</div><div style="font-size:9px; color:var(--ink-soft);">Balance</div></div>
+          <div style="flex:1; text-align:center; padding:10px 4px; border-right:1px solid var(--line);"><div style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px; color:var(--gold);">320</div><div style="font-size:9px; color:var(--ink-soft);">Reward</div></div>
+          <div style="flex:1; text-align:center; padding:10px 4px;"><div style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px; color:var(--coral);">40</div><div style="font-size:9px; color:var(--ink-soft);">Remorse</div></div>
+        </div>
+      </div>
+    </section>
+    <div class="navbar">
+      <div class="navitem active"><svg viewBox="0 0 24 24" fill="none"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span></div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5a1 1 0 011-1h6v16H5a1 1 0 01-1-1z" stroke="currentColor" stroke-width="2"/><path d="M13 4h6a1 1 0 011 1v14a1 1 0 01-1 1h-6V4z" stroke="currentColor" stroke-width="2"/></svg><span>Habits</span></div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="9" r="2.4" stroke="currentColor" stroke-width="2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 20c0-2.2-1-4.1-2.6-5.3.5-.4 1.6-.7 2.6-.7 2.8 0 5 2 5 6" stroke="currentColor" stroke-width="2"/></svg><span>Family</span></div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="13" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/></svg><span>Games</span></div>
+      <div class="navitem"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="14" r="1.4" fill="currentColor"/></svg><span>Wallet</span></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 2: GROW EVERY DAY -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">2</span> Grow Every Day (tap the tree row)</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>Grow Every Day</h1><div class="sub">DAY 18 · BUDDING</div></div></div>
+    <section>
+      <div class="score-card">
+        <div class="lbl">RDM Score</div>
+        <div class="score-big">1,240</div>
+        <div class="purse-mini-row">
+          <div class="purse-mini"><div class="amt" style="color:var(--gold);">320</div><div class="lbl2">Reward Purse</div></div>
+          <div class="purse-mini"><div class="amt" style="color:var(--coral);">40</div><div class="lbl2">Remorse Purse</div></div>
+        </div>
+      </div>
+    </section>
+    <section class="pledge-card">
+      <div class="section-label">Pledge RDM for this tree</div>
+      <div class="card">
+        <p style="font-size:10.5px; color:var(--ink-soft); margin:0;">Stake RDM once — earn small micro-rewards every time you tend the tree.</p>
+        <div class="pledge-row">
+          <div class="pledge-input">100</div>
+          <div class="btn-solid growth" style="padding:10px 16px;">Pledge</div>
+        </div>
+        <div class="pledge-note">⚠ Miss a streak day and RDM shifts from Reward → Remorse Purse automatically.</div>
+      </div>
+    </section>
+    <section style="padding-top:0;">
+      <div class="tree-big-wrap">
+        <svg viewBox="0 0 100 110" width="100%" height="100%">
+          <path d="M50 100 C50 70 42 55 46 30" stroke="#3FCB8B" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M46 55 C30 50 22 38 24 24" stroke="#54D99C" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M46 40 C64 36 72 24 70 12" stroke="#54D99C" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <ellipse cx="24" cy="22" rx="16" ry="11" fill="#6EE8B4" transform="rotate(-25 24 22)"/>
+          <ellipse cx="70" cy="10" rx="16" ry="11" fill="#6EE8B4" transform="rotate(20 70 10)"/>
+          <ellipse cx="46" cy="26" rx="18" ry="12" fill="#82F2C4" transform="rotate(-4 46 26)"/>
+        </svg>
+      </div>
+    </section>
+    <section style="padding-top:0;">
+      <div class="action-row">
+        <div class="action-tile fert"><div class="ic">🌾</div><h5>Add Fertilizer</h5><span>Manage Streak Meter</span></div>
+        <div class="action-tile water"><div class="ic">💧</div><h5>Add Water</h5><span>Say Thank You</span></div>
+        <div class="action-tile sun"><div class="ic">☀️</div><h5>Add Sunlight</h5><span>Do Good Deeds</span></div>
+      </div>
+    </section>
+  </div></div>
+</div>
+
+<!-- 3: HABITS & GOALS TOGGLE -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">3</span> Habits &amp; Goals — Toggle (from Add Fertilizer)</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>Manage Streak Meter</h1><div class="sub">HABITS &amp; GOALS</div></div></div>
+    <div class="toggle-wrap">
+      <div class="toggle-opt">Habits</div>
+      <div class="toggle-opt on">Goals</div>
+    </div>
+    <div class="cat-chip-row">
+      <div class="cat-chip on">All</div><div class="cat-chip">Focus</div><div class="cat-chip">Health</div><div class="cat-chip">Money</div><div class="cat-chip">Family</div><div class="cat-chip">Sustainability</div>
+    </div>
+    <section style="padding-top:0;">
+      <div class="card goal-row"><div class="goal-ic" style="background:var(--growth-tint);">🎯</div><div class="goal-body"><h4>Deep Work Focus</h4><span>Habit · Day 18 · 🔥18</span></div></div>
+      <div class="card goal-row"><div class="goal-ic" style="background:var(--gold-tint);">💰</div><div class="goal-body"><h4>Save ₹20,000 by Dec</h4><span>Goal · 62% complete</span></div></div>
+      <div class="card goal-row"><div class="goal-ic" style="background:var(--coral-tint);">🏃</div><div class="goal-body"><h4>Run a 10K</h4><span>Goal · Training week 3 of 8</span></div></div>
+    </section>
+    <div class="fab">+</div>
+  </div></div>
+</div>
+
+<!-- 4: ADD GOAL -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">4</span> Add Goal (from "+")</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>Add a Goal</h1><div class="sub">GOALS</div></div></div>
+    <section>
+      <span class="field-label">Goal title</span>
+      <div class="field-box">Save ₹20,000 by December</div>
+      <span class="field-label">Category</span>
+      <div class="chip-row"><div class="chip">Focus</div><div class="chip">Health</div><div class="chip on">Money</div><div class="chip">Family</div><div class="chip">Sustainability</div></div>
+      <span class="field-label">Target</span>
+      <div class="field-box">₹20,000 saved</div>
+      <span class="field-label">Duration</span>
+      <div class="chip-row"><div class="chip">30 days</div><div class="chip on">90 days</div><div class="chip">Custom</div></div>
+    </section>
+    <div class="ai-inline"><div class="ai-chip">✨ Use AI to structure this goal</div></div>
+    <section><div class="btn-solid growth" style="text-align:center;">Save goal</div></section>
+  </div></div>
+</div>
+
+<!-- 5: SAY THANK YOU -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">5</span> Say Thank You (from Add Water)</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>Say Thank You</h1><div class="sub">GIVE THANKS TO —</div></div></div>
+    <section>
+      <div class="card thanks-row"><div class="thanks-ic">📔</div><div class="thanks-body"><h4>All good things in your life</h4><span>Opens a journal entry</span></div><div class="tree-chevron">→</div></div>
+      <div class="card thanks-row"><div class="thanks-ic">🤝</div><div class="thanks-body"><h4>Anyone who helped you this week</h4><span>Pick a name, send thanks</span></div><div class="tree-chevron">→</div></div>
+      <div class="card thanks-row"><div class="thanks-ic">❤️</div><div class="thanks-body"><h4>Your near and dear ones</h4><span>Family, always first</span></div><div class="tree-chevron">→</div></div>
+      <div class="card thanks-row"><div class="thanks-ic">🎉</div><div class="thanks-body"><h4>Your friends</h4><span>A quick note goes a long way</span></div><div class="tree-chevron">→</div></div>
+      <div class="card thanks-row"><div class="thanks-ic">💼</div><div class="thanks-body"><h4>Your colleagues</h4><span>Recognize a small assist</span></div><div class="tree-chevron">→</div></div>
+    </section>
+  </div></div>
+</div>
+
+<!-- 6: JOURNAL ENTRY -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">6</span> Journal Entry (from "All good things")</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>Gratitude Journal</h1><div class="sub">ALL GOOD THINGS IN YOUR LIFE</div></div></div>
+    <section>
+      <span class="field-label">What are you grateful for today?</span>
+      <div class="journal-area">"Today I'm grateful for a calm morning, a good cup of coffee, and…"</div>
+    </section>
+    <section><div class="btn-solid growth" style="text-align:center;">Save entry</div></section>
+  </div></div>
+</div>
+
+<!-- 7: CONGRATS POPUP -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">7</span> Congrats Popup — shown after any positive action</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>Gratitude Journal</h1><div class="sub">ALL GOOD THINGS IN YOUR LIFE</div></div></div>
+    <section>
+      <span class="field-label">What are you grateful for today?</span>
+      <div class="journal-area" style="color:var(--ink); font-style:normal;">"Today I'm grateful for a calm morning, a good cup of coffee, and a message from an old friend."</div>
+    </section>
+    <div class="backdrop">
+      <div class="popup-card">
+        <div class="em">🎉</div>
+        <h3>Congrats!</h3>
+        <div class="amt">+15 RDM</div>
+        <p>Added to your Reward Purse for today's gratitude entry.</p>
+        <div class="btn-solid gold" style="text-align:center;">Nice!</div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 8: GOOD DEEDS REGISTER -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">8</span> Good Deeds Register (from Add Sunlight)</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>Good Deeds Register</h1><div class="sub">MARK OFF WHAT YOU DID TODAY</div></div></div>
+    <section>
+      <div class="card">
+        <div class="deed-row done"><div class="deed-check">✓</div><div class="deed-body"><h5>Helped a neighbor</h5></div><div class="deed-rdm">+20</div></div>
+        <div class="deed-row done"><div class="deed-check">✓</div><div class="deed-body"><h5>Recycled waste at home</h5></div><div class="deed-rdm">+15</div></div>
+        <div class="deed-row"><div class="deed-check"></div><div class="deed-body"><h5>Complimented someone sincerely</h5></div><div class="deed-rdm">+10</div></div>
+        <div class="deed-row"><div class="deed-check"></div><div class="deed-body"><h5>Gave up your seat / priority</h5></div><div class="deed-rdm">+10</div></div>
+        <div class="deed-row"><div class="deed-check"></div><div class="deed-body"><h5>Donated old clothes / books</h5></div><div class="deed-rdm">+25</div></div>
+        <div class="deed-row"><div class="deed-check"></div><div class="deed-body"><h5>Checked on someone who's struggling</h5></div><div class="deed-rdm">+20</div></div>
+      </div>
+    </section>
+    <section><div class="btn-solid gold" style="text-align:center;">Submit today's good deeds</div></section>
+  </div></div>
+</div>
+
+<!-- 9: STREAK MISSED WARNING -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">9</span> Streak Missed — Auto Reward → Remorse</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="titles"><h1>Grow Every Day</h1><div class="sub">DAY 19 · STREAK AT RISK</div></div></div>
+    <section>
+      <div class="warn-banner">
+        <div style="font-size:20px;">⚠️</div>
+        <p><b>Streak missed yesterday.</b> Your tree didn't get tended — 10 RDM has moved automatically.</p>
+      </div>
+    </section>
+    <section>
+      <div class="card">
+        <div class="purse-flow-card">
+          <div class="flow-purse"><div class="v" style="color:var(--gold);">310</div><div class="l">Reward Purse<br>(was 320)</div></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-purse"><div class="v" style="color:var(--coral);">50</div><div class="l">Remorse Purse<br>(was 40)</div></div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="card" style="text-align:center;">
+        <p style="font-size:11px; color:var(--ink-soft); margin:0 0 10px 0;">Complete today's action to protect tomorrow's streak.</p>
+        <div class="btn-solid growth" style="text-align:center;">Tend the tree now</div>
+      </div>
+    </section>
+  </div></div>
+</div>
+
+<!-- 10: JAPANESE WISDOM HUB -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">10</span> Japanese Wisdom Hub (new icon on Home/Profile)</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>Japanese Wisdom</h1><div class="sub">SMALL IDEAS, STEADY GROWTH</div></div><div class="ic-btn">🎐</div></div>
+    <section>
+      <div class="card wisdom-row"><div class="wisdom-ic">改</div><div class="wisdom-body"><h4>Kaizen <span class="jp">改善</span></h4><p>Continuous improvement, one small step at a time</p></div><div class="tree-chevron">→</div></div>
+      <div class="card wisdom-row"><div class="wisdom-ic">生</div><div class="wisdom-body"><h4>Ikigai <span class="jp">生き甲斐</span></h4><p>Your reason for being — what gets you up each day</p></div><div class="tree-chevron">→</div></div>
+      <div class="card wisdom-row"><div class="wisdom-ic">侘</div><div class="wisdom-body"><h4>Wabi-Sabi <span class="jp">侘寂</span></h4><p>Finding beauty in imperfection and impermanence</p></div><div class="tree-chevron">→</div></div>
+      <div class="card wisdom-row"><div class="wisdom-ic">一</div><div class="wisdom-body"><h4>Ichigo Ichie <span class="jp">一期一会</span></h4><p>Treasure this moment — it won't come again</p></div><div class="tree-chevron">→</div></div>
+    </section>
+  </div></div>
+</div>
+
+<!-- 11: KAIZEN COACH DETAIL -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">11</span> Kaizen Coach — Detail (tap "Kaizen" above)</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>Kaizen Coach</h1></div><div class="ic-btn">⚙</div></div>
+    <section>
+      <div class="asked-bubble">
+        <div class="lbl">You asked</div>
+        <h4>Should I talk to my old friend?</h4>
+      </div>
+    </section>
+    <section style="padding-top:0;">
+      <div class="kaizen-card">
+        <div class="tag">⭐ HERE'S YOUR KAIZEN</div>
+        <h4>Instead of overthinking, take a small step that creates real connection.</h4>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Why this is a better step</div>
+      <div class="why-list">
+        <div class="why-item"><span class="chk">✓</span> Low risk, high respect</div>
+        <div class="why-item"><span class="chk">✓</span> Keeps the door open</div>
+        <div class="why-item"><span class="chk">✓</span> Builds maturity &amp; calm</div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Small action for today</div>
+      <div class="small-action">
+        <h5>Send a short, kind message. No pressure. Just check in.</h5>
+        <p>"Hey, hope you're doing well!"</p>
+      </div>
+    </section>
+    <section>
+      <div class="btn-solid growth" style="text-align:center; margin-bottom:8px;">I'll Do This</div>
+      <div class="btn-ghost" style="text-align:center;">Not Now</div>
+    </section>
+  </div></div>
+</div>
+
+<!-- 12: FAMILY GOOD DEEDS TRACKER + EMPATHY INDEX -->
+<div class="frame-wrap">
+  <div class="frame-label"><span class="n">12</span> Family Good Deeds Tracker &amp; Empathy Index</div>
+  <div class="device"><div class="screen">
+    <div class="hdr"><div class="back">←</div><div class="titles"><h1>We grow better, together 🌱</h1></div><div class="ic-btn">+</div></div>
+    <div class="fam-avatars">
+      <div class="fam-av"><div class="circ">SN</div><span>You</span></div>
+      <div class="fam-av"><div class="circ">M</div><span>Mom</span></div>
+      <div class="fam-av"><div class="circ">D</div><span>Dad</span></div>
+      <div class="fam-av"><div class="circ">A</div><span>Anaya</span></div>
+      <div class="fam-av"><div class="circ">Da</div><span>Dadi</span></div>
+    </div>
+    <section style="padding-top:0;">
+      <div class="section-label">Family progress <a href="#" style="color:var(--ink-soft);">This week</a></div>
+      <div class="card ring-card">
+        <div class="ring-wrap"><div class="ring-inner">78%</div></div>
+        <div class="ring-stats">
+          <div class="r">Good actions <b>24</b></div>
+          <div class="r">RDM earned <b>460</b></div>
+          <div class="r">Streak <b>7 days</b></div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Today's family check-in</div>
+      <div class="checkin-row">
+        <div class="checkin-field">How was everyone's day?</div>
+        <div class="btn-solid growth" style="padding:10px 14px;">Check-in</div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Recent good actions <a href="#" style="color:var(--ink-soft);">View all</a></div>
+      <div class="card">
+        <div class="action-feed-row"><div class="af-avatar">M</div><div class="af-body"><h5>Mom helped a neighbor</h5><span>2h ago</span></div><div class="af-amt">+20</div></div>
+        <div class="action-feed-row"><div class="af-avatar">D</div><div class="af-body"><h5>Dad recycled waste</h5><span>5h ago</span></div><div class="af-amt">+15</div></div>
+        <div class="action-feed-row"><div class="af-avatar">A</div><div class="af-body"><h5>Anaya watered the plants</h5><span>1d ago</span></div><div class="af-amt">+10</div></div>
+      </div>
+    </section>
+    <section>
+      <div class="section-label">Empathy Index <a href="#" style="color:var(--ink-soft);">Full diary</a></div>
+      <div class="card">
+        <div class="empathy-row">
+          <div class="empathy-top"><div class="empathy-name"><div class="af-avatar">M</div>Mom</div><div class="empathy-pct">38% · 175 RDM</div></div>
+          <div class="empathy-meter"><i style="width:38%;"></i></div>
+        </div>
+        <div class="empathy-row">
+          <div class="empathy-top"><div class="empathy-name"><div class="af-avatar">SN</div>You</div><div class="empathy-pct">27% · 124 RDM</div></div>
+          <div class="empathy-meter"><i style="width:27%;"></i></div>
+        </div>
+        <div class="empathy-row">
+          <div class="empathy-top"><div class="empathy-name"><div class="af-avatar">D</div>Dad</div><div class="empathy-pct">19% · 87 RDM</div></div>
+          <div class="empathy-meter"><i style="width:19%;"></i></div>
+        </div>
+        <div class="empathy-row" style="margin-bottom:0;">
+          <div class="empathy-top"><div class="empathy-name"><div class="af-avatar">A</div>Anaya</div><div class="empathy-pct">16% · 74 RDM</div></div>
+          <div class="empathy-meter"><i style="width:16%;"></i></div>
+        </div>
+      </div>
+    </section>
+    <div class="navbar">
+      <div class="navitem"><span>Home</span></div>
+      <div class="navitem"><span>Kaizen</span></div>
+      <div class="navitem"><span>Tree</span></div>
+      <div class="navitem active"><span>Family</span></div>
+      <div class="navitem"><span>Profile</span></div>
+    </div>
+  </div></div>
+</div>
+
+</div>
+</body>
+</html>
