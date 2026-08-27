@@ -8,6 +8,8 @@ import {
   debitPurseBalances,
   gameDayKey,
   gameSessionCanReward,
+  goodDeedCatalog,
+  goodDeedSubmissionResult,
   gratitudeCategories,
   groupAwardCredits,
   initialBadgeIds,
@@ -90,10 +92,56 @@ test("group awards deliver every real member's positive allocation", () => {
 test("gratitude categories own their dynamic journal copy", () => {
   assert.equal(gratitudeCategories.length, 5);
   assert.equal(new Set(gratitudeCategories.map((category) => category.journalTitle)).size, 5);
+  assert.equal(new Set(gratitudeCategories.map((category) => category.rewardMessage)).size, 5);
   assert.equal(gratitudeCategories.find((category) => category.id === "life")?.prompt, "What are you grateful for today?");
+  assert.equal(
+    gratitudeCategories.find((category) => category.id === "life")?.rewardMessage,
+    "Added to your Reward Purse for today's gratitude entry.",
+  );
 });
 
-test("tree growth combines habit streak and completed water actions", () => {
+test("good deeds use the wireframe catalog and server-owned rewards", () => {
+  assert.deepEqual(
+    goodDeedCatalog.map(({ title, reward }) => [title, reward]),
+    [
+      ["Helped a neighbor", 20],
+      ["Recycled waste at home", 15],
+      ["Complimented someone sincerely", 10],
+      ["Gave up your seat / priority", 10],
+      ["Donated old clothes / books", 25],
+      ["Checked on someone who's struggling", 20],
+    ],
+  );
+  assert.equal(new Set(goodDeedCatalog.map((deed) => deed.id)).size, 6);
+  assert.equal(goodDeedCatalog.reduce((total, deed) => total + deed.reward, 0), 100);
+});
+
+test("good deed submissions allocate rewards only for newly completed actions", () => {
+  const successful = goodDeedSubmissionResult([
+    { completedNow: true, reward: 20 },
+    { completedNow: true, reward: 15 },
+  ]);
+  assert.deepEqual(successful, { reward: 35, completedCount: 2, alreadyCompleted: 0 });
+  assert.equal(treeGrowthFor(18, successful.completedCount).points, 20);
+
+  assert.deepEqual(
+    goodDeedSubmissionResult([
+      { completedNow: false, reward: 20 },
+      { completedNow: false, reward: 15 },
+    ]),
+    { reward: 0, completedCount: 0, alreadyCompleted: 2 },
+  );
+
+  assert.deepEqual(
+    goodDeedSubmissionResult([
+      { completedNow: false, reward: 20 },
+      { completedNow: true, reward: 15 },
+    ]),
+    { reward: 15, completedCount: 1, alreadyCompleted: 1 },
+  );
+});
+
+test("tree growth combines habit streak and completed care actions", () => {
   assert.deepEqual(treeGrowthFor(0, 0), {
     points: 0,
     stage: "Seedling",

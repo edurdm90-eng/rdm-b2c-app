@@ -310,6 +310,51 @@ export function ActionDialog({
   );
 }
 
+export function PositiveActionDialog({
+  visible,
+  reward,
+  message,
+  confirmLabel = "Nice!",
+  onConfirm,
+}: {
+  visible: boolean;
+  reward: number;
+  message: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onConfirm}
+      statusBarTranslucent
+      transparent
+      visible={visible}
+    >
+      <View accessibilityViewIsModal style={styles.positiveActionOverlay}>
+        <View
+          accessibilityLabel={`Congrats! Plus ${reward} RDM. ${message}`}
+          accessibilityRole="alert"
+          style={styles.positiveActionCard}
+        >
+          <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.positiveActionIcon}>
+            🎉
+          </Text>
+          <Text style={styles.positiveActionTitle}>Congrats!</Text>
+          <Text style={styles.positiveActionAmount}>+{reward} RDM</Text>
+          <Text style={styles.positiveActionMessage}>{message}</Text>
+          <PrimaryButton
+            color={colors.gold}
+            label={confirmLabel}
+            onPress={onConfirm}
+            style={styles.positiveActionButton}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export const rdmStyles = StyleSheet.create({
   title: { color: colors.ink, fontFamily: fonts.display, fontSize: 18 },
   body: { color: colors.ink, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
@@ -350,4 +395,38 @@ const styles = StyleSheet.create({
   dialogMessage: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   dialogActions: { flexDirection: "row", gap: 10, marginTop: 8 },
   dialogAction: { flex: 1 },
+  positiveActionOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(5, 6, 10, 0.76)",
+    padding: 30,
+  },
+  positiveActionCard: {
+    width: "100%",
+    maxWidth: 390,
+    alignItems: "center",
+    gap: 8,
+    borderRadius: radii.large,
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    backgroundColor: colors.panel,
+    paddingHorizontal: 20,
+    paddingVertical: 26,
+  },
+  positiveActionIcon: {
+    fontSize: 44,
+    lineHeight: 52,
+  },
+  positiveActionTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 20 },
+  positiveActionAmount: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 27 },
+  positiveActionMessage: {
+    color: colors.inkSoft,
+    fontFamily: fonts.body,
+    fontSize: 11,
+    lineHeight: 17,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  positiveActionButton: { width: "100%" },
 });

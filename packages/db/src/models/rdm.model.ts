@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 
+import { goodDeedIds } from "../good-deeds";
+
 const { Schema, model, models } = mongoose;
 
-export const transactionKinds = ["habit", "game", "gratitude", "remorse", "peer", "charity", "redeem"] as const;
+export const transactionKinds = ["habit", "game", "gratitude", "deed", "remorse", "peer", "charity", "redeem"] as const;
 export const habitSources = ["template", "custom"] as const;
 export const habitStages = ["pledge", "act", "reflect", "reward"] as const;
 export const habitOutcomes = ["completed", "missed"] as const;
@@ -33,6 +35,8 @@ const profileSchema = new Schema(
     treePledgedAt: { type: Date },
     treeWaterCount: { type: Number, required: true, default: 0 },
     treeLastWateredAt: { type: Date },
+    treeSunlightCount: { type: Number, required: true, default: 0 },
+    treeLastSunlightAt: { type: Date },
     treeCareOperations: { type: [String], required: true, default: [] },
     walletBalance: { type: Number, required: true, default: 1240 },
     rewardBalance: { type: Number, required: true, default: 320 },
@@ -104,6 +108,21 @@ const gratitudeEntrySchema = new Schema(
 gratitudeEntrySchema.index({ userId: 1, category: 1, dayKey: 1 }, { unique: true });
 gratitudeEntrySchema.index({ userId: 1, createdAt: -1 });
 
+const goodDeedEntrySchema = new Schema(
+  {
+    userId: { type: String, required: true, index: true },
+    deedId: { type: String, enum: goodDeedIds, required: true },
+    deedTitle: { type: String, required: true },
+    dayKey: { type: String, required: true },
+    reward: { type: Number, required: true },
+    processedAt: { type: Date },
+  },
+  { timestamps: true },
+);
+
+goodDeedEntrySchema.index({ userId: 1, deedId: 1, dayKey: 1 }, { unique: true });
+goodDeedEntrySchema.index({ userId: 1, createdAt: -1 });
+
 const memberSchema = new Schema(
   {
     userId: { type: String },
@@ -162,6 +181,7 @@ const referralSchema = new Schema(
 type RdmProfileShape = mongoose.InferSchemaType<typeof profileSchema>;
 type HabitShape = mongoose.InferSchemaType<typeof habitSchema>;
 type GratitudeEntryShape = mongoose.InferSchemaType<typeof gratitudeEntrySchema>;
+type GoodDeedEntryShape = mongoose.InferSchemaType<typeof goodDeedEntrySchema>;
 type GoalGroupShape = mongoose.InferSchemaType<typeof groupSchema>;
 type GameSessionShape = mongoose.InferSchemaType<typeof gameSessionSchema>;
 type ReferralShape = mongoose.InferSchemaType<typeof referralSchema>;
@@ -175,6 +195,9 @@ const Habit =
 const GratitudeEntry =
   (models.GratitudeEntry as mongoose.Model<GratitudeEntryShape> | undefined) ??
   model<GratitudeEntryShape>("GratitudeEntry", gratitudeEntrySchema);
+const GoodDeedEntry =
+  (models.GoodDeedEntry as mongoose.Model<GoodDeedEntryShape> | undefined) ??
+  model<GoodDeedEntryShape>("GoodDeedEntry", goodDeedEntrySchema);
 const GoalGroup =
   (models.GoalGroup as mongoose.Model<GoalGroupShape> | undefined) ??
   model<GoalGroupShape>("GoalGroup", groupSchema);
@@ -185,4 +208,4 @@ const Referral =
   (models.Referral as mongoose.Model<ReferralShape> | undefined) ??
   model<ReferralShape>("Referral", referralSchema);
 
-export { GameSession, GoalGroup, GratitudeEntry, Habit, RdmProfile, Referral };
+export { GameSession, GoalGroup, GoodDeedEntry, GratitudeEntry, Habit, RdmProfile, Referral };

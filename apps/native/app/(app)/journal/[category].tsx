@@ -3,13 +3,14 @@ import type { GratitudeCategoryId } from "@rdm-b2c/api/domain/rdm";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import {
   AppScreen,
   ErrorState,
   LoadingState,
   PageHeader,
+  PositiveActionDialog,
   PrimaryButton,
 } from "@/components/rdm-ui";
 import { colors, fonts, radii } from "@/lib/theme";
@@ -21,45 +22,8 @@ type JournalCategory = {
   journalSubtitle: string;
   prompt: string;
   placeholder: string;
+  rewardMessage: string;
 };
-
-function RewardDialog({
-  categoryTitle,
-  reward,
-  visible,
-  onClose,
-}: {
-  categoryTitle: string;
-  reward: number;
-  visible: boolean;
-  onClose: () => void;
-}) {
-  return (
-    <Modal
-      animationType="fade"
-      onRequestClose={onClose}
-      statusBarTranslucent
-      transparent
-      visible={visible}
-    >
-      <View accessibilityViewIsModal style={styles.dialogOverlay}>
-        <View style={styles.dialogCard}>
-          <View style={styles.celebrationIcon}>
-            <MaterialCommunityIcons color={colors.gold} name="party-popper" size={34} />
-          </View>
-          <Text style={styles.dialogTitle}>Congrats!</Text>
-          <Text style={styles.dialogAmount}>{reward > 0 ? `+${reward} RDM` : "Entry saved"}</Text>
-          <Text style={styles.dialogCopy}>
-            {reward > 0
-              ? `Added to your Reward Purse. “${categoryTitle}” also watered your tree.`
-              : "This category already watered your tree today, so no duplicate reward was added."}
-          </Text>
-          <PrimaryButton color={colors.gold} label="Nice!" onPress={onClose} style={styles.dialogButton} />
-        </View>
-      </View>
-    </Modal>
-  );
-}
 
 function JournalForm({
   category,
@@ -78,7 +42,7 @@ function JournalForm({
       onSuccess: async (result) => {
         setSaved(true);
         setReward(result.reward);
-        setDialogOpen(true);
+        setDialogOpen(result.reward > 0);
         await queryClient.invalidateQueries();
       },
       onError: (mutationError) => setError(mutationError.message),
@@ -141,9 +105,9 @@ function JournalForm({
         />
       </AppScreen>
 
-      <RewardDialog
-        categoryTitle={category.journalTitle}
-        onClose={closeDialog}
+      <PositiveActionDialog
+        message={category.rewardMessage}
+        onConfirm={closeDialog}
         reward={reward}
         visible={dialogOpen}
       />
@@ -210,42 +174,4 @@ const styles = StyleSheet.create({
   },
   savedText: { flex: 1, color: colors.growth, fontFamily: fonts.bodyMedium, fontSize: 11 },
   error: { color: colors.coral, fontFamily: fonts.bodyMedium, fontSize: 12 },
-  dialogOverlay: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(5,6,10,0.72)",
-    padding: 30,
-  },
-  dialogCard: {
-    width: "100%",
-    maxWidth: 390,
-    alignItems: "center",
-    gap: 8,
-    borderRadius: radii.large,
-    borderWidth: 1.5,
-    borderColor: colors.gold,
-    backgroundColor: colors.panel,
-    paddingHorizontal: 20,
-    paddingVertical: 26,
-  },
-  celebrationIcon: {
-    width: 58,
-    height: 58,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 29,
-    backgroundColor: colors.goldTint,
-  },
-  dialogTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 20 },
-  dialogAmount: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 27 },
-  dialogCopy: {
-    color: colors.inkSoft,
-    fontFamily: fonts.body,
-    fontSize: 11,
-    lineHeight: 17,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  dialogButton: { width: "100%" },
 });

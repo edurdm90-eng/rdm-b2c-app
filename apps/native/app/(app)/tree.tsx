@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Ellipse, Path } from "react-native-svg";
 
 import {
@@ -146,10 +146,6 @@ export default function TreeScreen() {
     pledge.mutate({ amount: parsedAmount });
   }
 
-  function showNextStep(title: string) {
-    Alert.alert(title, "We will build this action in the next step. Your tree page is ready now.");
-  }
-
   return (
     <AppScreen contentStyle={styles.content}>
       <PageHeader
@@ -226,12 +222,12 @@ export default function TreeScreen() {
       </View>
 
       <View
-        accessibilityLabel={`${profile.plantStage} tree, ${profile.tree.growth.points} growth points from a ${profile.streak} day streak and ${profile.tree.waterCount} water actions`}
+        accessibilityLabel={`${profile.plantStage} tree, ${profile.tree.growth.points} growth points from a ${profile.streak} day streak, ${profile.tree.waterCount} water actions, and ${profile.tree.sunlightCount} sunlight actions`}
         style={styles.treeVisual}
       >
         <GrowingTreeArtwork width={profile.tree.growth.artworkWidth} />
         <Text style={styles.growthCaption}>
-          {profile.streak} streak + {profile.tree.waterCount} water · {profile.tree.growth.points} growth
+          {profile.streak} streak + {profile.tree.waterCount} water + {profile.tree.sunlightCount} sunlight · {profile.tree.growth.points} growth
         </Text>
       </View>
 
@@ -256,7 +252,7 @@ export default function TreeScreen() {
           icon="white-balance-sunny"
           iconBackground={colors.coralTint}
           iconColor={colors.coral}
-          onPress={() => showNextStep("Good Deeds Register")}
+          onPress={() => router.push("/(app)/good-deeds")}
           subtitle="Do Good Deeds"
           title="Add Sunlight"
         />

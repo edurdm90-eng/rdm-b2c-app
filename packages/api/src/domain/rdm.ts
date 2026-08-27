@@ -1,3 +1,8 @@
+import { goodDeedCatalog } from "@rdm-b2c/db/good-deeds";
+
+export { goodDeedCatalog } from "@rdm-b2c/db/good-deeds";
+export type { GoodDeedId } from "@rdm-b2c/db/good-deeds";
+
 export const habitCategories = ["Focus", "Health", "Money", "Sustainability"] as const;
 
 export type HabitCategory = (typeof habitCategories)[number];
@@ -12,6 +17,7 @@ export const gratitudeCategories = [
     journalSubtitle: "ALL GOOD THINGS IN YOUR LIFE",
     prompt: "What are you grateful for today?",
     placeholder: "Today I'm grateful for a calm morning, a good cup of coffee, and…",
+    rewardMessage: "Added to your Reward Purse for today's gratitude entry.",
   },
   {
     id: "helper",
@@ -22,6 +28,7 @@ export const gratitudeCategories = [
     journalSubtitle: "THANK SOMEONE WHO SHOWED UP",
     prompt: "Who helped you this week, and what would you like to thank them for?",
     placeholder: "This week, I'm thankful to… because…",
+    rewardMessage: "Added to your Reward Purse for thanking someone who helped this week.",
   },
   {
     id: "loved-ones",
@@ -32,6 +39,7 @@ export const gratitudeCategories = [
     journalSubtitle: "YOUR NEAR AND DEAR ONES",
     prompt: "Who close to you are you grateful for today, and why?",
     placeholder: "Today, someone close to me made a difference by…",
+    rewardMessage: "Added to your Reward Purse for appreciating someone close to you.",
   },
   {
     id: "friends",
@@ -42,6 +50,7 @@ export const gratitudeCategories = [
     journalSubtitle: "APPRECIATE A FRIEND",
     prompt: "Which friend made life better recently, and how?",
     placeholder: "I'm grateful for my friend… because…",
+    rewardMessage: "Added to your Reward Purse for celebrating a friend today.",
   },
   {
     id: "colleagues",
@@ -52,6 +61,7 @@ export const gratitudeCategories = [
     journalSubtitle: "RECOGNIZE A SMALL ASSIST",
     prompt: "Which colleague helped you recently, and what did you appreciate?",
     placeholder: "A colleague helped me by… and I appreciated…",
+    rewardMessage: "Added to your Reward Purse for recognizing a colleague today.",
   },
 ] as const;
 
@@ -59,6 +69,23 @@ export type GratitudeCategoryId = (typeof gratitudeCategories)[number]["id"];
 
 export function gratitudeCategoryById(id: string) {
   return gratitudeCategories.find((category) => category.id === id) ?? null;
+}
+
+export const goodDeedRewardMessage = "Added to your Reward Purse for today's good deeds.";
+
+export function goodDeedById(id: string) {
+  return goodDeedCatalog.find((deed) => deed.id === id) ?? null;
+}
+
+export function goodDeedSubmissionResult(
+  actions: ReadonlyArray<{ completedNow: boolean; reward: number }>,
+) {
+  const completedActions = actions.filter((action) => action.completedNow);
+  return {
+    reward: completedActions.reduce((total, action) => total + action.reward, 0),
+    completedCount: completedActions.length,
+    alreadyCompleted: actions.length - completedActions.length,
+  };
 }
 
 const treeGrowthStages = [
@@ -70,10 +97,10 @@ const treeGrowthStages = [
   { minimum: 60, stage: "Thriving" },
 ] as const;
 
-export function treeGrowthFor(streak: number, waterCount: number) {
+export function treeGrowthFor(streak: number, careActionCount: number) {
   const safeStreak = Math.max(0, Math.floor(streak));
-  const safeWaterCount = Math.max(0, Math.floor(waterCount));
-  const points = safeStreak + safeWaterCount;
+  const safeCareActionCount = Math.max(0, Math.floor(careActionCount));
+  const points = safeStreak + safeCareActionCount;
   const stageIndex = treeGrowthStages.findLastIndex((item) => points >= item.minimum);
   const current = treeGrowthStages[Math.max(0, stageIndex)] ?? treeGrowthStages[0];
   const next = treeGrowthStages[stageIndex + 1];

@@ -14,9 +14,11 @@ await mongoose.connect(databaseUrl);
 const client = mongoose.connection.getClient().db(databaseName);
 
 export { client, databaseName };
+export { goodDeedCatalog, goodDeedIds } from "./good-deeds";
 export {
   GameSession,
   GoalGroup,
+  GoodDeedEntry,
   GratitudeEntry,
   Habit,
   RdmProfile,

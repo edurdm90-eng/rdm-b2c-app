@@ -18,6 +18,7 @@ export default function ProtectedLayout() {
       <Stack.Screen name="habit/new" />
       <Stack.Screen name="habit/[id]" />
       <Stack.Screen name="tree" />
+      <Stack.Screen name="good-deeds" />
       <Stack.Screen name="thank-you" />
       <Stack.Screen name="journal/[category]" />
       <Stack.Screen name="game/[id]" />

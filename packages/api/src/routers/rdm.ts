@@ -1,10 +1,12 @@
 import {
   GameSession,
   GoalGroup,
+  GoodDeedEntry,
   GratitudeEntry,
   Habit,
   RdmProfile,
   Referral,
+  goodDeedIds,
   gratitudeCategoryIds,
   habitOutcomes,
   habitSources,
@@ -20,6 +22,10 @@ import {
   gameDayKey,
   gameCatalog,
   gameSessionCanReward,
+  goodDeedById,
+  goodDeedCatalog,
+  goodDeedRewardMessage,
+  goodDeedSubmissionResult,
   gratitudeCategories,
   gratitudeCategoryById,
   groupAwardCredits,
@@ -35,6 +41,11 @@ import {
 
 const nowIso = () => new Date().toISOString();
 const mongoId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
+const goodDeedSelection = z
+  .array(z.enum(goodDeedIds))
+  .min(1)
+  .max(goodDeedIds.length)
+  .refine((ids) => new Set(ids).size === ids.length, "Choose each deed only once");
 const createInviteCode = () => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = new Uint8Array(6);
@@ -65,7 +76,8 @@ function serializeHabit(habit: any) {
 function serializeProfile(profile: any) {
   const streak = Number(profile.streak);
   const waterCount = Number(profile.treeWaterCount ?? 0);
-  const growth = treeGrowthFor(streak, waterCount);
+  const sunlightCount = Number(profile.treeSunlightCount ?? 0);
+  const growth = treeGrowthFor(streak, waterCount + sunlightCount);
 
   return {
     xp: Number(profile.xp),
@@ -78,6 +90,10 @@ function serializeProfile(profile: any) {
       waterCount,
       lastWateredAt: profile.treeLastWateredAt
         ? new Date(profile.treeLastWateredAt).toISOString()
+        : null,
+      sunlightCount,
+      lastSunlightAt: profile.treeLastSunlightAt
+        ? new Date(profile.treeLastSunlightAt).toISOString()
         : null,
       growth,
     },
@@ -111,6 +127,18 @@ function serializeGratitudeEntry(entry: any) {
     dayKey: String(entry.dayKey),
     reward: Number(entry.reward),
     growthPoints: Number(entry.growthPoints),
+    processedAt: entry.processedAt ? new Date(entry.processedAt).toISOString() : null,
+    createdAt: new Date(entry.createdAt).toISOString(),
+  };
+}
+
+function serializeGoodDeedEntry(entry: any) {
+  return {
+    id: String(entry._id),
+    deedId: String(entry.deedId),
+    deedTitle: String(entry.deedTitle),
+    dayKey: String(entry.dayKey),
+    reward: Number(entry.reward),
     processedAt: entry.processedAt ? new Date(entry.processedAt).toISOString() : null,
     createdAt: new Date(entry.createdAt).toISOString(),
   };
@@ -166,7 +194,7 @@ async function creditProfile({
   userId: string;
   amount: number;
   title: string;
-  kind: "habit" | "game" | "gratitude" | "peer";
+  kind: "habit" | "game" | "gratitude" | "deed" | "peer";
   purse: "reward" | "peer";
   operationId: string;
   badgeIds?: ReadonlyArray<string>;
@@ -451,6 +479,132 @@ export const rdmRouter = router({
           code: "BAD_REQUEST",
           message: "Your RDM balance is lower than this pledge.",
         });
+      }),
+  }),
+
+  goodDeeds: router({
+    today: protectedProcedure.query(async ({ ctx }) => {
+      await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
+      const dayKey = gameDayKey();
+      const entries = await GoodDeedEntry.find({
+        userId: ctx.session.user.id,
+        dayKey,
+      });
+      const entriesByDeedId = new Map(
+        entries.map((entry) => [String(entry.deedId), entry]),
+      );
+
+      return {
+        dayKey,
+        earnedToday: entries.reduce(
+          (total, entry) => total + (entry.processedAt ? Number(entry.reward) : 0),
+          0,
+        ),
+        deeds: goodDeedCatalog.map((deed) => {
+          const entry = entriesByDeedId.get(deed.id);
+          return {
+            ...deed,
+            completed: Boolean(entry?.processedAt),
+            completedAt: entry?.processedAt
+              ? new Date(entry.processedAt).toISOString()
+              : null,
+          };
+        }),
+      };
+    }),
+    submit: protectedProcedure
+      .input(z.object({ deedIds: goodDeedSelection }))
+      .mutation(async ({ ctx, input }) => {
+        await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
+        const dayKey = gameDayKey();
+        const submissionActions: Array<{ completedNow: boolean; reward: number }> = [];
+        const entries: Array<ReturnType<typeof serializeGoodDeedEntry>> = [];
+
+        for (const deedId of input.deedIds) {
+          const deed = goodDeedById(deedId);
+          if (!deed) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Good deed not found" });
+          }
+
+          let entry = await GoodDeedEntry.findOne({
+            userId: ctx.session.user.id,
+            deedId,
+            dayKey,
+          });
+          if (!entry) {
+            try {
+              entry = await GoodDeedEntry.create({
+                userId: ctx.session.user.id,
+                deedId,
+                deedTitle: deed.title,
+                dayKey,
+                reward: deed.reward,
+              });
+            } catch (error: any) {
+              if (error?.code !== 11000) throw error;
+              entry = await GoodDeedEntry.findOne({
+                userId: ctx.session.user.id,
+                deedId,
+                dayKey,
+              });
+            }
+          }
+
+          if (!entry) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Could not save the good deed",
+            });
+          }
+
+          const sunlightOperationId = `tree-sunlight:${entry._id}`;
+          await RdmProfile.findOneAndUpdate(
+            {
+              userId: ctx.session.user.id,
+              treeCareOperations: { $ne: sunlightOperationId },
+            },
+            {
+              $inc: { treeSunlightCount: 1 },
+              $set: { treeLastSunlightAt: new Date() },
+              $addToSet: { treeCareOperations: sunlightOperationId },
+            },
+          );
+
+          await creditProfile({
+            userId: ctx.session.user.id,
+            amount: entry.reward,
+            title: `${deed.title} — good deed`,
+            kind: "deed",
+            purse: "reward",
+            operationId: `good-deed:${entry._id}`,
+            badgeIds: ["community-hand"],
+          });
+
+          let completedNow = false;
+          if (!entry.processedAt) {
+            const processedAt = new Date();
+            const processingResult = await GoodDeedEntry.updateOne(
+              { _id: entry._id, processedAt: { $exists: false } },
+              { $set: { processedAt } },
+            );
+            if (processingResult.modifiedCount === 1) {
+              entry.processedAt = processedAt;
+              completedNow = true;
+            }
+          }
+          submissionActions.push({ completedNow, reward: Number(entry.reward) });
+          entries.push(serializeGoodDeedEntry(entry));
+        }
+
+        const submissionResult = goodDeedSubmissionResult(submissionActions);
+
+        return {
+          dayKey,
+          entries,
+          ...submissionResult,
+          rewardMessage: goodDeedRewardMessage,
+          profile: serializeProfile(await getProfile(ctx.session.user.id)),
+        };
       }),
   }),
 
