@@ -123,6 +123,28 @@ habitSchema.index(
   },
 );
 
+const goalSchema = new Schema(
+  {
+    userId: { type: String, required: true, index: true },
+    creationId: { type: String, required: true },
+    title: { type: String, required: true },
+    category: { type: String, required: true },
+    target: { type: String, required: true },
+    durationDays: { type: Number, required: true, min: 1 },
+    startDayKey: { type: String, required: true },
+    endDayKey: { type: String, required: true },
+    timeZone: { type: String, required: true },
+    pledgeAmount: { type: Number, required: true, min: 1 },
+    fundingStatus: { type: String, enum: ["pending", "funded"], required: true },
+    progress: { type: Number, required: true, min: 0, max: 100, default: 0 },
+    active: { type: Boolean, required: true, default: false },
+  },
+  { timestamps: true },
+);
+
+goalSchema.index({ userId: 1, creationId: 1 }, { unique: true });
+goalSchema.index({ userId: 1, active: 1, createdAt: -1 });
+
 const gratitudeEntrySchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
@@ -228,6 +250,7 @@ const referralSchema = new Schema(
 
 type RdmProfileShape = mongoose.InferSchemaType<typeof profileSchema>;
 type HabitShape = mongoose.InferSchemaType<typeof habitSchema>;
+type GoalShape = mongoose.InferSchemaType<typeof goalSchema>;
 type GratitudeEntryShape = mongoose.InferSchemaType<typeof gratitudeEntrySchema>;
 type GoodDeedEntryShape = mongoose.InferSchemaType<typeof goodDeedEntrySchema>;
 type TreeCareActivityShape = mongoose.InferSchemaType<typeof treeCareActivitySchema>;
@@ -241,6 +264,9 @@ const RdmProfile =
 const Habit =
   (models.Habit as mongoose.Model<HabitShape> | undefined) ??
   model<HabitShape>("Habit", habitSchema);
+const Goal =
+  (models.Goal as mongoose.Model<GoalShape> | undefined) ??
+  model<GoalShape>("Goal", goalSchema);
 const GratitudeEntry =
   (models.GratitudeEntry as mongoose.Model<GratitudeEntryShape> | undefined) ??
   model<GratitudeEntryShape>("GratitudeEntry", gratitudeEntrySchema);
@@ -260,4 +286,4 @@ const Referral =
   (models.Referral as mongoose.Model<ReferralShape> | undefined) ??
   model<ReferralShape>("Referral", referralSchema);
 
-export { GameSession, GoalGroup, GoodDeedEntry, GratitudeEntry, Habit, RdmProfile, Referral, TreeCareActivity };
+export { GameSession, Goal, GoalGroup, GoodDeedEntry, GratitudeEntry, Habit, RdmProfile, Referral, TreeCareActivity };

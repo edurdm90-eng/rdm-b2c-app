@@ -1,5 +1,6 @@
 import {
   GameSession,
+  Goal,
   GoalGroup,
   GoodDeedEntry,
   GratitudeEntry,
@@ -35,6 +36,8 @@ import {
   goodDeedSubmissionResult,
   gratitudeCategories,
   gratitudeCategoryById,
+  goalCategories,
+  goalDurationWindow,
   groupAwardCredits,
   habitCanStartNextCycle,
   habitCategories,
@@ -272,6 +275,22 @@ function serializeGroup(group: any, currentUserId: string) {
       award: Number(member.award),
       currentUser: member.userId ? String(member.userId) === currentUserId : false,
     })),
+  };
+}
+
+function serializeGoal(goal: any) {
+  return {
+    id: String(goal._id),
+    title: String(goal.title),
+    category: String(goal.category) as (typeof goalCategories)[number],
+    target: String(goal.target),
+    durationDays: Number(goal.durationDays),
+    startDayKey: String(goal.startDayKey),
+    endDayKey: String(goal.endDayKey),
+    timeZone: String(goal.timeZone),
+    pledgeAmount: Number(goal.pledgeAmount),
+    progress: Number(goal.progress),
+    active: Boolean(goal.active),
   };
 }
 
@@ -924,60 +943,137 @@ async function reconcileGroupAwards(group: any) {
   }
 }
 
+async function lockBasePledge({
+  amount,
+  operationId,
+  title,
+  userId,
+}: {
+  amount: number;
+  operationId: string;
+  title: string;
+  userId: string;
+}) {
+  let profile = await getProfile(userId);
+  if (profile.creditedOperations.includes(operationId)) return profile;
+
+  const lockedProfile = await RdmProfile.findOneAndUpdate(
+    {
+      userId,
+      creditedOperations: { $ne: operationId },
+      $expr: { $gte: [basePurseBalanceExpression(), amount] },
+    },
+    {
+      $inc: { walletBalance: -amount },
+      $addToSet: { creditedOperations: operationId },
+      $push: {
+        transactions: {
+          $each: [{
+            title,
+            amount: -amount,
+            kind: "stake",
+            operationId,
+            createdAt: new Date(),
+          }],
+          $position: 0,
+        },
+      },
+    },
+    { returnDocument: "after" },
+  );
+  if (lockedProfile) return lockedProfile;
+
+  profile = await getProfile(userId);
+  return profile.creditedOperations.includes(operationId) ? profile : null;
+}
+
+async function fundPendingRecord({
+  activatePending,
+  amount,
+  deletePending,
+  findFunded,
+  operationId,
+  title,
+  userId,
+}: {
+  activatePending: () => Promise<any>;
+  amount: number;
+  deletePending: () => Promise<unknown>;
+  findFunded: () => Promise<any>;
+  operationId: string;
+  title: string;
+  userId: string;
+}) {
+  const profile = await lockBasePledge({ amount, operationId, title, userId });
+  if (!profile) {
+    await deletePending();
+    return null;
+  }
+
+  return await activatePending() ?? await findFunded();
+}
+
 async function fundPendingHabit(habit: any, userId: string) {
   const pledge = scheduledHabitPledge(habit);
   if (!pledge || habit.rdmPledgeFundingStatus !== "pending") return habit;
 
-  const operationId = `habit-stake:${habit._id}`;
-  let profile = await getProfile(userId);
-  if (!profile.creditedOperations.includes(operationId)) {
-    const lockedProfile = await RdmProfile.findOneAndUpdate(
-      {
-        userId,
-        creditedOperations: { $ne: operationId },
-        $expr: {
-          $gte: [basePurseBalanceExpression(), pledge.totalPledge],
-        },
-      },
-      {
-        $inc: { walletBalance: -pledge.totalPledge },
-        $addToSet: { creditedOperations: operationId },
-        $push: {
-          transactions: {
-            $each: [{
-              title: `Habit pledge locked — ${habit.title}`,
-              amount: -pledge.totalPledge,
-              kind: "stake",
-              operationId,
-              createdAt: new Date(),
-            }],
-            $position: 0,
-          },
-        },
-      },
+  return fundPendingRecord({
+    activatePending: () => Habit.findOneAndUpdate(
+      { _id: habit._id, userId, rdmPledgeFundingStatus: "pending" },
+      { $set: { rdmPledgeFundingStatus: "funded", active: true } },
       { returnDocument: "after" },
-    );
-    if (lockedProfile) {
-      profile = lockedProfile;
-    } else {
-      profile = await getProfile(userId);
-      if (!profile.creditedOperations.includes(operationId)) {
-        await Habit.deleteOne({ _id: habit._id, userId, rdmPledgeFundingStatus: "pending" });
-        return null;
-      }
-    }
-  }
-
-  return await Habit.findOneAndUpdate(
-    { _id: habit._id, userId, rdmPledgeFundingStatus: "pending" },
-    { $set: { rdmPledgeFundingStatus: "funded", active: true } },
-    { returnDocument: "after" },
-  ) ?? await Habit.findOne({ _id: habit._id, userId, rdmPledgeFundingStatus: "funded" });
+    ),
+    amount: pledge.totalPledge,
+    deletePending: () => Habit.deleteOne({
+      _id: habit._id,
+      userId,
+      rdmPledgeFundingStatus: "pending",
+    }),
+    findFunded: () => Habit.findOne({
+      _id: habit._id,
+      userId,
+      rdmPledgeFundingStatus: "funded",
+    }),
+    operationId: `habit-stake:${habit._id}`,
+    title: `Habit pledge locked — ${habit.title}`,
+    userId,
+  });
 }
 
 async function reconcilePendingHabitFunding(userId: string) {
   const pendingHabits = await Habit.find({ userId, rdmPledgeFundingStatus: "pending" });
   for (const habit of pendingHabits) await fundPendingHabit(habit, userId);
+}
+
+async function fundPendingGoal(goal: any, userId: string) {
+  if (goal.fundingStatus !== "pending") return goal;
+
+  return fundPendingRecord({
+    activatePending: () => Goal.findOneAndUpdate(
+      { _id: goal._id, userId, fundingStatus: "pending" },
+      { $set: { fundingStatus: "funded", active: true } },
+      { returnDocument: "after" },
+    ),
+    amount: Number(goal.pledgeAmount),
+    deletePending: () => Goal.deleteOne({
+      _id: goal._id,
+      userId,
+      fundingStatus: "pending",
+    }),
+    findFunded: () => Goal.findOne({
+      _id: goal._id,
+      userId,
+      fundingStatus: "funded",
+    }),
+    operationId: `goal-stake:${goal._id}`,
+    title: `Goal pledge locked — ${goal.title}`,
+    userId,
+  });
+}
+
+async function reconcilePendingGoalFunding(userId: string) {
+  const pendingGoals = await Goal.find({ userId, fundingStatus: "pending" });
+  for (const goal of pendingGoals) await fundPendingGoal(goal, userId);
 }
 
 async function ensureSeedData(userId: string, userName: string) {
@@ -993,6 +1089,7 @@ async function ensureSeedData(userId: string, userName: string) {
   profile = await resetWeeklyInvites(profile);
   await ensureReferralCode(profile);
   await reconcilePendingHabitFunding(userId);
+  await reconcilePendingGoalFunding(userId);
 
   let habits = await Habit.find({ userId, active: true }).sort({ createdAt: 1 });
   if (habits.length === 0 && await Habit.countDocuments({ userId }) === 0) {
@@ -1862,6 +1959,93 @@ export const rdmRouter = router({
         );
         if (!habit) throw new TRPCError({ code: "CONFLICT", message: "Claim the current cycle before starting another" });
         return serializeHabit(habit);
+      }),
+  }),
+
+  goals: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
+      const goals = await Goal.find({
+        userId: ctx.session.user.id,
+        active: true,
+        fundingStatus: "funded",
+      }).sort({ createdAt: -1 });
+      return goals.map(serializeGoal);
+    }),
+    create: protectedProcedure
+      .input(z.object({
+        creationId: z.string().uuid(),
+        title: z.string().trim().min(3).max(80),
+        category: z.enum(goalCategories),
+        target: z.string().trim().min(2).max(120),
+        durationDays: z.number().int().min(1).max(3_650),
+        startDayKey: dayKeySchema,
+        timeZone: timeZoneSchema,
+        pledgeAmount: z.number().int().min(1).max(100_000),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const window = goalDurationWindow(input.startDayKey, input.durationDays);
+        const currentDayKey = dayKeyForTimeZone(new Date(), input.timeZone);
+        if (!window) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a valid goal duration." });
+        }
+        if (input.startDayKey < currentDayKey) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The goal start date cannot be in the past.",
+          });
+        }
+
+        await getProfile(ctx.session.user.id);
+        const existingGoal = await Goal.findOne({
+          userId: ctx.session.user.id,
+          creationId: input.creationId,
+        });
+        if (existingGoal) {
+          const fundedGoal = await fundPendingGoal(existingGoal, ctx.session.user.id);
+          if (!fundedGoal) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `You need ${input.pledgeAmount} RDM in your Base Purse for this goal.`,
+            });
+          }
+          return serializeGoal(fundedGoal);
+        }
+
+        let goal = new Goal({
+          userId: ctx.session.user.id,
+          creationId: input.creationId,
+          title: input.title,
+          category: input.category,
+          target: input.target,
+          durationDays: window.durationDays,
+          startDayKey: window.startDayKey,
+          endDayKey: window.endDayKey,
+          timeZone: input.timeZone,
+          pledgeAmount: input.pledgeAmount,
+          fundingStatus: "pending",
+          progress: 0,
+          active: false,
+        });
+        try {
+          await goal.save();
+        } catch (error: any) {
+          if (error?.code !== 11000) throw error;
+          const concurrentGoal = await Goal.findOne({
+            userId: ctx.session.user.id,
+            creationId: input.creationId,
+          });
+          if (!concurrentGoal) throw error;
+          goal = concurrentGoal;
+        }
+        const fundedGoal = await fundPendingGoal(goal, ctx.session.user.id);
+        if (!fundedGoal) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `You need ${input.pledgeAmount} RDM in your Base Purse for this goal.`,
+          });
+        }
+        return serializeGoal(fundedGoal);
       }),
   }),
 

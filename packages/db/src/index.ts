@@ -17,6 +17,7 @@ export { client, databaseName };
 export { goodDeedCatalog, goodDeedIds } from "./good-deeds";
 export {
   GameSession,
+  Goal,
   GoalGroup,
   GoodDeedEntry,
   GratitudeEntry,

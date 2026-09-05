@@ -9,6 +9,7 @@ type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 const icons: Record<string, IconName> = {
   index: "home-variant-outline",
   habits: "target",
+  goals: "flag-checkered",
   groups: "account-group-outline",
   games: "view-grid-outline",
   wallet: "wallet-outline",
@@ -24,7 +25,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.growth,
         tabBarInactiveTintColor: colors.inkSoft,
-        tabBarLabelStyle: { fontFamily: fonts.bodyMedium, fontSize: 10, marginTop: 1 },
+        tabBarLabelStyle: { fontFamily: fonts.bodyMedium, fontSize: 9, marginTop: 1 },
         tabBarStyle: {
           height: 62 + tabBarBottomPadding,
           paddingTop: 8,
@@ -37,6 +38,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
       <Tabs.Screen name="habits" options={{ title: "Habits" }} />
+      <Tabs.Screen name="goals" options={{ title: "Goals" }} />
       <Tabs.Screen name="groups" options={{ title: "Groups" }} />
       <Tabs.Screen name="games" options={{ title: "Games" }} />
       <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />

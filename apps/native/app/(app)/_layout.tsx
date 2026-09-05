@@ -17,6 +17,7 @@ export default function ProtectedLayout() {
       <Stack.Screen name="ai-coach" />
       <Stack.Screen name="habit/new" />
       <Stack.Screen name="habit/[id]" />
+      <Stack.Screen name="goal/new" />
       <Stack.Screen name="tree" />
       <Stack.Screen name="streak-missed" />
       <Stack.Screen name="good-deeds" />
