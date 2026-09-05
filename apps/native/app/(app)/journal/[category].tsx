@@ -14,6 +14,7 @@ import {
   PrimaryButton,
 } from "@/components/rdm-ui";
 import { colors, fonts, radii } from "@/lib/theme";
+import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
 
 type JournalCategory = {
@@ -28,9 +29,11 @@ type JournalCategory = {
 function JournalForm({
   category,
   initialEntry,
+  timeZone,
 }: {
   category: JournalCategory;
   initialEntry: { body: string; processedAt: string | null } | null;
+  timeZone: string;
 }) {
   const [body, setBody] = useState(initialEntry?.body ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +59,7 @@ function JournalForm({
       setError("Write at least a few words before saving your entry.");
       return;
     }
-    saveEntry.mutate({ category: category.id, body: trimmedBody });
+    saveEntry.mutate({ category: category.id, body: trimmedBody, timeZone });
   }
 
   function closeDialog() {
@@ -116,10 +119,11 @@ function JournalForm({
 }
 
 export default function JournalEntryScreen() {
+  const timeZone = getDeviceTimeZone();
   const params = useLocalSearchParams<{ category?: string }>();
   const categoryId = String(params.category ?? "") as GratitudeCategoryId;
   const detail = useQuery(
-    trpc.rdm.gratitude.byCategory.queryOptions({ category: categoryId }),
+    trpc.rdm.gratitude.byCategory.queryOptions({ category: categoryId, timeZone }),
   );
 
   if (detail.isLoading) return <LoadingState label="Opening your journal…" />;
@@ -136,6 +140,7 @@ export default function JournalEntryScreen() {
     <JournalForm
       category={detail.data.category}
       initialEntry={detail.data.todayEntry}
+      timeZone={timeZone}
     />
   );
 }

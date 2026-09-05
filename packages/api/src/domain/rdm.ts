@@ -72,6 +72,94 @@ export function gratitudeCategoryById(id: string) {
 }
 
 export const goodDeedRewardMessage = "Added to your Reward Purse for today's good deeds.";
+export const treeMissedDayPenalty = 10;
+
+export function isValidTimeZone(timeZone: string) {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function dayKeyForTimeZone(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone,
+    year: "numeric",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function previousDayKeyForTimeZone(date: Date, timeZone: string) {
+  const today = dayKeyForTimeZone(date, timeZone);
+  const [year, month, day] = today.split("-").map(Number);
+  return new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) - 1))
+    .toISOString()
+    .slice(0, 10);
+}
+
+export function calendarDayKeysAfter(startExclusive: string, endInclusive: string) {
+  const cursor = new Date(`${startExclusive}T00:00:00.000Z`);
+  const end = new Date(`${endInclusive}T00:00:00.000Z`);
+  const days: string[] = [];
+  cursor.setUTCDate(cursor.getUTCDate() + 1);
+  while (cursor <= end) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return days;
+}
+
+export function missedTreeDayKey({
+  pledgedAt,
+  now,
+  timeZone,
+  caredForYesterday,
+}: {
+  pledgedAt: Date | null;
+  now: Date;
+  timeZone: string;
+  caredForYesterday: boolean;
+}) {
+  if (!pledgedAt || caredForYesterday) return null;
+  const previousDayKey = previousDayKeyForTimeZone(now, timeZone);
+  return dayKeyForTimeZone(pledgedAt, timeZone) <= previousDayKey
+    ? previousDayKey
+    : null;
+}
+
+export function habitCanStartNextCycle(
+  lastCompletedDayKey: string | null | undefined,
+  currentDayKey: string,
+) {
+  return lastCompletedDayKey !== currentDayKey;
+}
+
+export function rewardToRemorseTransfer(
+  rewardBalance: number,
+  remorseBalance: number,
+  requestedAmount: number,
+) {
+  const safeReward = Math.max(0, Math.floor(rewardBalance));
+  const safeRemorse = Math.max(0, Math.floor(remorseBalance));
+  const appliedAmount = Math.max(0, Math.floor(requestedAmount));
+  if (safeReward < appliedAmount) return null;
+  return {
+    appliedAmount,
+    rewardBalance: safeReward - appliedAmount,
+    remorseBalance: safeRemorse + appliedAmount,
+  };
+}
+
+export function treePledgeWalletBalance(walletBalance: number, pledgeAmount: number) {
+  const safeWallet = Math.max(0, Math.floor(walletBalance));
+  const safePledge = Math.max(0, Math.floor(pledgeAmount));
+  return safeWallet >= safePledge ? safeWallet - safePledge : null;
+}
 
 export function goodDeedById(id: string) {
   return goodDeedCatalog.find((deed) => deed.id === id) ?? null;

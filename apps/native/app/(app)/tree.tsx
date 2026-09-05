@@ -2,7 +2,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Ellipse, Path } from "react-native-svg";
 
@@ -16,6 +16,7 @@ import {
   SurfaceCard,
 } from "@/components/rdm-ui";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
+import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
@@ -109,9 +110,10 @@ function TreeAction({
 }
 
 export default function TreeScreen() {
+  const timeZone = getDeviceTimeZone();
   const [amount, setAmount] = useState("100");
   const [notice, setNotice] = useState<string | null>(null);
-  const dashboard = useQuery(trpc.rdm.dashboard.queryOptions());
+  const overview = useQuery(trpc.rdm.tree.overview.queryOptions({ timeZone }));
   const pledge = useMutation(
     trpc.rdm.tree.pledge.mutationOptions({
       onSuccess: async () => {
@@ -121,18 +123,25 @@ export default function TreeScreen() {
       onError: (error) => setNotice(error.message),
     }),
   );
+  const missedDayKey = overview.data?.missedDay?.dayKey;
 
-  if (dashboard.isLoading) return <LoadingState label="Growing your tree…" />;
-  if (dashboard.error || !dashboard.data) {
+  useEffect(() => {
+    if (missedDayKey) router.replace("/(app)/streak-missed");
+  }, [missedDayKey]);
+
+  if (overview.isLoading || overview.data?.missedDay) {
+    return <LoadingState label="Checking how your tree was cared for…" />;
+  }
+  if (overview.error || !overview.data) {
     return (
       <ErrorState
-        message={dashboard.error?.message ?? "Your tree is unavailable."}
-        onRetry={() => void dashboard.refetch()}
+        message={overview.error?.message ?? "Your tree is unavailable."}
+        onRetry={() => void overview.refetch()}
       />
     );
   }
 
-  const { profile } = dashboard.data;
+  const { profile } = overview.data;
   const activePledge = profile.tree.pledgeAmount;
   const hasPledge = activePledge > 0;
 
@@ -143,7 +152,7 @@ export default function TreeScreen() {
       setNotice("Enter a whole-number pledge of at least 10 RDM.");
       return;
     }
-    pledge.mutate({ amount: parsedAmount });
+    pledge.mutate({ amount: parsedAmount, timeZone });
   }
 
   return (
@@ -197,8 +206,8 @@ export default function TreeScreen() {
               value={hasPledge ? String(activePledge) : amount}
             />
             <PrimaryButton
-              disabled={hasPledge}
-              label={hasPledge ? "Pledged" : "Pledge"}
+              disabled={hasPledge || profile.wallet.balance < 10}
+              label={hasPledge ? "Pledged" : profile.wallet.balance < 10 ? "Need RDM" : "Pledge"}
               loading={pledge.isPending}
               onPress={submitPledge}
               style={styles.pledgeButton}
@@ -221,42 +230,54 @@ export default function TreeScreen() {
         </SurfaceCard>
       </View>
 
-      <View
-        accessibilityLabel={`${profile.plantStage} tree, ${profile.tree.growth.points} growth points from a ${profile.streak} day streak, ${profile.tree.waterCount} water actions, and ${profile.tree.sunlightCount} sunlight actions`}
-        style={styles.treeVisual}
-      >
-        <GrowingTreeArtwork width={profile.tree.growth.artworkWidth} />
-        <Text style={styles.growthCaption}>
-          {profile.streak} streak + {profile.tree.waterCount} water + {profile.tree.sunlightCount} sunlight · {profile.tree.growth.points} growth
-        </Text>
-      </View>
+      {hasPledge ? (
+        <>
+          <View
+            accessibilityLabel={`${profile.plantStage} tree, ${profile.tree.growth.points} growth points from a ${profile.streak} day streak, ${profile.tree.waterCount} water actions, and ${profile.tree.sunlightCount} sunlight actions`}
+            style={styles.treeVisual}
+          >
+            <GrowingTreeArtwork width={profile.tree.growth.artworkWidth} />
+            <Text style={styles.growthCaption}>
+              {profile.streak} fertilizer + {profile.tree.waterCount} water + {profile.tree.sunlightCount} sunlight · {profile.tree.growth.points} growth
+            </Text>
+          </View>
 
-      <View style={styles.actionRow}>
-        <TreeAction
-          icon="grain"
-          iconBackground={colors.goldTint}
-          iconColor={colors.gold}
-          onPress={() => router.push("/(app)/(tabs)/habits")}
-          subtitle="Manage Streak Meter"
-          title="Add Fertilizer"
-        />
-        <TreeAction
-          icon="water"
-          iconBackground={colors.aiTint}
-          iconColor={colors.ai}
-          onPress={() => router.push("/(app)/thank-you")}
-          subtitle="Say Thank You"
-          title="Add Water"
-        />
-        <TreeAction
-          icon="white-balance-sunny"
-          iconBackground={colors.coralTint}
-          iconColor={colors.coral}
-          onPress={() => router.push("/(app)/good-deeds")}
-          subtitle="Do Good Deeds"
-          title="Add Sunlight"
-        />
-      </View>
+          <View style={styles.actionRow}>
+            <TreeAction
+              icon="grain"
+              iconBackground={colors.goldTint}
+              iconColor={colors.gold}
+              onPress={() => router.push("/(app)/(tabs)/habits")}
+              subtitle="Manage Streak Meter"
+              title="Add Fertilizer"
+            />
+            <TreeAction
+              icon="water"
+              iconBackground={colors.aiTint}
+              iconColor={colors.ai}
+              onPress={() => router.push("/(app)/thank-you")}
+              subtitle="Say Thank You"
+              title="Add Water"
+            />
+            <TreeAction
+              icon="white-balance-sunny"
+              iconBackground={colors.coralTint}
+              iconColor={colors.coral}
+              onPress={() => router.push("/(app)/good-deeds")}
+              subtitle="Do Good Deeds"
+              title="Add Sunlight"
+            />
+          </View>
+        </>
+      ) : (
+        <SurfaceCard style={styles.emptyTreeCard}>
+          <MaterialCommunityIcons color={colors.growth} name="seed-outline" size={34} />
+          <Text style={styles.emptyTreeTitle}>Create your tree with RDM</Text>
+          <Text style={styles.emptyTreeCopy}>
+            Choose a pledge above. Your tree appears only when your available RDM can support it.
+          </Text>
+        </SurfaceCard>
+      )}
     </AppScreen>
   );
 }
@@ -316,6 +337,16 @@ const styles = StyleSheet.create({
   pledgeNote: { flex: 1, color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, lineHeight: 15 },
   notice: { color: colors.coral, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 16 },
   noticeSuccess: { color: colors.growth },
+  emptyTreeCard: { alignItems: "center", gap: 8, paddingVertical: 24 },
+  emptyTreeTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 18 },
+  emptyTreeCopy: {
+    maxWidth: 280,
+    color: colors.inkSoft,
+    fontFamily: fonts.body,
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "center",
+  },
   treeVisual: { alignItems: "center", justifyContent: "center", minHeight: 184 },
   growthCaption: {
     color: colors.growth,

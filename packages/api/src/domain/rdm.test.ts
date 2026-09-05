@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   awardSplitIsValid,
   badgeCatalog,
+  calendarDayKeysAfter,
   challengeForGame,
+  dayKeyForTimeZone,
   debitPurseBalances,
   gameDayKey,
   gameSessionCanReward,
@@ -12,13 +14,18 @@ import {
   goodDeedSubmissionResult,
   gratitudeCategories,
   groupAwardCredits,
+  habitCanStartNextCycle,
   initialBadgeIds,
   inviteWeekKey,
   levelForXp,
   missedPledgeBalances,
+  missedTreeDayKey,
+  previousDayKeyForTimeZone,
+  rewardToRemorseTransfer,
   rewardCatalog,
   rewardForGame,
   treeGrowthFor,
+  treePledgeWalletBalance,
 } from "./rdm";
 
 test("responsible games cap rewards and normalize duration", () => {
@@ -58,6 +65,62 @@ test("game challenges stay attached to their game after filtering", () => {
 
 test("game sessions use a stable UTC day key", () => {
   assert.equal(gameDayKey(new Date("2026-08-19T23:59:59.000Z")), "2026-08-19");
+});
+
+test("tree care uses the user's local calendar day", () => {
+  const lateUtc = new Date("2026-09-04T19:00:00.000Z");
+  assert.equal(dayKeyForTimeZone(lateUtc, "Asia/Kolkata"), "2026-09-05");
+  assert.equal(previousDayKeyForTimeZone(lateUtc, "Asia/Kolkata"), "2026-09-04");
+});
+
+test("tree reconciliation enumerates every unevaluated calendar day", () => {
+  assert.deepEqual(
+    calendarDayKeysAfter("2026-09-01", "2026-09-04"),
+    ["2026-09-02", "2026-09-03", "2026-09-04"],
+  );
+  assert.deepEqual(calendarDayKeysAfter("2026-09-04", "2026-09-04"), []);
+});
+
+test("any care activity protects yesterday while no care creates a missed day", () => {
+  const now = new Date("2026-09-05T05:00:00.000Z");
+  const pledgedAt = new Date("2026-09-03T05:00:00.000Z");
+  assert.equal(
+    missedTreeDayKey({ pledgedAt, now, timeZone: "Asia/Kolkata", caredForYesterday: false }),
+    "2026-09-04",
+  );
+  assert.equal(
+    missedTreeDayKey({ pledgedAt, now, timeZone: "Asia/Kolkata", caredForYesterday: true }),
+    null,
+  );
+  assert.equal(
+    missedTreeDayKey({
+      pledgedAt: new Date("2026-09-05T01:00:00.000Z"),
+      now,
+      timeZone: "Asia/Kolkata",
+      caredForYesterday: false,
+    }),
+    null,
+  );
+});
+
+test("daily habits cannot inflate a streak with repeated same-day cycles", () => {
+  assert.equal(habitCanStartNextCycle(null, "2026-09-05"), true);
+  assert.equal(habitCanStartNextCycle("2026-09-04", "2026-09-05"), true);
+  assert.equal(habitCanStartNextCycle("2026-09-05", "2026-09-05"), false);
+});
+
+test("missed tree care moves RDM from Reward to Remorse without destroying it", () => {
+  assert.deepEqual(rewardToRemorseTransfer(320, 40, 10), {
+    appliedAmount: 10,
+    rewardBalance: 310,
+    remorseBalance: 50,
+  });
+  assert.equal(rewardToRemorseTransfer(4, 12, 10), null);
+});
+
+test("tree creation stakes RDM from the available wallet", () => {
+  assert.equal(treePledgeWalletBalance(1240, 100), 1140);
+  assert.equal(treePledgeWalletBalance(40, 100), null);
 });
 
 test("invite progress resets on ISO week boundaries", () => {

@@ -6,11 +6,13 @@ import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import { ActionDialog, AppScreen, ErrorState, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
 import { colors, fonts, radii } from "@/lib/theme";
+import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
 
 const steps = ["pledge", "act", "reflect", "reward"] as const;
 
 export default function HabitDetailScreen() {
+  const timeZone = getDeviceTimeZone();
   const { id = "" } = useLocalSearchParams<{ id: string }>();
   const habit = useQuery(trpc.rdm.habits.byId.queryOptions({ id }));
   const [actionNote, setActionNote] = useState("");
@@ -98,7 +100,7 @@ export default function HabitDetailScreen() {
         <PrimaryButton color={colors.gold} label="Complete reflection → claim reward" loading={reflect.isPending} onPress={() => {
           setError(null);
           if (reflection.trim().length < 4) return setError("Write one honest sentence before claiming the reward.");
-          reflect.mutate({ id, reflection: reflection.trim() });
+          reflect.mutate({ id, reflection: reflection.trim(), timeZone });
         }} />
       ) : null}
       {data.stage === "reward" ? (
@@ -108,7 +110,7 @@ export default function HabitDetailScreen() {
             <Text style={[styles.rewardTitle, data.lastOutcome === "missed" && styles.missedTitle]}>{data.lastOutcome === "missed" ? "Honesty recorded" : "Reward claimed"}</Text>
             <Text style={rdmStyles.muted}>{data.lastOutcome === "missed" ? "The streak reset and 10 RDM moved to your Remorse Purse for a conscious decision." : "Your reflection added 25 RDM and moved the streak forward."}</Text>
           </View>
-          <PrimaryButton label="Start the next cycle" loading={startNext.isPending} onPress={() => startNext.mutate({ id })} />
+          <PrimaryButton label="Start the next cycle" loading={startNext.isPending} onPress={() => startNext.mutate({ id, timeZone })} />
         </View>
       ) : null}
       <ActionDialog

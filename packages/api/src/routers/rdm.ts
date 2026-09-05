@@ -6,11 +6,13 @@ import {
   Habit,
   RdmProfile,
   Referral,
+  TreeCareActivity,
   goodDeedIds,
   gratitudeCategoryIds,
   habitOutcomes,
   habitSources,
   habitStages,
+  treeCareKinds,
 } from "@rdm-b2c/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -19,6 +21,8 @@ import { protectedProcedure, router } from "../index";
 import {
   awardSplitIsValid,
   badgeCatalog,
+  calendarDayKeysAfter,
+  dayKeyForTimeZone,
   gameDayKey,
   gameCatalog,
   gameSessionCanReward,
@@ -29,18 +33,30 @@ import {
   gratitudeCategories,
   gratitudeCategoryById,
   groupAwardCredits,
+  habitCanStartNextCycle,
   habitCategories,
   habitTemplates,
   initialBadgeIds,
   inviteWeekKey,
+  isValidTimeZone,
   levelForXp,
+  previousDayKeyForTimeZone,
+  rewardToRemorseTransfer,
   rewardCatalog,
   rewardForGame,
   treeGrowthFor,
+  treeMissedDayPenalty,
+  treePledgeWalletBalance,
 } from "../domain/rdm";
 
 const nowIso = () => new Date().toISOString();
 const mongoId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
+const timeZoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .refine(isValidTimeZone, "Invalid time zone");
 const goodDeedSelection = z
   .array(z.enum(goodDeedIds))
   .min(1)
@@ -68,6 +84,9 @@ function serializeHabit(habit: any) {
     lastAction: habit.lastAction ? String(habit.lastAction) : null,
     reflection: habit.reflection ? String(habit.reflection) : null,
     lastOutcome: habit.lastOutcome ? String(habit.lastOutcome) as (typeof habitOutcomes)[number] : null,
+    lastCompletedDayKey: habit.lastCompletedDayKey
+      ? String(habit.lastCompletedDayKey)
+      : null,
     completedDays: Array.from(habit.completedDays ?? [], Number),
     active: Boolean(habit.active),
   };
@@ -87,6 +106,7 @@ function serializeProfile(profile: any) {
     tree: {
       pledgeAmount: Number(profile.treePledgeAmount ?? 0),
       pledgedAt: profile.treePledgedAt ? new Date(profile.treePledgedAt).toISOString() : null,
+      timeZone: String(profile.treeTimeZone ?? "Asia/Kolkata"),
       waterCount,
       lastWateredAt: profile.treeLastWateredAt
         ? new Date(profile.treeLastWateredAt).toISOString()
@@ -94,6 +114,9 @@ function serializeProfile(profile: any) {
       sunlightCount,
       lastSunlightAt: profile.treeLastSunlightAt
         ? new Date(profile.treeLastSunlightAt).toISOString()
+        : null,
+      lastMissedDayKey: profile.treeLastMissedDayKey
+        ? String(profile.treeLastMissedDayKey)
         : null,
       growth,
     },
@@ -266,6 +289,216 @@ async function debitMissedPledge({
   throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not reconcile the missed pledge" });
 }
 
+type TreeCareKind = (typeof treeCareKinds)[number];
+
+async function recordTreeCareActivity({
+  userId,
+  kind,
+  operationId,
+  dayKey,
+  timeZone,
+}: {
+  userId: string;
+  kind: TreeCareKind;
+  operationId: string;
+  dayKey: string;
+  timeZone: string;
+}) {
+  const activeTree = await RdmProfile.exists({
+    userId,
+    treePledgedAt: { $exists: true },
+  });
+  if (!activeTree) return;
+  try {
+    await TreeCareActivity.create({ userId, kind, operationId, dayKey, timeZone });
+  } catch (error: any) {
+    if (error?.code !== 11000) throw error;
+  }
+}
+
+function serializeTreeMissedDay(profile: any) {
+  if (!profile.treeLastMissedDayKey || profile.treeMissedAcknowledgedAt) return null;
+  const dayKey = String(profile.treeLastMissedDayKey);
+  const timeZone = String(profile.treeTimeZone ?? "Asia/Kolkata");
+  const transferredAmount = Number(profile.treeLastMissedPenalty ?? 0);
+  const rewardAfter = Number(
+    profile.treeMissedRewardAfter ?? profile.rewardBalance ?? 0,
+  );
+  const remorseAfter = Number(
+    profile.treeMissedRemorseAfter ?? profile.remorseBalance ?? 0,
+  );
+  return {
+    dayKey,
+    missedYesterday: dayKey === previousDayKeyForTimeZone(new Date(), timeZone),
+    dayNumber: Math.max(1, Number(profile.streak ?? 0) + 1),
+    transferredAmount,
+    rewardBefore: Number(
+      profile.treeMissedRewardBefore ?? rewardAfter + transferredAmount,
+    ),
+    rewardAfter,
+    remorseBefore: Number(
+      profile.treeMissedRemorseBefore
+        ?? Math.max(0, remorseAfter - transferredAmount),
+    ),
+    remorseAfter,
+    processedAt: profile.treeMissedProcessedAt
+      ? new Date(profile.treeMissedProcessedAt).toISOString()
+      : null,
+  };
+}
+
+async function reconcileTreeMissedDay(userId: string, timeZone: string) {
+  let profile = await getProfile(userId);
+  if (profile.treeTimeZone !== timeZone) {
+    profile = await RdmProfile.findOneAndUpdate(
+      { userId },
+      { $set: { treeTimeZone: timeZone } },
+      { returnDocument: "after" },
+    ) ?? profile;
+  }
+  if (!profile.treePledgedAt) return { profile, missedDay: null };
+
+  const now = new Date();
+  const pledgedAt = new Date(profile.treePledgedAt);
+  const pledgedDayKey = dayKeyForTimeZone(pledgedAt, timeZone);
+  const yesterdayKey = previousDayKeyForTimeZone(now, timeZone);
+  if (!profile.treeLastEvaluatedDayKey) {
+    profile = await RdmProfile.findOneAndUpdate(
+      { userId, treeLastEvaluatedDayKey: { $exists: false } },
+      { $set: { treeLastEvaluatedDayKey: yesterdayKey } },
+      { returnDocument: "after" },
+    ) ?? profile;
+    return { profile, missedDay: serializeTreeMissedDay(profile) };
+  }
+  const lastEvaluatedDayKey = String(profile.treeLastEvaluatedDayKey);
+  const pendingDayKeys = calendarDayKeysAfter(
+    lastEvaluatedDayKey,
+    yesterdayKey,
+  ).filter((dayKey) => dayKey >= pledgedDayKey);
+  if (pendingDayKeys.length === 0) {
+    return { profile, missedDay: serializeTreeMissedDay(profile) };
+  }
+
+  const [recordedCare, gratitudeCare, goodDeedCare] = await Promise.all([
+    TreeCareActivity.find({
+      userId,
+      dayKey: { $in: pendingDayKeys },
+      occurredAt: { $gte: pledgedAt },
+    }).select("dayKey"),
+    GratitudeEntry.find({
+      userId,
+      dayKey: { $in: pendingDayKeys },
+      processedAt: { $gte: pledgedAt },
+    }).select("dayKey"),
+    GoodDeedEntry.find({
+      userId,
+      dayKey: { $in: pendingDayKeys },
+      processedAt: { $gte: pledgedAt },
+    }).select("dayKey"),
+  ]);
+  const caredForDayKeys = new Set([
+    ...recordedCare.map((entry) => String(entry.dayKey)),
+    ...gratitudeCare.map((entry) => String(entry.dayKey)),
+    ...goodDeedCare.map((entry) => String(entry.dayKey)),
+  ]);
+
+  let blockedByRewardBalance = false;
+  for (const dayKey of pendingDayKeys) {
+    if (caredForDayKeys.has(dayKey)) {
+      profile = await RdmProfile.findOneAndUpdate(
+        { userId },
+        { $max: { treeLastEvaluatedDayKey: dayKey } },
+        { returnDocument: "after" },
+      ) ?? profile;
+      continue;
+    }
+
+    const operationId = `tree-miss:${dayKey}`;
+    let reconciled = false;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      profile = await getProfile(userId);
+      if (profile.creditedOperations.includes(operationId)) {
+        profile = await RdmProfile.findOneAndUpdate(
+          { userId },
+          { $max: { treeLastEvaluatedDayKey: dayKey } },
+          { returnDocument: "after" },
+        ) ?? profile;
+        reconciled = true;
+        break;
+      }
+
+      const transfer = rewardToRemorseTransfer(
+        profile.rewardBalance,
+        profile.remorseBalance,
+        treeMissedDayPenalty,
+      );
+      if (!transfer) {
+        blockedByRewardBalance = true;
+        break;
+      }
+      const processedAt = new Date();
+      const updated = await RdmProfile.findOneAndUpdate(
+        {
+          userId,
+          rewardBalance: profile.rewardBalance,
+          remorseBalance: profile.remorseBalance,
+          creditedOperations: { $ne: operationId },
+        },
+        {
+          $set: {
+            rewardBalance: transfer.rewardBalance,
+            remorseBalance: transfer.remorseBalance,
+            treeLastMissedDayKey: dayKey,
+            treeLastMissedPenalty: transfer.appliedAmount,
+            treeMissedRewardBefore: Number(profile.rewardBalance),
+            treeMissedRewardAfter: transfer.rewardBalance,
+            treeMissedRemorseBefore: Number(profile.remorseBalance),
+            treeMissedRemorseAfter: transfer.remorseBalance,
+            treeMissedProcessedAt: processedAt,
+            treeLastEvaluatedDayKey: dayKey,
+          },
+          $unset: { treeMissedAcknowledgedAt: 1 },
+          $addToSet: { creditedOperations: operationId },
+          $push: {
+            transactions: {
+              $each: [{
+                title: `Tree care missed — ${dayKey}`,
+                amount: -transfer.appliedAmount,
+                kind: "remorse",
+                createdAt: processedAt,
+              }],
+              $position: 0,
+            },
+          },
+        },
+        { returnDocument: "after" },
+      );
+      if (updated) {
+        profile = updated;
+        reconciled = true;
+        break;
+      }
+    }
+
+    if (blockedByRewardBalance) break;
+    if (!reconciled) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Could not evaluate tree care for ${dayKey}`,
+      });
+    }
+  }
+
+  const missedDay = serializeTreeMissedDay(profile);
+  if (blockedByRewardBalance && !missedDay) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: `Keep at least ${treeMissedDayPenalty} RDM in Reward Purse while this tree is active.`,
+    });
+  }
+  return { profile, missedDay };
+}
+
 async function reconcileHabitOutcome(habit: any, userId: string) {
   if (habit.stage !== "reward") return;
   if (habit.lastOutcome === "completed") {
@@ -425,9 +658,13 @@ async function ensureReferralCode(profile: any) {
 
 export const rdmRouter = router({
   dashboard: protectedProcedure.query(async ({ ctx }) => {
-    const { profile, habits, groups } = await ensureSeedData(
+    const { profile: seededProfile, habits, groups } = await ensureSeedData(
       ctx.session.user.id,
       ctx.session.user.name,
+    );
+    const { profile } = await reconcileTreeMissedDay(
+      ctx.session.user.id,
+      String(seededProfile.treeTimeZone ?? "Asia/Kolkata"),
     );
     return {
       user: { name: ctx.session.user.name, email: ctx.session.user.email },
@@ -445,23 +682,82 @@ export const rdmRouter = router({
   })),
 
   tree: router({
+    overview: protectedProcedure
+      .input(z.object({ timeZone: timeZoneSchema }))
+      .query(async ({ ctx, input }) => {
+        await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
+        const result = await reconcileTreeMissedDay(ctx.session.user.id, input.timeZone);
+        return {
+          profile: serializeProfile(result.profile),
+          missedDay: result.missedDay,
+        };
+      }),
+    missedDay: protectedProcedure.query(async ({ ctx }) => {
+      const profile = await getProfile(ctx.session.user.id);
+      return {
+        profile: serializeProfile(profile),
+        missedDay: serializeTreeMissedDay(profile),
+      };
+    }),
+    acknowledgeMissedDay: protectedProcedure
+      .input(z.object({ dayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
+      .mutation(async ({ ctx, input }) => {
+        const profile = await RdmProfile.findOneAndUpdate(
+          {
+            userId: ctx.session.user.id,
+            treeLastMissedDayKey: input.dayKey,
+          },
+          { $set: { treeMissedAcknowledgedAt: new Date() } },
+          { returnDocument: "after" },
+        );
+        if (!profile) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "This missed tree day is no longer pending.",
+          });
+        }
+        return serializeProfile(profile);
+      }),
     pledge: protectedProcedure
-      .input(z.object({ amount: z.number().int().min(10).max(100_000) }))
+      .input(z.object({
+        amount: z.number().int().min(10).max(100_000),
+        timeZone: timeZoneSchema,
+      }))
       .mutation(async ({ ctx, input }) => {
         await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
+        const pledgedAt = new Date();
+        const previousPledgeDayKey = previousDayKeyForTimeZone(
+          pledgedAt,
+          input.timeZone,
+        );
         const profile = await RdmProfile.findOneAndUpdate(
           {
             userId: ctx.session.user.id,
             walletBalance: { $gte: input.amount },
+            rewardBalance: { $gte: treeMissedDayPenalty },
             $or: [
               { treePledgeAmount: 0 },
               { treePledgeAmount: { $exists: false } },
             ],
           },
           {
+            $inc: { walletBalance: -input.amount },
             $set: {
               treePledgeAmount: input.amount,
-              treePledgedAt: new Date(),
+              treePledgedAt: pledgedAt,
+              treeTimeZone: input.timeZone,
+              treeLastEvaluatedDayKey: previousPledgeDayKey,
+            },
+            $push: {
+              transactions: {
+                $each: [{
+                  title: "Tree pledge staked",
+                  amount: -input.amount,
+                  kind: "stake",
+                  createdAt: pledgedAt,
+                }],
+                $position: 0,
+              },
             },
           },
           { returnDocument: "after" },
@@ -475,48 +771,56 @@ export const rdmRouter = router({
             message: "This tree already has an active pledge.",
           });
         }
+        if (treePledgeWalletBalance(Number(current?.walletBalance ?? 0), input.amount) === null) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Your RDM balance is lower than this pledge.",
+          });
+        }
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Your RDM balance is lower than this pledge.",
+          message: `Keep at least ${treeMissedDayPenalty} RDM in Reward Purse before creating a tree.`,
         });
       }),
   }),
 
   goodDeeds: router({
-    today: protectedProcedure.query(async ({ ctx }) => {
-      await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
-      const dayKey = gameDayKey();
-      const entries = await GoodDeedEntry.find({
-        userId: ctx.session.user.id,
-        dayKey,
-      });
-      const entriesByDeedId = new Map(
-        entries.map((entry) => [String(entry.deedId), entry]),
-      );
+    today: protectedProcedure
+      .input(z.object({ timeZone: timeZoneSchema }))
+      .query(async ({ ctx, input }) => {
+        await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
+        const dayKey = dayKeyForTimeZone(new Date(), input.timeZone);
+        const entries = await GoodDeedEntry.find({
+          userId: ctx.session.user.id,
+          dayKey,
+        });
+        const entriesByDeedId = new Map(
+          entries.map((entry) => [String(entry.deedId), entry]),
+        );
 
-      return {
-        dayKey,
-        earnedToday: entries.reduce(
-          (total, entry) => total + (entry.processedAt ? Number(entry.reward) : 0),
-          0,
-        ),
-        deeds: goodDeedCatalog.map((deed) => {
-          const entry = entriesByDeedId.get(deed.id);
-          return {
-            ...deed,
-            completed: Boolean(entry?.processedAt),
-            completedAt: entry?.processedAt
-              ? new Date(entry.processedAt).toISOString()
-              : null,
-          };
-        }),
-      };
-    }),
+        return {
+          dayKey,
+          earnedToday: entries.reduce(
+            (total, entry) => total + (entry.processedAt ? Number(entry.reward) : 0),
+            0,
+          ),
+          deeds: goodDeedCatalog.map((deed) => {
+            const entry = entriesByDeedId.get(deed.id);
+            return {
+              ...deed,
+              completed: Boolean(entry?.processedAt),
+              completedAt: entry?.processedAt
+                ? new Date(entry.processedAt).toISOString()
+                : null,
+            };
+          }),
+        };
+      }),
     submit: protectedProcedure
-      .input(z.object({ deedIds: goodDeedSelection }))
+      .input(z.object({ deedIds: goodDeedSelection, timeZone: timeZoneSchema }))
       .mutation(async ({ ctx, input }) => {
         await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
-        const dayKey = gameDayKey();
+        const dayKey = dayKeyForTimeZone(new Date(), input.timeZone);
         const submissionActions: Array<{ completedNow: boolean; reward: number }> = [];
         const entries: Array<ReturnType<typeof serializeGoodDeedEntry>> = [];
 
@@ -561,6 +865,7 @@ export const rdmRouter = router({
           await RdmProfile.findOneAndUpdate(
             {
               userId: ctx.session.user.id,
+              treePledgedAt: { $exists: true },
               treeCareOperations: { $ne: sunlightOperationId },
             },
             {
@@ -592,6 +897,15 @@ export const rdmRouter = router({
               completedNow = true;
             }
           }
+          if (completedNow) {
+            await recordTreeCareActivity({
+              userId: ctx.session.user.id,
+              kind: "sunlight",
+              operationId: `good-deed:${entry._id}`,
+              dayKey,
+              timeZone: input.timeZone,
+            });
+          }
           submissionActions.push({ completedNow, reward: Number(entry.reward) });
           entries.push(serializeGoodDeedEntry(entry));
         }
@@ -611,7 +925,10 @@ export const rdmRouter = router({
   gratitude: router({
     categories: protectedProcedure.query(() => gratitudeCategories),
     byCategory: protectedProcedure
-      .input(z.object({ category: z.enum(gratitudeCategoryIds) }))
+      .input(z.object({
+        category: z.enum(gratitudeCategoryIds),
+        timeZone: timeZoneSchema,
+      }))
       .query(async ({ ctx, input }) => {
         const category = gratitudeCategoryById(input.category);
         if (!category) {
@@ -620,7 +937,7 @@ export const rdmRouter = router({
         const entry = await GratitudeEntry.findOne({
           userId: ctx.session.user.id,
           category: input.category,
-          dayKey: gameDayKey(),
+          dayKey: dayKeyForTimeZone(new Date(), input.timeZone),
         });
         return {
           category,
@@ -631,6 +948,7 @@ export const rdmRouter = router({
       .input(z.object({
         category: z.enum(gratitudeCategoryIds),
         body: z.string().trim().min(4).max(1000),
+        timeZone: timeZoneSchema,
       }))
       .mutation(async ({ ctx, input }) => {
         await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
@@ -639,7 +957,7 @@ export const rdmRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: "Gratitude category not found" });
         }
 
-        const dayKey = gameDayKey();
+        const dayKey = dayKeyForTimeZone(new Date(), input.timeZone);
         let entry = await GratitudeEntry.findOne({
           userId: ctx.session.user.id,
           category: input.category,
@@ -684,6 +1002,7 @@ export const rdmRouter = router({
         await RdmProfile.findOneAndUpdate(
           {
             userId: ctx.session.user.id,
+            treePledgedAt: { $exists: true },
             treeCareOperations: { $ne: waterOperationId },
           },
           {
@@ -712,6 +1031,15 @@ export const rdmRouter = router({
           );
           processedNow = processingResult.modifiedCount === 1;
           if (processedNow) entry.processedAt = processedAt;
+        }
+        if (processedNow) {
+          await recordTreeCareActivity({
+            userId: ctx.session.user.id,
+            kind: "water",
+            operationId: `gratitude:${entry._id}`,
+            dayKey,
+            timeZone: input.timeZone,
+          });
         }
 
         return {
@@ -770,14 +1098,34 @@ export const rdmRouter = router({
         return serializeHabit(habit);
       }),
     reflect: protectedProcedure
-      .input(z.object({ id: mongoId, reflection: z.string().trim().min(4).max(500) }))
+      .input(z.object({
+        id: mongoId,
+        reflection: z.string().trim().min(4).max(500),
+        timeZone: timeZoneSchema,
+      }))
       .mutation(async ({ ctx, input }) => {
         const reward = 25;
-        const day = new Date().getDay() || 7;
+        const dayKey = dayKeyForTimeZone(new Date(), input.timeZone);
+        const [year, month, calendarDay] = dayKey.split("-").map(Number);
+        const day = new Date(Date.UTC(
+          year ?? 0,
+          (month ?? 1) - 1,
+          calendarDay ?? 1,
+        )).getUTCDay() || 7;
         let habit = await Habit.findOneAndUpdate(
-          { _id: input.id, userId: ctx.session.user.id, stage: "reflect" },
           {
-            $set: { reflection: input.reflection, stage: "reward", lastOutcome: "completed" },
+            _id: input.id,
+            userId: ctx.session.user.id,
+            stage: "reflect",
+            lastCompletedDayKey: { $ne: dayKey },
+          },
+          {
+            $set: {
+              reflection: input.reflection,
+              stage: "reward",
+              lastOutcome: "completed",
+              lastCompletedDayKey: dayKey,
+            },
             $inc: { streak: 1 },
             $addToSet: { completedDays: day },
           },
@@ -797,6 +1145,13 @@ export const rdmRouter = router({
           operationId: `habit:${habit._id}:${habit.cycle}`,
           badgeIds: ["first-sprout", ...(habit.streak >= 7 ? ["seven-day-streak"] : [])],
           streak: habit.streak,
+        });
+        await recordTreeCareActivity({
+          userId: ctx.session.user.id,
+          kind: "fertilizer",
+          operationId: `habit:${habit._id}:${habit.cycle}`,
+          dayKey,
+          timeZone: input.timeZone,
         });
         return { habit: serializeHabit(habit), profile: serializeProfile(profile), reward };
       }),
@@ -830,10 +1185,17 @@ export const rdmRouter = router({
         return { habit: serializeHabit(habit), profile: serializeProfile(result.profile), penalty: result.appliedPenalty };
       }),
     startNextCycle: protectedProcedure
-      .input(z.object({ id: mongoId }))
+      .input(z.object({ id: mongoId, timeZone: timeZoneSchema }))
       .mutation(async ({ ctx, input }) => {
         const current = await Habit.findOne({ _id: input.id, userId: ctx.session.user.id, stage: "reward" });
         if (!current) throw new TRPCError({ code: "CONFLICT", message: "Claim the current cycle before starting another" });
+        const currentDayKey = dayKeyForTimeZone(new Date(), input.timeZone);
+        if (!habitCanStartNextCycle(current.lastCompletedDayKey, currentDayKey)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This habit is complete for today. Come back tomorrow to continue the streak.",
+          });
+        }
         await reconcileHabitOutcome(current, ctx.session.user.id);
         const habit = await Habit.findOneAndUpdate(
           { _id: input.id, userId: ctx.session.user.id, stage: "reward", cycle: current.cycle },

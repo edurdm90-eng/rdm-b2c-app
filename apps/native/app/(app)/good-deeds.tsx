@@ -15,6 +15,7 @@ import {
   SurfaceCard,
 } from "@/components/rdm-ui";
 import { colors, fonts } from "@/lib/theme";
+import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
 
 type Notice = {
@@ -23,12 +24,13 @@ type Notice = {
 };
 
 export default function GoodDeedsScreen() {
+  const timeZone = getDeviceTimeZone();
   const [selected, setSelected] = useState<Set<GoodDeedId>>(() => new Set());
   const [reward, setReward] = useState(0);
   const [rewardMessage, setRewardMessage] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const goodDeeds = useQuery(trpc.rdm.goodDeeds.today.queryOptions());
+  const goodDeeds = useQuery(trpc.rdm.goodDeeds.today.queryOptions({ timeZone }));
   const submitGoodDeeds = useMutation(
     trpc.rdm.goodDeeds.submit.mutationOptions({
       onSuccess: async (result) => {
@@ -72,7 +74,7 @@ export default function GoodDeedsScreen() {
   function submit() {
     if (selected.size === 0) return;
     setNotice(null);
-    submitGoodDeeds.mutate({ deedIds: Array.from(selected) });
+    submitGoodDeeds.mutate({ deedIds: Array.from(selected), timeZone });
   }
 
   function closeDialog() {

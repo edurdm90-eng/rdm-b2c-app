@@ -23,9 +23,11 @@ export {
   Habit,
   RdmProfile,
   Referral,
+  TreeCareActivity,
   gratitudeCategoryIds,
   habitOutcomes,
   habitSources,
   habitStages,
   transactionKinds,
+  treeCareKinds,
 } from "./models/rdm.model";

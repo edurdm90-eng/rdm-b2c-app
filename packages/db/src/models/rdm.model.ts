@@ -4,11 +4,12 @@ import { goodDeedIds } from "../good-deeds";
 
 const { Schema, model, models } = mongoose;
 
-export const transactionKinds = ["habit", "game", "gratitude", "deed", "remorse", "peer", "charity", "redeem"] as const;
+export const transactionKinds = ["habit", "game", "gratitude", "deed", "remorse", "peer", "charity", "redeem", "stake"] as const;
 export const habitSources = ["template", "custom"] as const;
 export const habitStages = ["pledge", "act", "reflect", "reward"] as const;
 export const habitOutcomes = ["completed", "missed"] as const;
 export const gratitudeCategoryIds = ["life", "helper", "loved-ones", "friends", "colleagues"] as const;
+export const treeCareKinds = ["fertilizer", "water", "sunlight"] as const;
 
 const transactionSchema = new Schema(
   {
@@ -33,11 +34,21 @@ const profileSchema = new Schema(
     plantStage: { type: String, required: true, default: "Budding" },
     treePledgeAmount: { type: Number, required: true, default: 0 },
     treePledgedAt: { type: Date },
+    treeTimeZone: { type: String, required: true, default: "Asia/Kolkata" },
     treeWaterCount: { type: Number, required: true, default: 0 },
     treeLastWateredAt: { type: Date },
     treeSunlightCount: { type: Number, required: true, default: 0 },
     treeLastSunlightAt: { type: Date },
     treeCareOperations: { type: [String], required: true, default: [] },
+    treeLastMissedDayKey: { type: String },
+    treeLastMissedPenalty: { type: Number, required: true, default: 0 },
+    treeMissedRewardBefore: { type: Number },
+    treeMissedRewardAfter: { type: Number },
+    treeMissedRemorseBefore: { type: Number },
+    treeMissedRemorseAfter: { type: Number },
+    treeMissedProcessedAt: { type: Date },
+    treeMissedAcknowledgedAt: { type: Date },
+    treeLastEvaluatedDayKey: { type: String },
     walletBalance: { type: Number, required: true, default: 1240 },
     rewardBalance: { type: Number, required: true, default: 320 },
     remorseBalance: { type: Number, required: true, default: 40 },
@@ -84,6 +95,7 @@ const habitSchema = new Schema(
     lastAction: { type: String },
     reflection: { type: String },
     lastOutcome: { type: String, enum: habitOutcomes },
+    lastCompletedDayKey: { type: String },
     completedDays: { type: [Number], required: true, default: [] },
     active: { type: Boolean, required: true, default: true },
   },
@@ -122,6 +134,21 @@ const goodDeedEntrySchema = new Schema(
 
 goodDeedEntrySchema.index({ userId: 1, deedId: 1, dayKey: 1 }, { unique: true });
 goodDeedEntrySchema.index({ userId: 1, createdAt: -1 });
+
+const treeCareActivitySchema = new Schema(
+  {
+    userId: { type: String, required: true, index: true },
+    kind: { type: String, enum: treeCareKinds, required: true },
+    operationId: { type: String, required: true },
+    dayKey: { type: String, required: true },
+    timeZone: { type: String, required: true },
+    occurredAt: { type: Date, required: true, default: Date.now },
+  },
+  { timestamps: true },
+);
+
+treeCareActivitySchema.index({ userId: 1, operationId: 1 }, { unique: true });
+treeCareActivitySchema.index({ userId: 1, dayKey: 1, kind: 1 });
 
 const memberSchema = new Schema(
   {
@@ -182,6 +209,7 @@ type RdmProfileShape = mongoose.InferSchemaType<typeof profileSchema>;
 type HabitShape = mongoose.InferSchemaType<typeof habitSchema>;
 type GratitudeEntryShape = mongoose.InferSchemaType<typeof gratitudeEntrySchema>;
 type GoodDeedEntryShape = mongoose.InferSchemaType<typeof goodDeedEntrySchema>;
+type TreeCareActivityShape = mongoose.InferSchemaType<typeof treeCareActivitySchema>;
 type GoalGroupShape = mongoose.InferSchemaType<typeof groupSchema>;
 type GameSessionShape = mongoose.InferSchemaType<typeof gameSessionSchema>;
 type ReferralShape = mongoose.InferSchemaType<typeof referralSchema>;
@@ -198,6 +226,9 @@ const GratitudeEntry =
 const GoodDeedEntry =
   (models.GoodDeedEntry as mongoose.Model<GoodDeedEntryShape> | undefined) ??
   model<GoodDeedEntryShape>("GoodDeedEntry", goodDeedEntrySchema);
+const TreeCareActivity =
+  (models.TreeCareActivity as mongoose.Model<TreeCareActivityShape> | undefined) ??
+  model<TreeCareActivityShape>("TreeCareActivity", treeCareActivitySchema);
 const GoalGroup =
   (models.GoalGroup as mongoose.Model<GoalGroupShape> | undefined) ??
   model<GoalGroupShape>("GoalGroup", groupSchema);
@@ -208,4 +239,4 @@ const Referral =
   (models.Referral as mongoose.Model<ReferralShape> | undefined) ??
   model<ReferralShape>("Referral", referralSchema);
 
-export { GameSession, GoalGroup, GoodDeedEntry, GratitudeEntry, Habit, RdmProfile, Referral };
+export { GameSession, GoalGroup, GoodDeedEntry, GratitudeEntry, Habit, RdmProfile, Referral, TreeCareActivity };
