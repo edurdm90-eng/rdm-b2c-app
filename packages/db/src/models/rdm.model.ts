@@ -15,6 +15,7 @@ const transactionSchema = new Schema(
   {
     title: { type: String, required: true },
     amount: { type: Number, required: true },
+    operationId: { type: String },
     kind: {
       type: String,
       enum: transactionKinds,
@@ -88,6 +89,18 @@ const habitSchema = new Schema(
     cadence: { type: String, required: true },
     target: { type: String, required: true },
     pledge: { type: String, required: true },
+    rdmPledgeCreationId: { type: String },
+    rdmPledgePerDay: { type: Number, min: 1 },
+    rdmPledgeTotal: { type: Number, min: 1 },
+    rdmPledgeRemaining: { type: Number, min: 0 },
+    rdmPledgeStartDayKey: { type: String },
+    rdmPledgeEndDayKey: { type: String },
+    rdmPledgeTimeZone: { type: String },
+    rdmPledgeFundingStatus: { type: String, enum: ["pending", "funded"] },
+    rdmPledgeSettledDayKeys: { type: [String], required: true, default: [] },
+    rdmPledgeCompletedDayKeys: { type: [String], required: true, default: [] },
+    currentDayKey: { type: String },
+    lastSettledDayKey: { type: String },
     source: { type: String, enum: habitSources, required: true },
     stage: { type: String, enum: habitStages, required: true, default: "act" },
     cycle: { type: Number, required: true, default: 1 },
@@ -100,6 +113,14 @@ const habitSchema = new Schema(
     active: { type: Boolean, required: true, default: true },
   },
   { timestamps: true },
+);
+
+habitSchema.index(
+  { userId: 1, rdmPledgeCreationId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { rdmPledgeCreationId: { $type: "string" } },
+  },
 );
 
 const gratitudeEntrySchema = new Schema(

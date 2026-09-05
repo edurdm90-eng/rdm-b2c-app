@@ -114,6 +114,63 @@ export function calendarDayKeysAfter(startExclusive: string, endInclusive: strin
   return days;
 }
 
+export function habitPledgeSchedule({
+  startDayKey,
+  endDayKey,
+  dailyPledge,
+}: {
+  startDayKey: string;
+  endDayKey: string;
+  dailyPledge: number;
+}) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDayKey) || !/^\d{4}-\d{2}-\d{2}$/.test(endDayKey)) {
+    return null;
+  }
+  const start = new Date(`${startDayKey}T00:00:00.000Z`);
+  const end = new Date(`${endDayKey}T00:00:00.000Z`);
+  if (
+    Number.isNaN(start.getTime())
+    || Number.isNaN(end.getTime())
+    || start.toISOString().slice(0, 10) !== startDayKey
+    || end.toISOString().slice(0, 10) !== endDayKey
+    || !Number.isInteger(dailyPledge)
+    || dailyPledge <= 0
+  ) {
+    return null;
+  }
+  const dayCount = Math.round((end.getTime() - start.getTime()) / 86_400_000);
+  if (dayCount <= 0) return null;
+  const dayKeys = Array.from({ length: dayCount }, (_, index) => {
+    const day = new Date(start);
+    day.setUTCDate(day.getUTCDate() + index);
+    return day.toISOString().slice(0, 10);
+  });
+  return {
+    dayKeys,
+    dayCount,
+    totalPledge: dayCount * dailyPledge,
+  };
+}
+
+export function missedHabitPledgeDayKeys(
+  scheduledDayKeys: ReadonlyArray<string>,
+  settledDayKeys: ReadonlyArray<string>,
+  currentDayKey: string,
+) {
+  const settled = new Set(settledDayKeys);
+  return scheduledDayKeys.filter((dayKey) => dayKey < currentDayKey && !settled.has(dayKey));
+}
+
+export function habitPledgeDestinationForOperation(
+  transactions: ReadonlyArray<{ kind: string; operationId?: string }>,
+  operationId: string,
+) {
+  const transaction = transactions.find((entry) => entry.operationId === operationId);
+  if (transaction?.kind === "habit") return "reward" as const;
+  if (transaction?.kind === "remorse") return "remorse" as const;
+  return null;
+}
+
 export function missedTreeDayKey({
   pledgedAt,
   now,
@@ -173,6 +230,19 @@ export function basePurseBalance(wallet: WalletBalances) {
   const allocatedBalance = [wallet.reward, wallet.remorse, wallet.peer]
     .reduce((total, balance) => total + Math.max(0, Math.floor(balance)), 0);
   return Math.max(0, totalBalance - allocatedBalance);
+}
+
+export function releaseHabitPledgeBalances(
+  wallet: WalletBalances,
+  destination: "reward" | "remorse",
+  amount: number,
+) {
+  const releasedAmount = Math.max(0, Math.floor(amount));
+  return {
+    ...wallet,
+    balance: wallet.balance + releasedAmount,
+    [destination]: wallet[destination] + releasedAmount,
+  };
 }
 
 export function baseToRemorseTransfer(wallet: WalletBalances, penalty: number) {

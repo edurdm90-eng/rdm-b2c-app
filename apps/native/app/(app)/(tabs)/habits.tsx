@@ -26,6 +26,11 @@ export default function HabitsScreen() {
           <View style={styles.habitCopy}>
             <Text style={styles.habitTitle}>{habit.title}</Text>
             <Text style={rdmStyles.muted}>{habit.target} · {habit.cadence}</Text>
+            {habit.rdmPledge ? (
+              <Text style={styles.rdmPledge}>
+                {habit.rdmPledge.perDay} RDM/day · {habit.rdmPledge.remaining} RDM locked
+              </Text>
+            ) : null}
             <View style={styles.metaRow}>
               <Text style={styles.stage}>{habit.stage}</Text>
               <View
@@ -55,6 +60,7 @@ const styles = StyleSheet.create({
   habitCard: { flexDirection: "row", alignItems: "center", gap: 12 },
   habitCopy: { flex: 1, gap: 4 },
   habitTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 14 },
+  rdmPledge: { color: colors.growth, fontFamily: fonts.monoBold, fontSize: 9.5 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
   stage: { color: colors.gold, backgroundColor: colors.goldTint, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2, fontFamily: fonts.monoBold, fontSize: 9, textTransform: "uppercase" },
   streakBadge: {

@@ -11,6 +11,54 @@ import { queryClient, trpc } from "@/utils/trpc";
 
 const steps = ["pledge", "act", "reflect", "reward"] as const;
 
+type ScheduledPledgeSummary = {
+  currentDayKey: string | null;
+  dayCount: number;
+  settledDayKeys: string[];
+  startDayKey: string;
+  status: "upcoming" | "active" | "finished";
+};
+
+function habitPresentation({
+  cadence,
+  scheduledPledge,
+  stage,
+  streak,
+}: {
+  cadence: string;
+  scheduledPledge: ScheduledPledgeSummary | null;
+  stage: (typeof steps)[number];
+  streak: number;
+}) {
+  if (!scheduledPledge) {
+    return {
+      subtitle: `Day ${Math.max(1, streak)} · ${cadence}`,
+      todayState: stage === "act" ? "act" : "other",
+    } as const;
+  }
+  if (scheduledPledge.status === "upcoming") {
+    return {
+      subtitle: `STARTS ${scheduledPledge.startDayKey}`,
+      todayState: "upcoming",
+    } as const;
+  }
+  if (scheduledPledge.status === "finished") {
+    return { subtitle: "PLEDGE COMPLETE", todayState: "finished" } as const;
+  }
+  const dayNumber = Math.min(
+    scheduledPledge.dayCount,
+    scheduledPledge.settledDayKeys.length
+      + (scheduledPledge.currentDayKey
+        && scheduledPledge.settledDayKeys.includes(scheduledPledge.currentDayKey)
+        ? 0
+        : 1),
+  );
+  return {
+    subtitle: `DAY ${dayNumber} OF ${scheduledPledge.dayCount}`,
+    todayState: stage === "act" ? "act" : "other",
+  } as const;
+}
+
 export default function HabitDetailScreen() {
   const timeZone = getDeviceTimeZone();
   const { id = "" } = useLocalSearchParams<{ id: string }>();
@@ -40,10 +88,17 @@ export default function HabitDetailScreen() {
 
   const data = habit.data;
   const currentIndex = steps.indexOf(data.stage);
+  const scheduledPledge = data.rdmPledge;
+  const presentation = habitPresentation({
+    cadence: data.cadence,
+    scheduledPledge,
+    stage: data.stage,
+    streak: data.streak,
+  });
 
   return (
     <AppScreen>
-      <PageHeader back title={data.title} subtitle={`Day ${Math.max(1, data.streak)} · ${data.cadence}`} trailing={<View style={styles.streakPill}><MaterialCommunityIcons name="fire" size={17} color={colors.gold} /><Text style={styles.streakText}>{data.streak}</Text></View>} />
+      <PageHeader back title={data.title} subtitle={presentation.subtitle} trailing={<View style={styles.streakPill}><MaterialCommunityIcons name="fire" size={17} color={colors.gold} /><Text style={styles.streakText}>{data.streak}</Text></View>} />
       <View style={styles.timeline}>
         {steps.map((step, index) => {
           const complete = index < currentIndex || (data.stage === "reward" && index === currentIndex);
@@ -63,11 +118,31 @@ export default function HabitDetailScreen() {
       <SurfaceCard>
         <SectionLabel>Your pledge</SectionLabel>
         <Text style={styles.pledge}>“{data.pledge}”</Text>
+        {scheduledPledge ? (
+          <View style={styles.rdmPledgeGrid}>
+            <View style={styles.rdmPledgeCell}>
+              <Text style={styles.rdmPledgeValue}>{scheduledPledge.perDay} RDM</Text>
+              <Text style={styles.rdmPledgeLabel}>Each day</Text>
+            </View>
+            <View style={styles.rdmPledgeCell}>
+              <Text style={styles.rdmPledgeValue}>{scheduledPledge.remaining} RDM</Text>
+              <Text style={styles.rdmPledgeLabel}>Still locked</Text>
+            </View>
+            <View style={styles.rdmPledgeCell}>
+              <Text style={styles.rdmPledgeValue}>{scheduledPledge.settledDayKeys.length}/{scheduledPledge.dayCount}</Text>
+              <Text style={styles.rdmPledgeLabel}>Days settled</Text>
+            </View>
+          </View>
+        ) : null}
       </SurfaceCard>
 
       <SurfaceCard>
         <SectionLabel>Today's act</SectionLabel>
-        {data.stage === "act" ? (
+        {presentation.todayState === "upcoming" && scheduledPledge ? (
+          <Text style={rdmStyles.muted}>This habit starts on {scheduledPledge.startDayKey}. Your RDM is locked, but no daily amount will move before then.</Text>
+        ) : presentation.todayState === "finished" ? (
+          <Text style={rdmStyles.muted}>The pledge window is complete. Every scheduled day has been settled.</Text>
+        ) : presentation.todayState === "act" ? (
           <>
             <TextInput accessibilityLabel="Action log" multiline onChangeText={setActionNote} placeholder={`How did ${data.target} go?`} placeholderTextColor={colors.inkSoft} style={styles.input} textAlignVertical="top" value={actionNote} />
             <PrimaryButton label="Log today's act" loading={logAction.isPending} onPress={() => {
@@ -97,7 +172,7 @@ export default function HabitDetailScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {data.stage === "reflect" ? (
-        <PrimaryButton color={colors.gold} label="Complete reflection → claim reward" loading={reflect.isPending} onPress={() => {
+        <PrimaryButton color={colors.gold} label={scheduledPledge ? `Complete → move ${scheduledPledge.perDay} RDM to Reward` : "Complete reflection → claim reward"} loading={reflect.isPending} onPress={() => {
           setError(null);
           if (reflection.trim().length < 4) return setError("Write one honest sentence before claiming the reward.");
           reflect.mutate({ id, reflection: reflection.trim(), timeZone });
@@ -108,9 +183,21 @@ export default function HabitDetailScreen() {
           <MaterialCommunityIcons name={data.lastOutcome === "missed" ? "backup-restore" : "trophy-outline"} size={32} color={data.lastOutcome === "missed" ? colors.coral : colors.gold} />
           <View style={styles.rewardCopy}>
             <Text style={[styles.rewardTitle, data.lastOutcome === "missed" && styles.missedTitle]}>{data.lastOutcome === "missed" ? "Honesty recorded" : "Reward claimed"}</Text>
-            <Text style={rdmStyles.muted}>{data.lastOutcome === "missed" ? "The streak reset and 10 RDM moved to your Remorse Purse for a conscious decision." : "Your reflection added 25 RDM and moved the streak forward."}</Text>
+            <Text style={rdmStyles.muted}>
+              {data.lastOutcome === "missed"
+                ? `The streak reset and ${scheduledPledge?.perDay ?? 10} RDM moved to your Remorse Purse.`
+                : `${scheduledPledge?.perDay ?? 25} RDM moved to your Reward Purse and the streak moved forward.`}
+            </Text>
           </View>
-          <PrimaryButton label="Start the next cycle" loading={startNext.isPending} onPress={() => startNext.mutate({ id, timeZone })} />
+          {scheduledPledge ? (
+            <Text style={styles.nextDayCopy}>
+              {scheduledPledge.status === "finished"
+                ? "Your complete pledge has now been allocated."
+                : "The next commitment day unlocks automatically."}
+            </Text>
+          ) : (
+            <PrimaryButton label="Start the next cycle" loading={startNext.isPending} onPress={() => startNext.mutate({ id, timeZone })} />
+          )}
         </View>
       ) : null}
       <ActionDialog
@@ -118,7 +205,7 @@ export default function HabitDetailScreen() {
         confirmColor={colors.coral}
         confirmLabel="Record honestly"
         loading={miss.isPending}
-        message="Your streak resets and 10 RDM moves into the Remorse Purse for you to decide on later."
+        message={`Your streak resets and ${scheduledPledge?.perDay ?? 10} RDM moves into the Remorse Purse for you to decide on later.`}
         onCancel={() => setMissOpen(false)}
         onConfirm={() => {
           setMissOpen(false);
@@ -145,6 +232,10 @@ const styles = StyleSheet.create({
   stepLine: { position: "absolute", top: 16, left: "67%", width: "66%", height: 2, backgroundColor: colors.line },
   stepLineComplete: { backgroundColor: colors.growth },
   pledge: { color: colors.ink, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 8 },
+  rdmPledgeGrid: { flexDirection: "row", gap: 7, marginTop: 14 },
+  rdmPledgeCell: { flex: 1, minHeight: 58, borderRadius: 10, backgroundColor: colors.panelRaised, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
+  rdmPledgeValue: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 12 },
+  rdmPledgeLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 8.5, marginTop: 3, textAlign: "center" },
   input: { minHeight: 96, backgroundColor: colors.panelRaised, borderWidth: 1, borderColor: colors.line, borderRadius: 12, color: colors.ink, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, padding: 12, marginTop: 10, marginBottom: 12 },
   inputDisabled: { color: colors.inkSoft, fontStyle: "italic" },
   weekRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
@@ -158,4 +249,5 @@ const styles = StyleSheet.create({
   rewardCopy: { gap: 3 },
   rewardTitle: { color: colors.gold, fontFamily: fonts.display, fontSize: 18 },
   missedTitle: { color: colors.coral },
+  nextDayCopy: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 17, textAlign: "center" },
 });

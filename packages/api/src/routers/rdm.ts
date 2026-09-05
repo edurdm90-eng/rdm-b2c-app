@@ -38,15 +38,19 @@ import {
   groupAwardCredits,
   habitCanStartNextCycle,
   habitCategories,
+  habitPledgeDestinationForOperation,
+  habitPledgeSchedule,
   habitTemplates,
   initialBadgeIds,
   inviteWeekKey,
   isValidTimeZone,
   levelForXp,
+  missedHabitPledgeDayKeys,
   previousDayKeyForTimeZone,
   rewardToRemorseTransfer,
   rewardCatalog,
   rewardForGame,
+  releaseHabitPledgeBalances,
   treeGrowthFor,
   treeMissedDayPenalty,
   type WalletBalances,
@@ -54,6 +58,7 @@ import {
 
 const nowIso = () => new Date().toISOString();
 const mongoId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
+const dayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 const timeZoneSchema = z
   .string()
   .trim()
@@ -107,7 +112,36 @@ function basePurseBalanceExpression() {
   };
 }
 
+function scheduledHabitPledge(habit: any) {
+  const perDay = Number(habit.rdmPledgePerDay ?? 0);
+  const startDayKey = String(habit.rdmPledgeStartDayKey ?? "");
+  const endDayKey = String(habit.rdmPledgeEndDayKey ?? "");
+  const schedule = habitPledgeSchedule({ startDayKey, endDayKey, dailyPledge: perDay });
+  if (!schedule) return null;
+  return {
+    ...schedule,
+    perDay,
+    startDayKey,
+    endDayKey,
+    timeZone: String(habit.rdmPledgeTimeZone ?? "Asia/Kolkata"),
+  };
+}
+
 function serializeHabit(habit: any) {
+  const pledgeSchedule = scheduledHabitPledge(habit);
+  const todayDayKey = dayKeyForTimeZone(
+    new Date(),
+    pledgeSchedule?.timeZone ?? "Asia/Kolkata",
+  );
+  const settledDayKeys = Array.from(habit.rdmPledgeSettledDayKeys ?? [], String);
+  const pledgeStatus: "upcoming" | "active" | "finished" = pledgeSchedule
+    ? todayDayKey < pledgeSchedule.startDayKey
+      ? "upcoming"
+      : todayDayKey >= pledgeSchedule.endDayKey || Number(habit.rdmPledgeRemaining) <= 0
+        ? "finished"
+        : "active"
+    : "finished";
+
   return {
     id: String(habit._id),
     title: String(habit.title),
@@ -116,6 +150,21 @@ function serializeHabit(habit: any) {
     cadence: String(habit.cadence),
     target: String(habit.target),
     pledge: String(habit.pledge),
+    rdmPledge: pledgeSchedule
+      ? {
+        perDay: Number(habit.rdmPledgePerDay),
+        total: Number(habit.rdmPledgeTotal),
+        remaining: Number(habit.rdmPledgeRemaining),
+        startDayKey: pledgeSchedule.startDayKey,
+        endDayKey: pledgeSchedule.endDayKey,
+        timeZone: pledgeSchedule.timeZone,
+        dayCount: pledgeSchedule.dayCount,
+        settledDayKeys,
+        completedDayKeys: Array.from(habit.rdmPledgeCompletedDayKeys ?? [], String),
+        currentDayKey: habit.currentDayKey ? String(habit.currentDayKey) : null,
+        status: pledgeStatus,
+      }
+      : null,
     source: String(habit.source) as (typeof habitSources)[number],
     stage: String(habit.stage) as (typeof habitStages)[number],
     streak: Number(habit.streak),
@@ -241,6 +290,16 @@ function unlockBadges(profile: any, badgeIds: ReadonlyArray<string>) {
   profile.unlockedBadges = Array.from(unlocked);
 }
 
+async function normalizeProfileLevel(profile: any) {
+  const level = levelForXp(profile.xp);
+  if (profile.level === level) return profile;
+  return await RdmProfile.findOneAndUpdate(
+    { _id: profile._id },
+    { $max: { level } },
+    { returnDocument: "after" },
+  ) ?? profile;
+}
+
 async function creditProfile({
   userId,
   amount,
@@ -278,15 +337,171 @@ async function creditProfile({
     { returnDocument: "after" },
   );
   profile ??= await getProfile(userId);
-  const level = levelForXp(profile.xp);
-  if (profile.level !== level) {
-    profile = await RdmProfile.findOneAndUpdate(
-      { _id: profile._id },
-      { $max: { level } },
+  return normalizeProfileLevel(profile);
+}
+
+async function settleScheduledHabitWallet({
+  userId,
+  habit,
+  dayKey,
+  destination,
+}: {
+  userId: string;
+  habit: any;
+  dayKey: string;
+  destination: "reward" | "remorse";
+}) {
+  const amount = Number(habit.rdmPledgePerDay ?? 0);
+  const operationId = `habit-pledge:${habit._id}:${dayKey}`;
+  const title = destination === "reward"
+    ? `${habit.title} — ${dayKey} completed`
+    : `Missed pledge — ${habit.title} — ${dayKey}`;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const current = await getProfile(userId);
+    if (current.creditedOperations.includes(operationId)) {
+      const recordedDestination = habitPledgeDestinationForOperation(
+        current.transactions as unknown as Array<{ kind: string; operationId?: string }>,
+        operationId,
+      );
+      if (!recordedDestination) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `The habit pledge ledger is incomplete for ${dayKey}`,
+        });
+      }
+      return { profile: current, destination: recordedDestination };
+    }
+
+    const currentWallet = walletBalancesForProfile(current);
+    const nextWallet = releaseHabitPledgeBalances(currentWallet, destination, amount);
+    const increments: Record<string, number> = {
+      walletBalance: nextWallet.balance - currentWallet.balance,
+      [destination === "reward" ? "rewardBalance" : "remorseBalance"]:
+        nextWallet[destination] - currentWallet[destination],
+    };
+
+    const update: Record<string, unknown> = {
+      $inc: increments,
+      $addToSet: { creditedOperations: operationId },
+      $push: {
+        transactions: {
+          $each: [{
+            title,
+            amount: destination === "reward" ? amount : -amount,
+            kind: destination === "reward" ? "habit" : "remorse",
+            operationId,
+            createdAt: new Date(),
+          }],
+          $position: 0,
+        },
+      },
+    };
+
+    const profile = await RdmProfile.findOneAndUpdate(
+      {
+        userId,
+        walletBalance: currentWallet.balance,
+        rewardBalance: currentWallet.reward,
+        remorseBalance: currentWallet.remorse,
+        peerBalance: currentWallet.peer,
+        creditedOperations: { $ne: operationId },
+      },
+      update,
       { returnDocument: "after" },
-    ) ?? profile;
+    );
+    if (!profile) continue;
+
+    return { profile, destination };
   }
-  return profile;
+  throw new TRPCError({
+    code: "INTERNAL_SERVER_ERROR",
+    message: `Could not settle the habit pledge for ${dayKey}`,
+  });
+}
+
+function scheduledHabitOutcomeUpdate({
+  amount,
+  dayKey,
+  destination,
+  missedAction = "Missed pledge recorded honestly",
+  reflection,
+}: {
+  amount: number;
+  dayKey: string;
+  destination: "reward" | "remorse";
+  missedAction?: string;
+  reflection?: string;
+}) {
+  if (destination === "reward") {
+    const [year, month, calendarDay] = dayKey.split("-").map(Number);
+    const weekday = new Date(Date.UTC(
+      year ?? 0,
+      (month ?? 1) - 1,
+      calendarDay ?? 1,
+    )).getUTCDay() || 7;
+    return {
+      $set: {
+        ...(reflection ? { reflection } : {}),
+        stage: "reward",
+        lastOutcome: "completed",
+        lastCompletedDayKey: dayKey,
+        lastSettledDayKey: dayKey,
+        currentDayKey: dayKey,
+      },
+      $inc: { streak: 1, rdmPledgeRemaining: -amount },
+      $addToSet: {
+        completedDays: weekday,
+        rdmPledgeSettledDayKeys: dayKey,
+        rdmPledgeCompletedDayKeys: dayKey,
+      },
+    };
+  }
+  return {
+    $set: {
+      stage: "reward",
+      streak: 0,
+      lastOutcome: "missed",
+      lastAction: missedAction,
+      lastSettledDayKey: dayKey,
+      currentDayKey: dayKey,
+    },
+    $inc: { rdmPledgeRemaining: -amount },
+    $addToSet: { rdmPledgeSettledDayKeys: dayKey },
+    $unset: { reflection: 1 },
+  };
+}
+
+async function settleEligibleScheduledHabitDay({
+  dayKey,
+  destination,
+  expectedStage,
+  habit,
+  userId,
+}: {
+  dayKey: string;
+  destination: "reward" | "remorse";
+  expectedStage: "act" | "reflect";
+  habit: any;
+  userId: string;
+}) {
+  const amount = Number(habit.rdmPledgePerDay ?? 0);
+  const settledDayKeys = Array.from(habit.rdmPledgeSettledDayKeys ?? [], String);
+  if (
+    habit.stage !== expectedStage
+    || !habit.active
+    || String(habit.currentDayKey ?? "") !== dayKey
+    || settledDayKeys.includes(dayKey)
+    || Number(habit.rdmPledgeRemaining) < amount
+  ) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: expectedStage === "reflect"
+        ? "This habit is not ready for reflection"
+        : "This habit is not ready to be marked missed",
+    });
+  }
+  return settleScheduledHabitWallet({ userId, habit, dayKey, destination });
 }
 
 async function debitMissedPledge({
@@ -540,8 +755,135 @@ async function reconcileTreeMissedDay(userId: string, timeZone: string) {
   return { profile, missedDay };
 }
 
+async function reconcileScheduledHabitOutcome(habit: any, userId: string) {
+  const pledge = scheduledHabitPledge(habit);
+  if (!pledge) return habit;
+
+  let current = habit;
+  let profile = await getProfile(userId);
+  let processedOperations = new Set(Array.from(profile.creditedOperations ?? [], String));
+  const completedDayKeys = new Set(
+    Array.from(current.rdmPledgeCompletedDayKeys ?? [], String),
+  );
+  for (const dayKey of Array.from(current.rdmPledgeSettledDayKeys ?? [], String)) {
+    if (processedOperations.has(`habit-pledge:${current._id}:${dayKey}`)) continue;
+    await settleScheduledHabitWallet({
+      userId,
+      habit: current,
+      dayKey,
+      destination: completedDayKeys.has(dayKey) ? "reward" : "remorse",
+    });
+  }
+
+  profile = await getProfile(userId);
+  processedOperations = new Set(Array.from(profile.creditedOperations ?? [], String));
+  const walletTransactions = profile.transactions as unknown as Array<{
+    kind: string;
+    operationId?: string;
+  }>;
+  const persistedSettledDayKeys = new Set(
+    Array.from(current.rdmPledgeSettledDayKeys ?? [], String),
+  );
+  for (const dayKey of pledge.dayKeys) {
+    if (persistedSettledDayKeys.has(dayKey)) continue;
+    const operationId = `habit-pledge:${current._id}:${dayKey}`;
+    if (!processedOperations.has(operationId)) continue;
+    const destination = habitPledgeDestinationForOperation(walletTransactions, operationId);
+    if (!destination) continue;
+    const recovered = await Habit.findOneAndUpdate(
+      {
+        _id: current._id,
+        userId,
+        rdmPledgeSettledDayKeys: { $ne: dayKey },
+        rdmPledgeRemaining: { $gte: pledge.perDay },
+      },
+      scheduledHabitOutcomeUpdate({
+        amount: pledge.perDay,
+        dayKey,
+        destination,
+      }),
+      { returnDocument: "after" },
+    );
+    if (!recovered) continue;
+    current = recovered;
+    persistedSettledDayKeys.add(dayKey);
+  }
+
+  const currentDayKey = dayKeyForTimeZone(new Date(), pledge.timeZone);
+  const missedDayKeys = missedHabitPledgeDayKeys(
+    pledge.dayKeys,
+    Array.from(current.rdmPledgeSettledDayKeys ?? [], String),
+    currentDayKey,
+  );
+  for (const dayKey of missedDayKeys) {
+    const settlement = await settleScheduledHabitWallet({
+      userId,
+      habit: current,
+      dayKey,
+      destination: "remorse",
+    });
+    const missed = await Habit.findOneAndUpdate(
+      {
+        _id: current._id,
+        userId,
+        rdmPledgeSettledDayKeys: { $ne: dayKey },
+        rdmPledgeRemaining: { $gte: pledge.perDay },
+      },
+      scheduledHabitOutcomeUpdate({
+        amount: pledge.perDay,
+        dayKey,
+        destination: settlement.destination,
+        missedAction: "Scheduled day missed",
+      }),
+      { returnDocument: "after" },
+    );
+    if (!missed) continue;
+    current = missed;
+  }
+
+  current = await Habit.findById(current._id) ?? current;
+  const settledDayKeys = new Set(
+    Array.from(current.rdmPledgeSettledDayKeys ?? [], String),
+  );
+  if (currentDayKey < pledge.startDayKey) {
+    return await Habit.findOneAndUpdate(
+      { _id: current._id, userId },
+      {
+        $set: { stage: "pledge", cycle: 1 },
+        $unset: { currentDayKey: 1, lastAction: 1, reflection: 1, lastOutcome: 1 },
+      },
+      { returnDocument: "after" },
+    ) ?? current;
+  }
+  if (currentDayKey >= pledge.endDayKey || Number(current.rdmPledgeRemaining) <= 0) {
+    return await Habit.findOneAndUpdate(
+      { _id: current._id, userId },
+      { $set: { active: false, stage: "reward" }, $unset: { currentDayKey: 1 } },
+      { returnDocument: "after" },
+    ) ?? current;
+  }
+  if (settledDayKeys.has(currentDayKey)) return current;
+  if (String(current.currentDayKey ?? "") === currentDayKey) return current;
+
+  return await Habit.findOneAndUpdate(
+    { _id: current._id, userId },
+    {
+      $set: {
+        stage: "act",
+        currentDayKey,
+        cycle: pledge.dayKeys.indexOf(currentDayKey) + 1,
+      },
+      $unset: { lastAction: 1, reflection: 1, lastOutcome: 1 },
+    },
+    { returnDocument: "after" },
+  ) ?? current;
+}
+
 async function reconcileHabitOutcome(habit: any, userId: string) {
-  if (habit.stage !== "reward") return;
+  if (scheduledHabitPledge(habit)) {
+    return reconcileScheduledHabitOutcome(habit, userId);
+  }
+  if (habit.stage !== "reward") return habit;
   if (habit.lastOutcome === "completed") {
     await creditProfile({
       userId,
@@ -562,6 +904,7 @@ async function reconcileHabitOutcome(habit: any, userId: string) {
       penalty: 10,
     });
   }
+  return habit;
 }
 
 async function reconcileGroupAwards(group: any) {
@@ -581,6 +924,62 @@ async function reconcileGroupAwards(group: any) {
   }
 }
 
+async function fundPendingHabit(habit: any, userId: string) {
+  const pledge = scheduledHabitPledge(habit);
+  if (!pledge || habit.rdmPledgeFundingStatus !== "pending") return habit;
+
+  const operationId = `habit-stake:${habit._id}`;
+  let profile = await getProfile(userId);
+  if (!profile.creditedOperations.includes(operationId)) {
+    const lockedProfile = await RdmProfile.findOneAndUpdate(
+      {
+        userId,
+        creditedOperations: { $ne: operationId },
+        $expr: {
+          $gte: [basePurseBalanceExpression(), pledge.totalPledge],
+        },
+      },
+      {
+        $inc: { walletBalance: -pledge.totalPledge },
+        $addToSet: { creditedOperations: operationId },
+        $push: {
+          transactions: {
+            $each: [{
+              title: `Habit pledge locked — ${habit.title}`,
+              amount: -pledge.totalPledge,
+              kind: "stake",
+              operationId,
+              createdAt: new Date(),
+            }],
+            $position: 0,
+          },
+        },
+      },
+      { returnDocument: "after" },
+    );
+    if (lockedProfile) {
+      profile = lockedProfile;
+    } else {
+      profile = await getProfile(userId);
+      if (!profile.creditedOperations.includes(operationId)) {
+        await Habit.deleteOne({ _id: habit._id, userId, rdmPledgeFundingStatus: "pending" });
+        return null;
+      }
+    }
+  }
+
+  return await Habit.findOneAndUpdate(
+    { _id: habit._id, userId, rdmPledgeFundingStatus: "pending" },
+    { $set: { rdmPledgeFundingStatus: "funded", active: true } },
+    { returnDocument: "after" },
+  ) ?? await Habit.findOne({ _id: habit._id, userId, rdmPledgeFundingStatus: "funded" });
+}
+
+async function reconcilePendingHabitFunding(userId: string) {
+  const pendingHabits = await Habit.find({ userId, rdmPledgeFundingStatus: "pending" });
+  for (const habit of pendingHabits) await fundPendingHabit(habit, userId);
+}
+
 async function ensureSeedData(userId: string, userName: string) {
   let profile = await RdmProfile.findOneAndUpdate(
     { userId },
@@ -593,9 +992,10 @@ async function ensureSeedData(userId: string, userName: string) {
   }
   profile = await resetWeeklyInvites(profile);
   await ensureReferralCode(profile);
+  await reconcilePendingHabitFunding(userId);
 
   let habits = await Habit.find({ userId, active: true }).sort({ createdAt: 1 });
-  if (habits.length === 0) {
+  if (habits.length === 0 && await Habit.countDocuments({ userId }) === 0) {
     const template = habitTemplates[0];
     const seededHabit = await Habit.create({
       userId,
@@ -614,7 +1014,10 @@ async function ensureSeedData(userId: string, userName: string) {
     });
     habits = [seededHabit];
   }
-  for (const habit of habits) await reconcileHabitOutcome(habit, userId);
+  for (let index = 0; index < habits.length; index += 1) {
+    const habit = habits[index];
+    if (habit) habits[index] = await reconcileHabitOutcome(habit, userId);
+  }
   profile = await getProfile(userId);
 
   let groups = await GoalGroup.find({ creatorId: userId }).sort({ createdAt: 1 });
@@ -1111,14 +1514,18 @@ export const rdmRouter = router({
     list: protectedProcedure.query(async ({ ctx }) => {
       await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
       const habits = await Habit.find({ userId: ctx.session.user.id, active: true }).sort({ createdAt: 1 });
-      return habits.map(serializeHabit);
+      const reconciled = [];
+      for (const habit of habits) {
+        reconciled.push(await reconcileHabitOutcome(habit, ctx.session.user.id));
+      }
+      return reconciled.filter((habit) => habit.active).map(serializeHabit);
     }),
     byId: protectedProcedure
       .input(z.object({ id: mongoId }))
       .query(async ({ ctx, input }) => {
-        const habit = await Habit.findOne({ _id: input.id, userId: ctx.session.user.id });
+        let habit = await Habit.findOne({ _id: input.id, userId: ctx.session.user.id });
         if (!habit) throw new TRPCError({ code: "NOT_FOUND", message: "Habit not found" });
-        await reconcileHabitOutcome(habit, ctx.session.user.id);
+        habit = await reconcileHabitOutcome(habit, ctx.session.user.id);
         return serializeHabit(habit);
       }),
     create: protectedProcedure
@@ -1129,28 +1536,128 @@ export const rdmRouter = router({
         cadence: z.string().trim().min(2).max(40),
         target: z.string().trim().min(2).max(120),
         pledge: z.string().trim().min(8).max(500),
+        creationId: z.string().uuid(),
+        rdmPledgePerDay: z.number().int().min(1).max(100_000),
+        rdmPledgeStartDayKey: dayKeySchema,
+        rdmPledgeEndDayKey: dayKeySchema,
+        timeZone: timeZoneSchema,
         source: z.enum(habitSources),
       }))
       .mutation(async ({ ctx, input }) => {
-        await requireBaseRdm(ctx.session.user.id, "a habit");
-        const habit = await Habit.create({
+        const schedule = habitPledgeSchedule({
+          startDayKey: input.rdmPledgeStartDayKey,
+          endDayKey: input.rdmPledgeEndDayKey,
+          dailyPledge: input.rdmPledgePerDay,
+        });
+        const currentDayKey = dayKeyForTimeZone(new Date(), input.timeZone);
+        if (!schedule || schedule.dayCount > 365) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose a commitment window between 1 and 365 days.",
+          });
+        }
+        if (input.rdmPledgeStartDayKey < currentDayKey) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The habit start date cannot be in the past.",
+          });
+        }
+        if (schedule.totalPledge > 100_000) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The total habit pledge cannot exceed 100,000 RDM.",
+          });
+        }
+
+        await getProfile(ctx.session.user.id);
+        const existingHabit = await Habit.findOne({
+          userId: ctx.session.user.id,
+          rdmPledgeCreationId: input.creationId,
+        });
+        if (existingHabit) {
+          const fundedHabit = await fundPendingHabit(existingHabit, ctx.session.user.id);
+          if (!fundedHabit) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `You need ${schedule.totalPledge} RDM in your Base Purse for this habit.`,
+            });
+          }
+          return serializeHabit(fundedHabit);
+        }
+        const habit = new Habit({
           ...input,
           userId: ctx.session.user.id,
-          stage: "act",
+          active: false,
+          stage: input.rdmPledgeStartDayKey === currentDayKey ? "act" : "pledge",
           streak: 0,
           completedDays: [],
+          rdmPledgeCreationId: input.creationId,
+          rdmPledgeTotal: schedule.totalPledge,
+          rdmPledgeRemaining: schedule.totalPledge,
+          rdmPledgeTimeZone: input.timeZone,
+          rdmPledgeFundingStatus: "pending",
+          rdmPledgeSettledDayKeys: [],
+          rdmPledgeCompletedDayKeys: [],
+          currentDayKey: input.rdmPledgeStartDayKey === currentDayKey
+            ? currentDayKey
+            : undefined,
         });
-        return serializeHabit(habit);
+        let savedHabit = habit;
+        try {
+          await savedHabit.save();
+        } catch (error: any) {
+          if (error?.code !== 11000) throw error;
+          const concurrentHabit = await Habit.findOne({
+            userId: ctx.session.user.id,
+            rdmPledgeCreationId: input.creationId,
+          });
+          if (!concurrentHabit) throw error;
+          savedHabit = concurrentHabit;
+        }
+        const fundedHabit = await fundPendingHabit(savedHabit, ctx.session.user.id);
+        if (!fundedHabit) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `You need ${schedule.totalPledge} RDM in your Base Purse for this habit.`,
+          });
+        }
+        return serializeHabit(fundedHabit);
       }),
     logAction: protectedProcedure
       .input(z.object({ id: mongoId, note: z.string().trim().min(2).max(240) }))
       .mutation(async ({ ctx, input }) => {
+        let current = await Habit.findOne({ _id: input.id, userId: ctx.session.user.id });
+        if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Habit not found" });
+        current = await reconcileHabitOutcome(current, ctx.session.user.id);
+        if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Habit not found" });
+        const scheduledPledge = scheduledHabitPledge(current);
+        const currentDayKey = scheduledPledge
+          ? dayKeyForTimeZone(new Date(), scheduledPledge.timeZone)
+          : null;
         const habit = await Habit.findOneAndUpdate(
-          { _id: input.id, userId: ctx.session.user.id, stage: "act" },
+          {
+            _id: input.id,
+            userId: ctx.session.user.id,
+            stage: "act",
+            active: true,
+            ...(currentDayKey
+              ? {
+                currentDayKey,
+                rdmPledgeSettledDayKeys: { $ne: currentDayKey },
+              }
+              : {}),
+          },
           { $set: { stage: "reflect", lastAction: input.note } },
           { returnDocument: "after" },
         );
-        if (!habit) throw new TRPCError({ code: "CONFLICT", message: "This habit is not ready for an action log" });
+        if (!habit) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: scheduledPledge
+              ? "This habit is not available for completion today."
+              : "This habit is not ready for an action log",
+          });
+        }
         return serializeHabit(habit);
       }),
     reflect: protectedProcedure
@@ -1160,91 +1667,187 @@ export const rdmRouter = router({
         timeZone: timeZoneSchema,
       }))
       .mutation(async ({ ctx, input }) => {
-        const reward = 25;
-        const dayKey = dayKeyForTimeZone(new Date(), input.timeZone);
+        let current = await Habit.findOne({ _id: input.id, userId: ctx.session.user.id });
+        if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Habit not found" });
+        current = await reconcileHabitOutcome(current, ctx.session.user.id);
+        if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Habit not found" });
+        const scheduledPledge = scheduledHabitPledge(current);
+        const timeZone = scheduledPledge?.timeZone ?? input.timeZone;
+        const reward = scheduledPledge?.perDay ?? 25;
+        const dayKey = dayKeyForTimeZone(new Date(), timeZone);
         const [year, month, calendarDay] = dayKey.split("-").map(Number);
         const day = new Date(Date.UTC(
           year ?? 0,
           (month ?? 1) - 1,
           calendarDay ?? 1,
         )).getUTCDay() || 7;
+        let scheduledSettlement: Awaited<ReturnType<typeof settleScheduledHabitWallet>> | null = null;
+        if (scheduledPledge) {
+          scheduledSettlement = await settleEligibleScheduledHabitDay({
+            userId: ctx.session.user.id,
+            habit: current,
+            dayKey,
+            destination: "reward",
+            expectedStage: "reflect",
+          });
+        }
         let habit = await Habit.findOneAndUpdate(
           {
             _id: input.id,
             userId: ctx.session.user.id,
             stage: "reflect",
-            lastCompletedDayKey: { $ne: dayKey },
+            active: true,
+            ...(scheduledPledge
+              ? {
+                currentDayKey: dayKey,
+                rdmPledgeSettledDayKeys: { $ne: dayKey },
+                rdmPledgeRemaining: { $gte: reward },
+              }
+              : { lastCompletedDayKey: { $ne: dayKey } }),
           },
-          {
-            $set: {
+          scheduledPledge
+            ? scheduledHabitOutcomeUpdate({
+              amount: reward,
+              dayKey,
+              destination: scheduledSettlement?.destination ?? "reward",
               reflection: input.reflection,
-              stage: "reward",
-              lastOutcome: "completed",
-              lastCompletedDayKey: dayKey,
+            })
+            : {
+              $set: {
+                reflection: input.reflection,
+                stage: "reward",
+                lastOutcome: "completed",
+                lastCompletedDayKey: dayKey,
+              },
+              $inc: { streak: 1 },
+              $addToSet: { completedDays: day },
             },
-            $inc: { streak: 1 },
-            $addToSet: { completedDays: day },
-          },
           { returnDocument: "after" },
         );
         habit ??= await Habit.findOne({ _id: input.id, userId: ctx.session.user.id });
-        if (!habit || habit.stage !== "reward" || habit.lastOutcome !== "completed") {
+        const expectedOutcome = scheduledSettlement?.destination === "remorse"
+          ? "missed"
+          : "completed";
+        if (!habit || habit.stage !== "reward" || habit.lastOutcome !== expectedOutcome) {
           throw new TRPCError({ code: "CONFLICT", message: "This habit is not ready for reflection" });
         }
 
-        const profile = await creditProfile({
-          userId: ctx.session.user.id,
-          amount: reward,
-          title: `${habit.title} — reflection`,
-          kind: "habit",
-          purse: "reward",
-          operationId: `habit:${habit._id}:${habit.cycle}`,
-          badgeIds: ["first-sprout", ...(habit.streak >= 7 ? ["seven-day-streak"] : [])],
-          streak: habit.streak,
-        });
-        await recordTreeCareActivity({
-          userId: ctx.session.user.id,
-          kind: "fertilizer",
-          operationId: `habit:${habit._id}:${habit.cycle}`,
-          dayKey,
-          timeZone: input.timeZone,
-        });
-        return { habit: serializeHabit(habit), profile: serializeProfile(profile), reward };
+        const profile = scheduledSettlement?.profile
+          ?? await creditProfile({
+            userId: ctx.session.user.id,
+            amount: reward,
+            title: `${habit.title} — reflection`,
+            kind: "habit",
+            purse: "reward",
+            operationId: `habit:${habit._id}:${habit.cycle}`,
+            badgeIds: ["first-sprout", ...(habit.streak >= 7 ? ["seven-day-streak"] : [])],
+            streak: habit.streak,
+          });
+        if (expectedOutcome === "completed") {
+          await recordTreeCareActivity({
+            userId: ctx.session.user.id,
+            kind: "fertilizer",
+            operationId: `habit:${habit._id}:${habit.cycle}`,
+            dayKey,
+            timeZone,
+          });
+        }
+        return {
+          habit: serializeHabit(habit),
+          profile: serializeProfile(profile),
+          reward: expectedOutcome === "completed" ? reward : 0,
+        };
       }),
     miss: protectedProcedure
       .input(z.object({ id: mongoId }))
       .mutation(async ({ ctx, input }) => {
-        const penalty = 10;
+        let current = await Habit.findOne({ _id: input.id, userId: ctx.session.user.id });
+        if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Habit not found" });
+        current = await reconcileHabitOutcome(current, ctx.session.user.id);
+        if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Habit not found" });
+        const scheduledPledge = scheduledHabitPledge(current);
+        const dayKey = scheduledPledge
+          ? dayKeyForTimeZone(new Date(), scheduledPledge.timeZone)
+          : null;
+        const penalty = scheduledPledge?.perDay ?? 10;
+        let scheduledSettlement: Awaited<ReturnType<typeof settleScheduledHabitWallet>> | null = null;
+        if (scheduledPledge && dayKey) {
+          scheduledSettlement = await settleEligibleScheduledHabitDay({
+            userId: ctx.session.user.id,
+            habit: current,
+            dayKey,
+            destination: "remorse",
+            expectedStage: "act",
+          });
+        }
         let habit = await Habit.findOneAndUpdate(
-          { _id: input.id, userId: ctx.session.user.id, stage: "act" },
           {
-            $set: {
-              stage: "reward",
-              streak: 0,
-              lastOutcome: "missed",
-              lastAction: "Missed pledge recorded honestly",
-            },
+            _id: input.id,
+            userId: ctx.session.user.id,
+            stage: "act",
+            active: true,
+            ...(dayKey
+              ? {
+                currentDayKey: dayKey,
+                rdmPledgeSettledDayKeys: { $ne: dayKey },
+                rdmPledgeRemaining: { $gte: penalty },
+              }
+              : {}),
           },
+          dayKey
+            ? scheduledHabitOutcomeUpdate({
+              amount: penalty,
+              dayKey,
+              destination: scheduledSettlement?.destination ?? "remorse",
+            })
+            : {
+              $set: {
+                stage: "reward",
+                streak: 0,
+                lastOutcome: "missed",
+                lastAction: "Missed pledge recorded honestly",
+              },
+            },
           { returnDocument: "after" },
         );
         habit ??= await Habit.findOne({ _id: input.id, userId: ctx.session.user.id });
-        if (!habit || habit.stage !== "reward" || habit.lastOutcome !== "missed") {
+        const expectedOutcome = scheduledSettlement?.destination === "reward"
+          ? "completed"
+          : "missed";
+        if (!habit || habit.stage !== "reward" || habit.lastOutcome !== expectedOutcome) {
           throw new TRPCError({ code: "CONFLICT", message: "This habit is not ready to be marked missed" });
         }
 
-        const result = await debitMissedPledge({
-          userId: ctx.session.user.id,
-          operationId: `miss:${habit._id}:${habit.cycle}`,
-          title: `Missed pledge — ${habit.title}`,
-          penalty,
-        });
-        return { habit: serializeHabit(habit), profile: serializeProfile(result.profile), penalty: result.appliedPenalty };
+        const profile = scheduledSettlement?.profile
+          ?? (await debitMissedPledge({
+            userId: ctx.session.user.id,
+            operationId: `miss:${habit._id}:${habit.cycle}`,
+            title: `Missed pledge — ${habit.title}`,
+            penalty,
+          })).profile;
+        return {
+          habit: serializeHabit(habit),
+          profile: serializeProfile(profile),
+          penalty: expectedOutcome === "missed" ? penalty : 0,
+        };
       }),
     startNextCycle: protectedProcedure
       .input(z.object({ id: mongoId, timeZone: timeZoneSchema }))
       .mutation(async ({ ctx, input }) => {
         const current = await Habit.findOne({ _id: input.id, userId: ctx.session.user.id, stage: "reward" });
         if (!current) throw new TRPCError({ code: "CONFLICT", message: "Claim the current cycle before starting another" });
+        const reconciled = await reconcileHabitOutcome(current, ctx.session.user.id);
+        const scheduledPledge = scheduledHabitPledge(reconciled);
+        if (scheduledPledge) {
+          const scheduledDayKey = dayKeyForTimeZone(new Date(), scheduledPledge.timeZone);
+          if (Array.from(reconciled.rdmPledgeSettledDayKeys ?? [], String).includes(scheduledDayKey)) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "This habit is settled for today. Come back on the next scheduled day.",
+            });
+          }
+          return serializeHabit(reconciled);
+        }
         const currentDayKey = dayKeyForTimeZone(new Date(), input.timeZone);
         if (!habitCanStartNextCycle(current.lastCompletedDayKey, currentDayKey)) {
           throw new TRPCError({
@@ -1252,7 +1855,6 @@ export const rdmRouter = router({
             message: "This habit is complete for today. Come back tomorrow to continue the streak.",
           });
         }
-        await reconcileHabitOutcome(current, ctx.session.user.id);
         const habit = await Habit.findOneAndUpdate(
           { _id: input.id, userId: ctx.session.user.id, stage: "reward", cycle: current.cycle },
           { $set: { stage: "act" }, $inc: { cycle: 1 }, $unset: { lastAction: 1, reflection: 1, lastOutcome: 1 } },

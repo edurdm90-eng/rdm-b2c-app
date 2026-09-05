@@ -20,6 +20,7 @@
     "@expo/vector-icons": "^15.1.1",
     "@rdm-b2c/api": "workspace:*",
     "@rdm-b2c/env": "workspace:*",
+    "@react-native-community/datetimepicker": "9.1.0",
     "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",

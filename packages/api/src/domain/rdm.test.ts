@@ -18,14 +18,18 @@ import {
   gratitudeCategories,
   groupAwardCredits,
   habitCanStartNextCycle,
+  habitPledgeDestinationForOperation,
+  habitPledgeSchedule,
   initialBadgeIds,
   inviteWeekKey,
   levelForXp,
+  missedHabitPledgeDayKeys,
   missedTreeDayKey,
   previousDayKeyForTimeZone,
   rewardToRemorseTransfer,
   rewardCatalog,
   rewardForGame,
+  releaseHabitPledgeBalances,
   treeGrowthFor,
 } from "./rdm";
 
@@ -108,6 +112,94 @@ test("daily habits cannot inflate a streak with repeated same-day cycles", () =>
   assert.equal(habitCanStartNextCycle(null, "2026-09-05"), true);
   assert.equal(habitCanStartNextCycle("2026-09-04", "2026-09-05"), true);
   assert.equal(habitCanStartNextCycle("2026-09-05", "2026-09-05"), false);
+});
+
+test("a habit pledge locks one daily amount for each day before the end date", () => {
+  assert.deepEqual(
+    habitPledgeSchedule({
+      startDayKey: "2026-09-05",
+      endDayKey: "2026-09-10",
+      dailyPledge: 10,
+    }),
+    {
+      dayKeys: [
+        "2026-09-05",
+        "2026-09-06",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-09",
+      ],
+      dayCount: 5,
+      totalPledge: 50,
+    },
+  );
+});
+
+test("a habit pledge rejects invalid or empty commitment windows", () => {
+  assert.equal(
+    habitPledgeSchedule({ startDayKey: "2026-09-10", endDayKey: "2026-09-05", dailyPledge: 10 }),
+    null,
+  );
+  assert.equal(
+    habitPledgeSchedule({ startDayKey: "2026-09-05", endDayKey: "2026-09-05", dailyPledge: 10 }),
+    null,
+  );
+  assert.equal(
+    habitPledgeSchedule({ startDayKey: "not-a-date", endDayKey: "2026-09-10", dailyPledge: 10 }),
+    null,
+  );
+  assert.equal(
+    habitPledgeSchedule({ startDayKey: "2026-09-05", endDayKey: "2026-09-10", dailyPledge: 0 }),
+    null,
+  );
+});
+
+test("habit reconciliation sends only past unsettled days to Remorse", () => {
+  const scheduled = [
+    "2026-09-05",
+    "2026-09-06",
+    "2026-09-07",
+    "2026-09-08",
+    "2026-09-09",
+  ];
+  assert.deepEqual(
+    missedHabitPledgeDayKeys(scheduled, ["2026-09-05", "2026-09-07"], "2026-09-08"),
+    ["2026-09-06"],
+  );
+  assert.deepEqual(
+    missedHabitPledgeDayKeys(scheduled, ["2026-09-05", "2026-09-07"], "2026-09-10"),
+    ["2026-09-06", "2026-09-08", "2026-09-09"],
+  );
+});
+
+test("a persisted wallet operation preserves its habit outcome across retries", () => {
+  const transactions = [
+    { operationId: "habit-pledge:abc:2026-09-05", kind: "habit" },
+    { operationId: "habit-pledge:abc:2026-09-06", kind: "remorse" },
+  ];
+  assert.equal(
+    habitPledgeDestinationForOperation(transactions, "habit-pledge:abc:2026-09-05"),
+    "reward",
+  );
+  assert.equal(
+    habitPledgeDestinationForOperation(transactions, "habit-pledge:abc:2026-09-06"),
+    "remorse",
+  );
+  assert.equal(habitPledgeDestinationForOperation(transactions, "missing"), null);
+});
+
+test("settled habit pledges return locked RDM to Reward or Remorse without changing Base", () => {
+  const afterCompletion = releaseHabitPledgeBalances(
+    { balance: 950, reward: 100, remorse: 20, peer: 5 },
+    "reward",
+    10,
+  );
+  assert.deepEqual(afterCompletion, { balance: 960, reward: 110, remorse: 20, peer: 5 });
+  assert.equal(basePurseBalance(afterCompletion), 825);
+
+  const afterMiss = releaseHabitPledgeBalances(afterCompletion, "remorse", 10);
+  assert.deepEqual(afterMiss, { balance: 970, reward: 110, remorse: 30, peer: 5 });
+  assert.equal(basePurseBalance(afterMiss), 825);
 });
 
 test("missed tree care moves RDM from Reward to Remorse without destroying it", () => {
