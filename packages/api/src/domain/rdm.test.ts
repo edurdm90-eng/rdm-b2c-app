@@ -16,6 +16,7 @@ import {
   goodDeedCatalog,
   goodDeedSubmissionResult,
   gratitudeCategories,
+  goalDurationWindow,
   groupAwardCredits,
   habitCanStartNextCycle,
   habitPledgeDestinationForOperation,
@@ -186,6 +187,21 @@ test("a persisted wallet operation preserves its habit outcome across retries", 
     "remorse",
   );
   assert.equal(habitPledgeDestinationForOperation(transactions, "missing"), null);
+});
+
+test("a personal goal duration uses an exclusive finish boundary", () => {
+  assert.deepEqual(goalDurationWindow("2026-09-05", 30), {
+    startDayKey: "2026-09-05",
+    endDayKey: "2026-10-05",
+    durationDays: 30,
+  });
+  assert.deepEqual(goalDurationWindow("2026-09-05", 90), {
+    startDayKey: "2026-09-05",
+    endDayKey: "2026-12-04",
+    durationDays: 90,
+  });
+  assert.equal(goalDurationWindow("2026-09-05", 0), null);
+  assert.equal(goalDurationWindow("invalid", 30), null);
 });
 
 test("settled habit pledges return locked RDM to Reward or Remorse without changing Base", () => {

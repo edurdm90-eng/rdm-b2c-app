@@ -7,6 +7,27 @@ export const habitCategories = ["Focus", "Health", "Money", "Sustainability"] as
 
 export type HabitCategory = (typeof habitCategories)[number];
 
+export const goalCategories = ["Focus", "Health", "Money", "Family", "Sustainability"] as const;
+
+export type GoalCategory = (typeof goalCategories)[number];
+
+export function goalDurationWindow(startDayKey: string, durationDays: number) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDayKey) || !Number.isInteger(durationDays) || durationDays <= 0) {
+    return null;
+  }
+  const start = new Date(`${startDayKey}T00:00:00.000Z`);
+  if (Number.isNaN(start.getTime()) || start.toISOString().slice(0, 10) !== startDayKey) {
+    return null;
+  }
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + durationDays);
+  return {
+    startDayKey,
+    endDayKey: end.toISOString().slice(0, 10),
+    durationDays,
+  };
+}
+
 export const gratitudeCategories = [
   {
     id: "life",
