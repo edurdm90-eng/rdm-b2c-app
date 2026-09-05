@@ -444,16 +444,23 @@ function serializeGameProgressReceipt(session: any, gameId: GameId, operationId:
 async function settleGameSession(session: any, userId: string, completedAt = new Date()) {
   const game = gameCatalog.find((item) => item.id === session.gameId);
   if (!game) throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
-  const reward = rewardForGame(game.durationSeconds / 60, session.score);
   let settled = session;
 
-  if (settled.status === "running") {
+  for (let attempt = 0; settled?.status === "running" && attempt < 5; attempt += 1) {
+    const revision = Number(settled.revision ?? 0);
+    const revisionFilter = revision === 0
+      ? { $or: [{ revision: 0 }, { revision: { $exists: false } }] }
+      : { revision };
+    const reward = rewardForGame(game.durationSeconds / 60, settled.score);
     settled = await GameSession.findOneAndUpdate(
-      { _id: settled._id, userId, status: "running" },
+      { _id: settled._id, userId, status: "running", ...revisionFilter },
       { $set: { status: "complete", completedAt, reward } },
       { returnDocument: "after" },
     ) ?? await GameSession.findOne({ _id: settled._id, userId });
-  } else if (settled.status === "complete" && settled.reward <= 0) {
+  }
+
+  if (settled?.status === "complete" && settled.reward <= 0) {
+    const reward = rewardForGame(game.durationSeconds / 60, settled.score);
     settled = await GameSession.findOneAndUpdate(
       { _id: settled._id, userId, status: "complete", reward: { $lte: 0 } },
       { $set: { reward } },

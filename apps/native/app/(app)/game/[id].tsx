@@ -42,6 +42,7 @@ type CompleteResult = {
   reward: number;
   score: number;
 };
+type PendingAction = { action: GameAction; operationId: string };
 
 const gratitudeOptions = [
   ["family", "Family"],
@@ -93,6 +94,7 @@ export default function GamePlayScreen() {
   const checkpointing = useRef(false);
   const finishAfterCheckpoint = useRef(false);
   const nextCheckpointAt = useRef(0);
+  const pendingAction = useRef<PendingAction | null>(null);
 
   const startGame = useMutation(trpc.rdm.games.start.mutationOptions({
     onSuccess: (started) => {
@@ -136,6 +138,10 @@ export default function GamePlayScreen() {
 
   const finish = useCallback(() => {
     if (!sessionId || finishing.current || (status !== "running" && status !== "retry")) return;
+    if (pendingAction.current) {
+      setError("Retry your last move before finishing the session.");
+      return;
+    }
     if (checkpointing.current) {
       finishAfterCheckpoint.current = true;
       return;
@@ -145,21 +151,55 @@ export default function GamePlayScreen() {
     completeGame.mutate({ sessionId });
   }, [completeGame, sessionId, status]);
 
-  async function performAction(action: GameAction): Promise<ProgressResult | null> {
-    if (!sessionId || checkpointing.current || Date.now() < nextCheckpointAt.current || status !== "running") return null;
+  async function performAction(action: GameAction, retrying = false): Promise<ProgressResult | null> {
+    if (
+      !sessionId
+      || checkpointing.current
+      || (!retrying && Date.now() < nextCheckpointAt.current)
+      || status !== "running"
+    ) return null;
+    if (pendingAction.current && !retrying) {
+      setError("Your last move is still unconfirmed. Retry it before continuing.");
+      return null;
+    }
     checkpointing.current = true;
+    const pending = pendingAction.current ?? { action, operationId: Crypto.randomUUID() };
+    pendingAction.current = pending;
     try {
-      const operationId = Crypto.randomUUID();
-      const progressed = await progressGame.mutateAsync({ sessionId, operationId, action });
+      const progressed = await progressGame.mutateAsync({
+        sessionId,
+        operationId: pending.operationId,
+        action: pending.action,
+      });
+      pendingAction.current = null;
       setError(null);
       setScore(progressed.score);
       setActionCount(progressed.actionCount);
       setMoves(progressed.moves);
       setMatchedIndexes(progressed.matchedIndexes);
+      if (retrying) setPrompt(progressed.prompt);
+      if (pending.action.type === "focus_tap") {
+        setTargetIndex((current) => (current * 5 + 3) % 9);
+      }
+      if (pending.action.type === "gratitude_tap") {
+        const gratitudeValue = pending.action.value;
+        setGratitudeTaps((current) => current.includes(gratitudeValue)
+          ? current
+          : [...current, gratitudeValue]);
+      }
       nextCheckpointAt.current = Date.now() + 350;
       return progressed;
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : "That move could not be saved.");
+      const definitiveResponse = Boolean(
+        mutationError
+        && typeof mutationError === "object"
+        && "data" in mutationError
+        && mutationError.data,
+      );
+      if (definitiveResponse) pendingAction.current = null;
+      setError(definitiveResponse && mutationError instanceof Error
+        ? mutationError.message
+        : "Connection interrupted. Retry your last move safely.");
       return null;
     } finally {
       checkpointing.current = false;
@@ -167,6 +207,25 @@ export default function GamePlayScreen() {
         finishAfterCheckpoint.current = false;
         queueMicrotask(finish);
       }
+    }
+  }
+
+  async function retryPendingAction() {
+    const pending = pendingAction.current;
+    if (!pending) return;
+    const progressed = await performAction(pending.action, true);
+    if (!progressed) return;
+    setSelectedOption(null);
+    setFlippedIndexes([]);
+    if (game?.id === "unscramble-word" && pending.action.type === "answer" && progressed.correct) {
+      setWordInput("");
+    }
+    setFeedback("Last move recovered safely");
+    if (
+      (game?.id === "aptitude-bliss" && progressed.prompt === null)
+      || (game?.id === "memory-match" && progressed.matchedIndexes.length === memoryBoard.length)
+    ) {
+      queueMicrotask(finish);
     }
   }
 
@@ -180,8 +239,7 @@ export default function GamePlayScreen() {
   }
 
   async function tapFocusTarget() {
-    const progressed = await performAction({ type: "focus_tap" });
-    if (progressed) setTargetIndex((current) => (current * 5 + 3) % 9);
+    await performAction({ type: "focus_tap" });
   }
 
   async function answerAptitude(value: string) {
@@ -216,7 +274,6 @@ export default function GamePlayScreen() {
     if (gratitudeTaps.includes(value)) return;
     const progressed = await performAction({ type: "gratitude_tap", value });
     if (!progressed) return;
-    setGratitudeTaps((current) => [...current, value]);
     setFeedback("Noticed +10");
   }
 
@@ -505,8 +562,9 @@ export default function GamePlayScreen() {
 
       {feedback ? <Text style={[styles.feedback, feedback.includes("Correct") || feedback.includes("found") ? styles.feedbackGood : null]}>{feedback}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {pendingAction.current ? <PrimaryButton color={colors.ai} icon="backup-restore" label="Retry last move" onPress={() => void retryPendingAction()} /> : null}
       {status === "retry" ? <PrimaryButton color={colors.ai} icon="backup-restore" label="Retry banking reward" onPress={finish} /> : null}
-      {status === "running" || status === "saving" ? <PrimaryButton color={colors.ai} label="Finish now & lock game" loading={status === "saving"} onPress={finish} variant="outline" /> : null}
+      {status === "running" || status === "saving" ? <PrimaryButton color={colors.ai} disabled={Boolean(pendingAction.current)} label="Finish now & lock game" loading={status === "saving"} onPress={finish} variant="outline" /> : null}
       <Text style={styles.lockNote}>The server timer keeps running if you leave. Once completed, this game stays locked until tomorrow.</Text>
     </AppScreen>
   );
