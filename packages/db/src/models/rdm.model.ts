@@ -302,6 +302,19 @@ groupSchema.index(
 );
 groupSchema.index({ "members.userId": 1, status: 1, createdAt: -1 });
 
+const gameActionReceiptSchema = new Schema(
+  {
+    operationId: { type: String, required: true },
+    accepted: { type: Boolean, required: true },
+    actionCount: { type: Number, required: true },
+    correct: { type: Boolean, required: true },
+    matchedIndexes: { type: [Number], required: true, default: [] },
+    moves: { type: Number, required: true },
+    score: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
 const gameSessionSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
@@ -313,6 +326,10 @@ const gameSessionSchema = new Schema(
     completedAt: { type: Date },
     score: { type: Number, required: true, default: 0 },
     actionCount: { type: Number, required: true, default: 0 },
+    moves: { type: Number, required: true, default: 0 },
+    matchedIndexes: { type: [Number], required: true, default: [] },
+    revision: { type: Number, required: true, default: 0 },
+    actionReceipts: { type: [gameActionReceiptSchema], required: true, default: [] },
     lastActionAt: { type: Date },
     reward: { type: Number, required: true, default: 0 },
   },

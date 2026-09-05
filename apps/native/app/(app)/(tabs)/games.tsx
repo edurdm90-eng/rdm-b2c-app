@@ -1,4 +1,4 @@
-import { challengeForGame } from "@rdm-b2c/api/domain/rdm";
+import { gameDurationLabel } from "@rdm-b2c/api/domain/rdm";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
@@ -18,7 +18,7 @@ export default function GamesScreen() {
   if (games.isLoading) return <LoadingState label="Preparing responsible games…" />;
   if (games.error || !games.data) return <ErrorState message={games.error?.message ?? "Games are unavailable."} onRetry={() => void games.refetch()} />;
 
-  const visibleGames = filter === "all" ? games.data : games.data.filter((game) => game.minutes === filter);
+  const visibleGames = filter === "all" ? games.data : games.data.filter((game) => game.filterMinutes === filter);
 
   return (
     <AppScreen>
@@ -31,12 +31,12 @@ export default function GamesScreen() {
         {visibleGames.map((game) => (
           <SurfaceCard key={game.id} onPress={game.locked ? undefined : () => router.push({ pathname: "/(app)/game/[id]", params: { id: game.id } })} style={[styles.gameTile, game.locked && styles.lockedTile]}>
             <View style={styles.gameTop}>
-              <Text style={styles.timer}>{game.minutes} MIN</Text>
+              <Text style={styles.timer}>{gameDurationLabel(game.durationSeconds)} MIN</Text>
               <MaterialCommunityIcons name={game.icon as IconName} size={22} color={colors.ai} />
             </View>
             <Text style={styles.title}>{game.title}</Text>
             <Text style={rdmStyles.muted}>{game.description}</Text>
-            {game.locked ? <Text style={styles.locked}>Locked today</Text> : challengeForGame(game.id) ? <Text style={styles.challenge}>{challengeForGame(game.id)}</Text> : null}
+            {game.locked ? <Text style={styles.locked}>Locked today</Text> : <Text style={styles.ready}>Ready to play</Text>}
           </SurfaceCard>
         ))}
       </View>
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   gameTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   timer: { color: colors.ai, backgroundColor: colors.aiTint, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3, fontFamily: fonts.monoBold, fontSize: 9 },
   title: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13, marginTop: 3 },
-  challenge: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 10, marginTop: "auto" },
+  ready: { color: colors.ai, fontFamily: fonts.bodyBold, fontSize: 10, marginTop: "auto" },
   locked: { color: colors.growth, fontFamily: fonts.monoBold, fontSize: 9, marginTop: "auto", textTransform: "uppercase" },
   lockedTile: { opacity: 0.55 },
   lockNote: { flexDirection: "row", gap: 10, alignItems: "center", paddingHorizontal: 10 },

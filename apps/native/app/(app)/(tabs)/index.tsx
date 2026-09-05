@@ -1,3 +1,4 @@
+import { gameDurationLabel } from "@rdm-b2c/api/domain/rdm";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
@@ -105,7 +106,7 @@ export default function HomeScreen() {
       <View style={styles.gameRow}>
         {games.slice(0, 3).map((game) => (
           <Pressable key={game.id} onPress={() => router.push({ pathname: "/(app)/game/[id]", params: { id: game.id } })} style={({ pressed }) => [styles.gameChip, pressed && styles.pressed]}>
-            <Text style={styles.timer}>{game.minutes} MIN</Text>
+            <Text style={styles.timer}>{gameDurationLabel(game.durationSeconds)} MIN</Text>
             <MaterialCommunityIcons name={game.icon as IconName} size={22} color={colors.ai} />
             <Text style={styles.gameTitle}>{game.title}</Text>
             <Text style={styles.gameDescription}>{game.description}</Text>

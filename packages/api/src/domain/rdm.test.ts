@@ -8,11 +8,12 @@ import {
   basePurseBalance,
   baseToRemorseTransfer,
   calendarDayKeysAfter,
-  challengeForGame,
   dayKeyForTimeZone,
   debitPurseBalances,
+  gameCatalog,
+  gameDurationLabel,
   gameDayKey,
-  gameSessionCanReward,
+  gameSessionCanResume,
   goodDeedCatalog,
   goodDeedSubmissionResult,
   gratitudeCategories,
@@ -37,11 +38,178 @@ import {
   releaseHabitPledgeBalances,
   treeGrowthFor,
 } from "./rdm";
+import { evaluateGameAction, gamePromptFor, memoryBoardForSeed } from "./game-rules";
 
 test("responsible games cap rewards and normalize duration", () => {
   assert.equal(rewardForGame(2, 340), 7);
   assert.equal(rewardForGame(30, 5000), 12);
   assert.equal(rewardForGame(0, -50), 2);
+});
+
+test("responsible games expose all seven reference experiences and exact time limits", () => {
+  assert.deepEqual(
+    gameCatalog.map(({ id, durationSeconds }) => ({ id, durationSeconds })),
+    [
+      { id: "focus-flow", durationSeconds: 90 },
+      { id: "aptitude-bliss", durationSeconds: 120 },
+      { id: "memory-match", durationSeconds: 120 },
+      { id: "unscramble-word", durationSeconds: 60 },
+      { id: "gratitude-tap", durationSeconds: 120 },
+      { id: "box-breathing", durationSeconds: 60 },
+      { id: "sort-sprint", durationSeconds: 180 },
+    ],
+  );
+  assert.equal(gameDurationLabel(90), "1.5");
+  assert.equal(gameDurationLabel(180), "3");
+});
+
+test("aptitude answers are scored from server-owned question rules", () => {
+  assert.deepEqual(
+    evaluateGameAction({
+      action: { type: "answer", value: "B" },
+      actionCount: 0,
+      gameId: "aptitude-bliss",
+      matchedIndexes: [],
+    }),
+    {
+      accepted: true,
+      actionDelta: 1,
+      correct: true,
+      matchedIndexes: [],
+      movesDelta: 0,
+      scoreDelta: 20,
+    },
+  );
+  assert.equal(evaluateGameAction({
+    action: { type: "answer", value: "A" },
+    actionCount: 0,
+    gameId: "aptitude-bliss",
+    matchedIndexes: [],
+  }).scoreDelta, 0);
+});
+
+test("aptitude prompts expose all ten reference questions without their answers", () => {
+  assert.deepEqual(gamePromptFor("aptitude-bliss", 9), {
+    kind: "aptitude",
+    options: [
+      { label: "A", text: "162" },
+      { label: "B", text: "213" },
+      { label: "C", text: "243" },
+      { label: "D", text: "324" },
+    ],
+    question: "Which number completes the pattern? 3, 9, 27, 81, ...",
+    questionNumber: 10,
+    totalQuestions: 10,
+  });
+  assert.equal(gamePromptFor("aptitude-bliss", 10), null);
+});
+
+test("word answers are normalized and only correct words advance the sprint", () => {
+  assert.deepEqual(gamePromptFor("unscramble-word", 0), {
+    kind: "unscramble",
+    scrambled: "TIBAH",
+    wordNumber: 1,
+  });
+  assert.equal(evaluateGameAction({
+    action: { type: "answer", value: " habit " },
+    actionCount: 0,
+    gameId: "unscramble-word",
+    matchedIndexes: [],
+  }).scoreDelta, 10);
+  assert.deepEqual(evaluateGameAction({
+    action: { type: "answer", value: "faith" },
+    actionCount: 0,
+    gameId: "unscramble-word",
+    matchedIndexes: [],
+  }), {
+    accepted: true,
+    actionDelta: 0,
+    correct: false,
+    matchedIndexes: [],
+    movesDelta: 0,
+    scoreDelta: 0,
+  });
+});
+
+test("focus taps add one server-owned point per accepted target", () => {
+  assert.deepEqual(evaluateGameAction({
+    action: { type: "focus_tap" },
+    actionCount: 14,
+    gameId: "focus-flow",
+    matchedIndexes: [],
+  }), {
+    accepted: true,
+    actionDelta: 1,
+    correct: true,
+    matchedIndexes: [],
+    movesDelta: 0,
+    scoreDelta: 1,
+  });
+});
+
+test("gratitude taps and breathing cycles use their own server-owned scoring", () => {
+  assert.equal(evaluateGameAction({
+    action: { type: "gratitude_tap", value: "family" },
+    actionCount: 0,
+    gameId: "gratitude-tap",
+    matchedIndexes: [],
+  }).scoreDelta, 10);
+  assert.equal(evaluateGameAction({
+    action: { type: "breath_cycle" },
+    actionCount: 2,
+    gameId: "box-breathing",
+    matchedIndexes: [],
+  }).scoreDelta, 25);
+});
+
+test("sort sprint prompts never expose their server-owned answer", () => {
+  assert.deepEqual(gamePromptFor("sort-sprint", 0), {
+    kind: "sort",
+    item: "Apple",
+    options: ["Food", "Animal", "Object"],
+    roundNumber: 1,
+  });
+  assert.equal(evaluateGameAction({
+    action: { type: "answer", value: "Food" },
+    actionCount: 0,
+    gameId: "sort-sprint",
+    matchedIndexes: [],
+  }).scoreDelta, 15);
+});
+
+test("memory moves validate pairs and never score an already matched card", () => {
+  const board = ["🌿", "⭐", "🌿", "⭐"];
+  assert.deepEqual(evaluateGameAction({
+    action: { type: "memory_pair", first: 0, second: 2 },
+    actionCount: 0,
+    gameId: "memory-match",
+    matchedIndexes: [],
+    memoryBoard: board,
+  }), {
+    accepted: true,
+    actionDelta: 1,
+    correct: true,
+    matchedIndexes: [0, 2],
+    movesDelta: 1,
+    scoreDelta: 20,
+  });
+  assert.equal(evaluateGameAction({
+    action: { type: "memory_pair", first: 0, second: 2 },
+    actionCount: 1,
+    gameId: "memory-match",
+    matchedIndexes: [0, 2],
+    memoryBoard: board,
+  }).accepted, false);
+});
+
+test("memory boards are stable per session and contain exactly eight pairs", () => {
+  const board = memoryBoardForSeed("session-123");
+  const counts = new Map<string, number>();
+  for (const icon of board) counts.set(icon, (counts.get(icon) ?? 0) + 1);
+  assert.equal(board.length, 16);
+  assert.equal([...counts.values()].every((count) => count === 2), true);
+  assert.deepEqual(memoryBoardForSeed("session-123"), board);
+  assert.notDeepEqual(memoryBoardForSeed("session-456"), board);
 });
 
 test("levels advance every 100 XP", () => {
@@ -155,12 +323,6 @@ test("the badge framework exposes 24 achievements with 9 initially unlocked", ()
 
 test("redeemable rewards use server-owned ids and prices", () => {
   assert.deepEqual(rewardCatalog, [{ id: "focus-garden", title: "Focus Garden skin", cost: 50 }]);
-});
-
-test("game challenges stay attached to their game after filtering", () => {
-  assert.equal(challengeForGame("word-sprint"), "Beat Priya's 340");
-  assert.equal(challengeForGame("sort-sprint"), "Beat Ravi's 12");
-  assert.equal(challengeForGame("box-breathing"), null);
 });
 
 test("game sessions use a stable UTC day key", () => {
@@ -336,11 +498,11 @@ test("invite progress resets on ISO week boundaries", () => {
   assert.equal(inviteWeekKey(new Date("2027-01-01T10:00:00.000Z")), "2026-W53");
 });
 
-test("expired or completed game sessions cannot reward", () => {
+test("expired or completed game sessions cannot resume", () => {
   const expiresAt = new Date("2026-08-19T10:03:00.000Z");
-  assert.equal(gameSessionCanReward("running", expiresAt, new Date("2026-08-19T10:03:00.000Z")), true);
-  assert.equal(gameSessionCanReward("running", expiresAt, new Date("2026-08-19T10:03:00.001Z")), false);
-  assert.equal(gameSessionCanReward("complete", expiresAt, new Date("2026-08-19T10:02:00.000Z")), false);
+  assert.equal(gameSessionCanResume("running", expiresAt, new Date("2026-08-19T10:03:00.000Z")), true);
+  assert.equal(gameSessionCanResume("running", expiresAt, new Date("2026-08-19T10:03:00.001Z")), false);
+  assert.equal(gameSessionCanResume("complete", expiresAt, new Date("2026-08-19T10:02:00.000Z")), false);
 });
 
 test("missed pledges move available Base RDM to Remorse without changing the total", () => {

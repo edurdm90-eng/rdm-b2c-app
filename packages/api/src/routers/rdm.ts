@@ -29,7 +29,8 @@ import {
   dayKeyForTimeZone,
   gameDayKey,
   gameCatalog,
-  gameSessionCanReward,
+  gameIds,
+  gameSessionCanResume,
   goodDeedById,
   goodDeedCatalog,
   goodDeedRewardMessage,
@@ -62,10 +63,13 @@ import {
   releaseHabitPledgeBalances,
   treeGrowthFor,
   treeMissedDayPenalty,
+  type GameId,
   type WalletBalances,
 } from "../domain/rdm";
+import { evaluateGameAction, gamePromptFor, memoryBoardForSeed } from "../domain/game-rules";
 
 const nowIso = () => new Date().toISOString();
+const numberArray = (value: unknown) => Array.isArray(value) ? value.map(Number) : [];
 const mongoId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
 const dayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 const timeZoneSchema = z
@@ -79,6 +83,18 @@ const goodDeedSelection = z
   .min(1)
   .max(goodDeedIds.length)
   .refine((ids) => new Set(ids).size === ids.length, "Choose each deed only once");
+const gameActionSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("focus_tap") }),
+  z.object({ type: z.literal("breath_cycle") }),
+  z.object({ type: z.literal("gratitude_tap"), value: z.string().trim().min(1).max(40) }),
+  z.object({ type: z.literal("answer"), value: z.string().max(80) }),
+  z.object({
+    type: z.literal("memory_pair"),
+    first: z.number().int().min(0).max(15),
+    second: z.number().int().min(0).max(15),
+  }),
+]);
+const gameIdSchema = z.enum(gameIds);
 const createInviteCode = () => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = new Uint8Array(6);
@@ -407,6 +423,57 @@ async function creditProfile({
   );
   profile ??= await getProfile(userId);
   return normalizeProfileLevel(profile);
+}
+
+function serializeGameProgressReceipt(session: any, gameId: GameId, operationId: string) {
+  const receipt = (session.actionReceipts as Array<any>).find(
+    (item) => item.operationId === operationId,
+  );
+  if (!receipt) return null;
+  return {
+    accepted: receipt.accepted,
+    actionCount: receipt.actionCount,
+    correct: receipt.correct,
+    matchedIndexes: numberArray(receipt.matchedIndexes),
+    moves: receipt.moves,
+    prompt: gamePromptFor(gameId, receipt.actionCount),
+    score: receipt.score,
+  };
+}
+
+async function settleGameSession(session: any, userId: string, completedAt = new Date()) {
+  const game = gameCatalog.find((item) => item.id === session.gameId);
+  if (!game) throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
+  const reward = rewardForGame(game.durationSeconds / 60, session.score);
+  let settled = session;
+
+  if (settled.status === "running") {
+    settled = await GameSession.findOneAndUpdate(
+      { _id: settled._id, userId, status: "running" },
+      { $set: { status: "complete", completedAt, reward } },
+      { returnDocument: "after" },
+    ) ?? await GameSession.findOne({ _id: settled._id, userId });
+  } else if (settled.status === "complete" && settled.reward <= 0) {
+    settled = await GameSession.findOneAndUpdate(
+      { _id: settled._id, userId, status: "complete", reward: { $lte: 0 } },
+      { $set: { reward } },
+      { returnDocument: "after" },
+    ) ?? settled;
+  }
+
+  if (!settled || settled.status !== "complete") {
+    throw new TRPCError({ code: "CONFLICT", message: "This game session could not be locked" });
+  }
+  const profile = await creditProfile({
+    userId,
+    amount: settled.reward,
+    title: `${game.title} game`,
+    kind: "game",
+    purse: "reward",
+    operationId: `game:${settled._id}`,
+    badgeIds: ["first-game"],
+  });
+  return { game, profile, session: settled };
 }
 
 async function settleScheduledHabitWallet({
@@ -2312,54 +2379,46 @@ export const rdmRouter = router({
     list: protectedProcedure.query(async ({ ctx }) => {
       const dayKey = gameDayKey();
       const now = new Date();
-      await GameSession.updateMany(
-        {
-          userId: ctx.session.user.id,
-          dayKey,
-          status: "running",
-          expiresAt: { $lt: now },
-        },
-        { $set: { status: "complete", completedAt: now, reward: 0 } },
-      );
-      const completed = await GameSession.find({ userId: ctx.session.user.id, dayKey, status: "complete" }).select("gameId reward");
+      const expired = await GameSession.find({
+        userId: ctx.session.user.id,
+        status: "running",
+        expiresAt: { $lt: now },
+      });
+      for (const session of expired) {
+        await settleGameSession(session, ctx.session.user.id, now);
+      }
+      const completed = await GameSession.find({ userId: ctx.session.user.id, dayKey, status: "complete" }).select("gameId reward score status");
       for (const session of completed) {
-        if (session.reward <= 0) continue;
-        const game = gameCatalog.find((item) => item.id === session.gameId);
-        if (!game) continue;
-        await creditProfile({
-          userId: ctx.session.user.id,
-          amount: session.reward,
-          title: `${game.title} game`,
-          kind: "game",
-          purse: "reward",
-          operationId: `game:${session._id}`,
-          badgeIds: ["first-game"],
-        });
+        await settleGameSession(session, ctx.session.user.id, now);
       }
       const lockedIds = new Set(completed.map((session) => session.gameId));
       return gameCatalog.map((game) => ({ ...game, locked: lockedIds.has(game.id) }));
     }),
     start: protectedProcedure
-      .input(z.object({ gameId: z.string().min(1) }))
+      .input(z.object({ gameId: gameIdSchema }))
       .mutation(async ({ ctx, input }) => {
         const game = gameCatalog.find((item) => item.id === input.gameId);
         if (!game) throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
         await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
 
         const startedAt = new Date();
-        const expiresAt = new Date(startedAt.getTime() + game.minutes * 60_000);
+        const expiresAt = new Date(startedAt.getTime() + game.durationSeconds * 1_000);
         const dayKey = gameDayKey(startedAt);
-        const session = await GameSession.findOneAndUpdate(
+        let session = await GameSession.findOne({
+          userId: ctx.session.user.id,
+          gameId: game.id,
+          status: "running",
+          expiresAt: { $gte: startedAt },
+        }).sort({ startedAt: -1 });
+        session ??= await GameSession.findOneAndUpdate(
           { userId: ctx.session.user.id, gameId: game.id, dayKey },
           { $setOnInsert: { userId: ctx.session.user.id, gameId: game.id, dayKey, startedAt, expiresAt, status: "running" } },
           { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
         );
-        if (!gameSessionCanReward(session.status, session.expiresAt)) {
+        if (!session) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Game session could not be started" });
+        if (!gameSessionCanResume(session.status, session.expiresAt)) {
           if (session.status === "running") {
-            session.status = "complete";
-            session.completedAt = new Date();
-            session.reward = 0;
-            await session.save();
+            await settleGameSession(session, ctx.session.user.id);
           }
           throw new TRPCError({ code: "CONFLICT", message: "This game is locked after today's completed session" });
         }
@@ -2367,62 +2426,148 @@ export const rdmRouter = router({
           sessionId: String(session._id),
           expiresAt: session.expiresAt.toISOString(),
           secondsRemaining: Math.max(0, Math.ceil((session.expiresAt.getTime() - Date.now()) / 1000)),
+          score: session.score,
+          actionCount: session.actionCount,
+          moves: session.moves ?? 0,
+          matchedIndexes: numberArray(session.matchedIndexes),
+          memoryBoard: game.id === "memory-match" ? memoryBoardForSeed(String(session._id)) : null,
+          prompt: gamePromptFor(game.id, session.actionCount),
         };
       }),
     progress: protectedProcedure
-      .input(z.object({ sessionId: mongoId }))
+      .input(z.object({
+        sessionId: mongoId,
+        operationId: z.string().uuid(),
+        action: gameActionSchema,
+      }))
       .mutation(async ({ ctx, input }) => {
         const actionAt = new Date();
+        const replay = await GameSession.findOne({
+          _id: input.sessionId,
+          userId: ctx.session.user.id,
+          "actionReceipts.operationId": input.operationId,
+        });
+        if (replay) {
+          const game = gameCatalog.find((item) => item.id === replay.gameId);
+          if (!game) throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
+          const receipt = serializeGameProgressReceipt(replay, game.id, input.operationId);
+          if (receipt) return receipt;
+        }
+        const current = await GameSession.findOne({
+          _id: input.sessionId,
+          userId: ctx.session.user.id,
+          status: "running",
+          expiresAt: { $gte: actionAt },
+        });
+        if (!current) {
+          throw new TRPCError({ code: "CONFLICT", message: "This game session has ended" });
+        }
+        const game = gameCatalog.find((item) => item.id === current.gameId);
+        if (!game) throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
+        if (
+          game.id === "box-breathing"
+          && input.action.type === "breath_cycle"
+          && actionAt.getTime() - current.startedAt.getTime() < (current.actionCount + 1) * 16_000
+        ) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Complete the full breathing cycle first" });
+        }
+        const memoryBoard = game.id === "memory-match" ? memoryBoardForSeed(String(current._id)) : undefined;
+        const result = evaluateGameAction({
+          action: input.action,
+          actionCount: current.actionCount,
+          gameId: game.id,
+          matchedIndexes: numberArray(current.matchedIndexes),
+          memoryBoard,
+        });
+        if (!result.accepted) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "That action is not valid for the current game state" });
+        }
+        const nextActionCount = current.actionCount + result.actionDelta;
+        const nextMatchedIndexes = result.matchedIndexes;
+        const nextMoves = (current.moves ?? 0) + result.movesDelta;
+        const nextScore = current.score + result.scoreDelta;
         const session = await GameSession.findOneAndUpdate(
           {
             _id: input.sessionId,
             userId: ctx.session.user.id,
             status: "running",
             expiresAt: { $gte: actionAt },
+            revision: current.revision ?? 0,
+            "actionReceipts.operationId": { $ne: input.operationId },
             $or: [
               { lastActionAt: { $exists: false } },
               { lastActionAt: { $lte: new Date(actionAt.getTime() - 350) } },
             ],
           },
-          { $inc: { score: 10, actionCount: 1 }, $set: { lastActionAt: actionAt } },
+          {
+            $inc: {
+              score: result.scoreDelta,
+              actionCount: result.actionDelta,
+              moves: result.movesDelta,
+              revision: 1,
+            },
+            $set: {
+              lastActionAt: actionAt,
+              matchedIndexes: nextMatchedIndexes,
+            },
+            $push: {
+              actionReceipts: {
+                $each: [{
+                  operationId: input.operationId,
+                  accepted: true,
+                  actionCount: nextActionCount,
+                  correct: result.correct,
+                  matchedIndexes: nextMatchedIndexes,
+                  moves: nextMoves,
+                  score: nextScore,
+                }],
+                $slice: -600,
+              },
+            },
+          },
           { returnDocument: "after" },
         );
-        if (!session) throw new TRPCError({ code: "CONFLICT", message: "Wait for the next prompt or the timer has ended" });
-        return { accepted: true, score: session.score };
+        if (session) {
+          const receipt = serializeGameProgressReceipt(session, game.id, input.operationId);
+          if (receipt) return receipt;
+        }
+        const concurrent = await GameSession.findOne({
+          _id: input.sessionId,
+          userId: ctx.session.user.id,
+          "actionReceipts.operationId": input.operationId,
+        });
+        const receipt = concurrent
+          ? serializeGameProgressReceipt(concurrent, game.id, input.operationId)
+          : null;
+        if (receipt) return receipt;
+        throw new TRPCError({ code: "CONFLICT", message: "Wait for the next prompt or the timer has ended" });
       }),
     complete: protectedProcedure
       .input(z.object({ sessionId: mongoId }))
       .mutation(async ({ ctx, input }) => {
-        let existing = await GameSession.findOne({ _id: input.sessionId, userId: ctx.session.user.id });
+        const existing = await GameSession.findOne({ _id: input.sessionId, userId: ctx.session.user.id });
         if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Game session not found" });
-        if (existing.dayKey !== gameDayKey()) {
-          throw new TRPCError({ code: "CONFLICT", message: "This game session has expired" });
-        }
-        const gameId = existing.gameId;
-        const game = gameCatalog.find((item) => item.id === gameId);
-        if (!game) throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
-        if (existing.status === "running") {
-          const completedAt = new Date();
-          const reward = rewardForGame(game.minutes, existing.score);
-          existing = await GameSession.findOneAndUpdate(
-            { _id: input.sessionId, userId: ctx.session.user.id, status: "running" },
-            { $set: { status: "complete", completedAt, reward } },
-            { returnDocument: "after" },
-          ) ?? await GameSession.findOne({ _id: input.sessionId, userId: ctx.session.user.id });
-        }
-        if (!existing || existing.status !== "complete") throw new TRPCError({ code: "CONFLICT", message: "This game session could not be locked" });
-
-        const reward = existing.reward;
-        const profile = await creditProfile({
+        const settlement = await settleGameSession(existing, ctx.session.user.id);
+        const completed = settlement.session;
+        if (!completed) throw new TRPCError({ code: "CONFLICT", message: "This game session could not be locked" });
+        const gameId = settlement.game.id;
+        const reward = completed.reward;
+        const profile = settlement.profile;
+        const best = await GameSession.findOne({
           userId: ctx.session.user.id,
-          amount: reward,
-          title: `${game.title} game`,
-          kind: "game",
-          purse: "reward",
-          operationId: `game:${existing._id}`,
-          badgeIds: ["first-game"],
-        });
-        return { reward, profile: serializeProfile(profile), locked: true };
+          gameId,
+          status: "complete",
+        }).sort({ score: -1 }).select("score");
+        return {
+          reward,
+          profile: serializeProfile(profile),
+          locked: true,
+          score: completed.score,
+          actionCount: completed.actionCount,
+          moves: completed.moves ?? 0,
+          matchedCount: Math.floor(numberArray(completed.matchedIndexes).length / 2),
+          bestScore: best?.score ?? completed.score,
+        };
       }),
   }),
 

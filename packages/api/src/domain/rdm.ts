@@ -508,14 +508,147 @@ export const habitTemplates = [
   pledge: string;
 }>;
 
-export const gameCatalog = [
-  { id: "breath-reset", title: "Breath Reset", description: "Calm the mind", minutes: 1, icon: "weather-windy", mechanic: "breath", instruction: "Follow the guided breath and tap as each phase completes.", actionLabel: "Complete breath phase" },
-  { id: "word-sprint", title: "Word Sprint", description: "Quick focus play", minutes: 2, icon: "format-letter-case", mechanic: "word", instruction: "Find one word that starts with the prompt letter, then bank it.", actionLabel: "Bank this word" },
-  { id: "pattern-match", title: "Pattern Match", description: "Light mental reset", minutes: 3, icon: "shape-outline", mechanic: "pattern", instruction: "Match the highlighted symbol before the pattern changes.", actionLabel: "Match pattern" },
-  { id: "gratitude-tap", title: "Gratitude Tap", description: "Reflect briefly", minutes: 2, icon: "heart-outline", mechanic: "gratitude", instruction: "Choose a small thing you appreciate right now.", actionLabel: "Add gratitude" },
-  { id: "box-breathing", title: "Box Breathing", description: "4-4-4-4 pace", minutes: 1, icon: "square-outline", mechanic: "box", instruction: "Move through inhale, hold, exhale, and hold in equal beats.", actionLabel: "Advance one side" },
-  { id: "sort-sprint", title: "Sort Sprint", description: "Beat your best", minutes: 3, icon: "sort", mechanic: "sort", instruction: "Pick the smallest visible number to clear each set.", actionLabel: "Choose smallest" },
+export const gameIds = [
+  "focus-flow",
+  "aptitude-bliss",
+  "memory-match",
+  "unscramble-word",
+  "gratitude-tap",
+  "box-breathing",
+  "sort-sprint",
 ] as const;
+
+export type GameId = (typeof gameIds)[number];
+
+export type GameAction =
+  | { type: "answer"; value: string }
+  | { type: "breath_cycle" }
+  | { type: "focus_tap" }
+  | { type: "gratitude_tap"; value: string }
+  | { type: "memory_pair"; first: number; second: number };
+
+export type GamePrompt =
+  | {
+    kind: "aptitude";
+    options: Array<{ label: string; text: string }>;
+    question: string;
+    questionNumber: number;
+    totalQuestions: number;
+  }
+  | { kind: "sort"; item: string; options: string[]; roundNumber: number }
+  | { kind: "unscramble"; scrambled: string; wordNumber: number };
+
+export const gameCatalog = [
+  {
+    id: "focus-flow",
+    title: "Focus Flow",
+    description: "Test your concentration",
+    durationSeconds: 90,
+    filterMinutes: 2,
+    icon: "target",
+    mechanic: "focus",
+    startLabel: "Start game",
+    instruction: "Tap the moving target as quickly as you can before time runs out.",
+    goal: "Score as high as you can",
+    proTip: "Stay focused and keep moving.",
+  },
+  {
+    id: "aptitude-bliss",
+    title: "Aptitude Bliss",
+    description: "Quick aptitude questions",
+    durationSeconds: 120,
+    filterMinutes: 2,
+    icon: "brain",
+    mechanic: "aptitude",
+    questions: 10,
+    startLabel: "Start quiz",
+    instruction: "Solve ten quick aptitude questions with care and accuracy.",
+    goal: "Answer as many as possible with high accuracy",
+    proTip: "Read carefully, think smart, and trust your logic.",
+  },
+  {
+    id: "memory-match",
+    title: "Memory Match",
+    description: "Find all matching pairs",
+    durationSeconds: 120,
+    filterMinutes: 2,
+    icon: "cards-outline",
+    mechanic: "memory",
+    startLabel: "Start game",
+    instruction: "Flip cards and remember their positions to find all eight pairs.",
+    goal: "Find all matching pairs",
+    proTip: "Flip smart and remember the position of every card.",
+  },
+  {
+    id: "unscramble-word",
+    title: "Unscramble Word",
+    description: "Unscramble as many words as possible",
+    durationSeconds: 60,
+    filterMinutes: 1,
+    icon: "format-letter-case",
+    mechanic: "unscramble",
+    startLabel: "Start sprint",
+    instruction: "Rearrange each set of letters into the correct word.",
+    goal: "Score as high as you can",
+    proTip: "The faster you unscramble, the more you can score.",
+  },
+  {
+    id: "gratitude-tap",
+    title: "Gratitude Tap",
+    description: "Reflect briefly",
+    durationSeconds: 120,
+    filterMinutes: 2,
+    icon: "hand-heart-outline",
+    mechanic: "gratitude",
+    startLabel: "Start reflection",
+    instruction: "Tap the parts of life you appreciate and pause on each one.",
+    goal: "Notice as many good things as you can",
+    proTip: "Take one calm breath before each tap.",
+  },
+  {
+    id: "box-breathing",
+    title: "Box Breathing",
+    description: "4-4-4-4 pace",
+    durationSeconds: 60,
+    filterMinutes: 1,
+    icon: "weather-windy",
+    mechanic: "breathing",
+    startLabel: "Start breathing",
+    instruction: "Follow the four-second inhale, hold, exhale, and hold rhythm.",
+    goal: "Complete calm, controlled breathing cycles",
+    proTip: "Keep your shoulders relaxed and breathe gently.",
+  },
+  {
+    id: "sort-sprint",
+    title: "Sort Sprint",
+    description: "Beat your best",
+    durationSeconds: 180,
+    filterMinutes: 3,
+    icon: "sort-variant",
+    mechanic: "sorting",
+    startLabel: "Start sorting",
+    instruction: "Sort each item into the right category before time runs out.",
+    goal: "Sort quickly without sacrificing accuracy",
+    proTip: "Read the item first, then trust your first clear choice.",
+  },
+] as const satisfies ReadonlyArray<{
+  id: GameId;
+  title: string;
+  description: string;
+  durationSeconds: number;
+  filterMinutes: number;
+  icon: string;
+  mechanic: string;
+  questions?: number;
+  startLabel: string;
+  instruction: string;
+  goal: string;
+  proTip: string;
+}>;
+
+export function gameDurationLabel(durationSeconds: number) {
+  return String(durationSeconds / 60).replace(/\.0$/, "");
+}
 
 export const rewardCatalog = [
   { id: "focus-garden", title: "Focus Garden skin", cost: 50 },
@@ -560,15 +693,6 @@ export const initialBadgeIds = [
   "first-charity",
 ] as const;
 
-const gameChallenges: Partial<Record<(typeof gameCatalog)[number]["id"], string>> = {
-  "word-sprint": "Beat Priya's 340",
-  "sort-sprint": "Beat Ravi's 12",
-};
-
-export function challengeForGame(gameId: string) {
-  return gameChallenges[gameId as (typeof gameCatalog)[number]["id"]] ?? null;
-}
-
 export function gameDayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
@@ -597,7 +721,7 @@ export function awardSplitIsValid(amounts: number[], pool: number) {
     amounts.reduce((total, amount) => total + amount, 0) === pool;
 }
 
-export function gameSessionCanReward(
+export function gameSessionCanResume(
   status: "running" | "complete",
   expiresAt: Date,
   now = new Date(),
