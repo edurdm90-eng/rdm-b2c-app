@@ -155,10 +155,38 @@ export function rewardToRemorseTransfer(
   };
 }
 
-export function treePledgeWalletBalance(walletBalance: number, pledgeAmount: number) {
-  const safeWallet = Math.max(0, Math.floor(walletBalance));
+export function basePurseAfterPledge(baseBalance: number, pledgeAmount: number) {
+  const safeBase = Math.max(0, Math.floor(baseBalance));
   const safePledge = Math.max(0, Math.floor(pledgeAmount));
-  return safeWallet >= safePledge ? safeWallet - safePledge : null;
+  return safeBase >= safePledge ? safeBase - safePledge : null;
+}
+
+export type WalletBalances = {
+  balance: number;
+  reward: number;
+  remorse: number;
+  peer: number;
+};
+
+export function basePurseBalance(wallet: WalletBalances) {
+  const totalBalance = Math.max(0, Math.floor(wallet.balance));
+  const allocatedBalance = [wallet.reward, wallet.remorse, wallet.peer]
+    .reduce((total, balance) => total + Math.max(0, Math.floor(balance)), 0);
+  return Math.max(0, totalBalance - allocatedBalance);
+}
+
+export function baseToRemorseTransfer(wallet: WalletBalances, penalty: number) {
+  const appliedPenalty = Math.min(
+    basePurseBalance(wallet),
+    Math.max(0, Math.floor(penalty)),
+  );
+  return {
+    appliedPenalty,
+    wallet: {
+      ...wallet,
+      remorse: wallet.remorse + appliedPenalty,
+    },
+  };
 }
 
 export function goodDeedById(id: string) {
@@ -371,15 +399,6 @@ export function gameSessionCanReward(
   now = new Date(),
 ) {
   return status === "running" && now.getTime() <= expiresAt.getTime();
-}
-
-export function missedPledgeBalances(walletBalance: number, remorseBalance: number, penalty: number) {
-  const appliedPenalty = Math.min(Math.max(0, penalty), Math.max(0, walletBalance));
-  return {
-    appliedPenalty,
-    walletBalance: Math.max(0, walletBalance - appliedPenalty),
-    remorseBalance: Math.max(0, remorseBalance) + appliedPenalty,
-  };
 }
 
 export function debitPurseBalances(walletBalance: number, purseBalance: number, amount: number) {

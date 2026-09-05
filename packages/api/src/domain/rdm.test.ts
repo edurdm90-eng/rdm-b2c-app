@@ -4,6 +4,9 @@ import test from "node:test";
 import {
   awardSplitIsValid,
   badgeCatalog,
+  basePurseAfterPledge,
+  basePurseBalance,
+  baseToRemorseTransfer,
   calendarDayKeysAfter,
   challengeForGame,
   dayKeyForTimeZone,
@@ -18,14 +21,12 @@ import {
   initialBadgeIds,
   inviteWeekKey,
   levelForXp,
-  missedPledgeBalances,
   missedTreeDayKey,
   previousDayKeyForTimeZone,
   rewardToRemorseTransfer,
   rewardCatalog,
   rewardForGame,
   treeGrowthFor,
-  treePledgeWalletBalance,
 } from "./rdm";
 
 test("responsible games cap rewards and normalize duration", () => {
@@ -118,9 +119,14 @@ test("missed tree care moves RDM from Reward to Remorse without destroying it", 
   assert.equal(rewardToRemorseTransfer(4, 12, 10), null);
 });
 
-test("tree creation stakes RDM from the available wallet", () => {
-  assert.equal(treePledgeWalletBalance(1240, 100), 1140);
-  assert.equal(treePledgeWalletBalance(40, 100), null);
+test("tree creation stakes RDM from the Base Purse", () => {
+  assert.equal(basePurseAfterPledge(865, 100), 765);
+  assert.equal(basePurseAfterPledge(40, 100), null);
+});
+
+test("base purse contains only RDM not allocated to another purse", () => {
+  assert.equal(basePurseBalance({ balance: 1240, reward: 320, remorse: 40, peer: 15 }), 865);
+  assert.equal(basePurseBalance({ balance: 30, reward: 20, remorse: 20, peer: 0 }), 0);
 });
 
 test("invite progress resets on ISO week boundaries", () => {
@@ -135,9 +141,21 @@ test("expired or completed game sessions cannot reward", () => {
   assert.equal(gameSessionCanReward("complete", expiresAt, new Date("2026-08-19T10:02:00.000Z")), false);
 });
 
-test("missed pledges conserve the applied penalty for low balances", () => {
-  assert.deepEqual(missedPledgeBalances(4, 12, 10), { appliedPenalty: 4, walletBalance: 0, remorseBalance: 16 });
-  assert.deepEqual(missedPledgeBalances(40, 5, 10), { appliedPenalty: 10, walletBalance: 30, remorseBalance: 15 });
+test("missed pledges move available Base RDM to Remorse without changing the total", () => {
+  assert.deepEqual(
+    baseToRemorseTransfer({ balance: 21, reward: 10, remorse: 5, peer: 2 }, 10),
+    {
+      appliedPenalty: 4,
+      wallet: { balance: 21, reward: 10, remorse: 9, peer: 2 },
+    },
+  );
+  assert.deepEqual(
+    baseToRemorseTransfer({ balance: 40, reward: 10, remorse: 5, peer: 5 }, 10),
+    {
+      appliedPenalty: 10,
+      wallet: { balance: 40, reward: 10, remorse: 15, peer: 5 },
+    },
+  );
 });
 
 test("purse spending updates the purse and total together", () => {

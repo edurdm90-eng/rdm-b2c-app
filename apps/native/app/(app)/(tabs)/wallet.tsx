@@ -40,12 +40,16 @@ export default function WalletScreen() {
     <AppScreen>
       <PageHeader title="RDM Wallet" subtitle="All transactions & purses" />
       <LinearGradient colors={["rgba(240,180,41,0.16)", colors.panel]} style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>RDM Balance</Text>
+        <Text style={styles.balanceLabel}>Total RDM Balance</Text>
         <Text style={styles.balance}>{formatRdm(data.wallet.balance)}</Text>
-        <Text style={rdmStyles.muted}>Earned across habits, games, and groups</Text>
+        <Text style={rdmStyles.muted}>Across Base, Reward, Remorse & Peer purses</Text>
       </LinearGradient>
 
       <SectionLabel>Your purses</SectionLabel>
+      <SurfaceCard style={styles.purseCard}>
+        <IconBubble name="wallet-outline" color={colors.growth} backgroundColor={colors.growthTint} />
+        <View style={styles.purseCopy}><Text style={styles.purseTitle}>Base Purse</Text><Text style={[styles.purseAmount, { color: colors.growth }]}>{formatRdm(data.wallet.base)} RDM</Text><Text style={styles.purseNote}>Available for pledges, goals & everyday use</Text></View>
+      </SurfaceCard>
       <SurfaceCard style={styles.purseCard}>
         <IconBubble name="trophy-outline" color={colors.gold} backgroundColor={colors.goldTint} />
         <View style={styles.purseCopy}><Text style={styles.purseTitle}>Reward Purse</Text><Text style={[styles.purseAmount, { color: colors.gold }]}>{formatRdm(data.wallet.reward)} RDM</Text><Text style={styles.purseNote}>Redeemable for perks & skins</Text></View>

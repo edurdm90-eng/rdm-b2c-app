@@ -152,6 +152,10 @@ export default function TreeScreen() {
       setNotice("Enter a whole-number pledge of at least 10 RDM.");
       return;
     }
+    if (parsedAmount > profile.wallet.base) {
+      setNotice("Your Base Purse balance is lower than this pledge.");
+      return;
+    }
     pledge.mutate({ amount: parsedAmount, timeZone });
   }
 
@@ -206,8 +210,8 @@ export default function TreeScreen() {
               value={hasPledge ? String(activePledge) : amount}
             />
             <PrimaryButton
-              disabled={hasPledge || profile.wallet.balance < 10}
-              label={hasPledge ? "Pledged" : profile.wallet.balance < 10 ? "Need RDM" : "Pledge"}
+              disabled={hasPledge || profile.wallet.base < 10}
+              label={hasPledge ? "Pledged" : profile.wallet.base < 10 ? "Need Base RDM" : "Pledge"}
               loading={pledge.isPending}
               onPress={submitPledge}
               style={styles.pledgeButton}
@@ -216,7 +220,7 @@ export default function TreeScreen() {
           <View style={styles.pledgeNoteRow}>
             <MaterialCommunityIcons color={colors.inkSoft} name="alert-outline" size={15} />
             <Text style={styles.pledgeNote}>
-              Miss a streak day and RDM shifts from Reward → Remorse Purse automatically.
+              Pledges use Base RDM. Miss a streak day and RDM shifts from Reward → Remorse Purse automatically.
             </Text>
           </View>
           {notice ? (

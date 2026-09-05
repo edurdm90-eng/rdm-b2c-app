@@ -21,6 +21,9 @@ import { protectedProcedure, router } from "../index";
 import {
   awardSplitIsValid,
   badgeCatalog,
+  basePurseAfterPledge,
+  basePurseBalance,
+  baseToRemorseTransfer,
   calendarDayKeysAfter,
   dayKeyForTimeZone,
   gameDayKey,
@@ -46,7 +49,7 @@ import {
   rewardForGame,
   treeGrowthFor,
   treeMissedDayPenalty,
-  treePledgeWalletBalance,
+  type WalletBalances,
 } from "../domain/rdm";
 
 const nowIso = () => new Date().toISOString();
@@ -68,6 +71,41 @@ const createInviteCode = () => {
   globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
 };
+
+function walletBalancesForProfile(profile: any): WalletBalances {
+  return {
+    balance: Number(profile?.walletBalance ?? 0),
+    reward: Number(profile?.rewardBalance ?? 0),
+    remorse: Number(profile?.remorseBalance ?? 0),
+    peer: Number(profile?.peerBalance ?? 0),
+  };
+}
+
+function nonNegativeIntegerBalanceExpression(field: string) {
+  return {
+    $max: [0, { $floor: { $ifNull: [field, 0] } }],
+  };
+}
+
+function basePurseBalanceExpression() {
+  return {
+    $max: [
+      0,
+      {
+        $subtract: [
+          nonNegativeIntegerBalanceExpression("$walletBalance"),
+          {
+            $add: [
+              nonNegativeIntegerBalanceExpression("$rewardBalance"),
+              nonNegativeIntegerBalanceExpression("$remorseBalance"),
+              nonNegativeIntegerBalanceExpression("$peerBalance"),
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
 
 function serializeHabit(habit: any) {
   return {
@@ -97,6 +135,7 @@ function serializeProfile(profile: any) {
   const waterCount = Number(profile.treeWaterCount ?? 0);
   const sunlightCount = Number(profile.treeSunlightCount ?? 0);
   const growth = treeGrowthFor(streak, waterCount + sunlightCount);
+  const wallet = walletBalancesForProfile(profile);
 
   return {
     xp: Number(profile.xp),
@@ -123,10 +162,8 @@ function serializeProfile(profile: any) {
     weeklyInvites: Number(profile.weeklyInvites ?? 0),
     referralCode: String(profile.referralCode ?? ""),
     wallet: {
-      balance: Number(profile.walletBalance),
-      reward: Number(profile.rewardBalance),
-      remorse: Number(profile.remorseBalance),
-      peer: Number(profile.peerBalance),
+      ...wallet,
+      base: basePurseBalance(wallet),
     },
     unlockedBadges: Array.from(profile.unlockedBadges ?? [], String),
     unlockedRewards: Array.from(profile.unlockedRewards ?? [], String),
@@ -269,15 +306,19 @@ async function debitMissedPledge({
       const prior = (current.transactions as unknown as Array<any>).find((transaction) => transaction.title === title && transaction.kind === "remorse");
       return { profile: current, appliedPenalty: Math.abs(Number(prior?.amount ?? 0)) };
     }
-    const appliedPenalty = Math.min(Math.max(0, current.walletBalance), penalty);
+    const currentWallet = walletBalancesForProfile(current);
+    const { appliedPenalty } = baseToRemorseTransfer(currentWallet, penalty);
     const profile = await RdmProfile.findOneAndUpdate(
       {
         userId,
-        walletBalance: current.walletBalance,
+        walletBalance: currentWallet.balance,
+        rewardBalance: currentWallet.reward,
+        remorseBalance: currentWallet.remorse,
+        peerBalance: currentWallet.peer,
         creditedOperations: { $ne: operationId },
       },
       {
-        $inc: { walletBalance: -appliedPenalty, remorseBalance: appliedPenalty },
+        $inc: { remorseBalance: appliedPenalty },
         $set: { streak: 0 },
         $addToSet: { creditedOperations: operationId, unlockedBadges: "honest-reset" },
         $push: { transactions: { $each: [{ title, amount: -appliedPenalty, kind: "remorse", createdAt: new Date() }], $position: 0 } },
@@ -632,6 +673,17 @@ async function getProfile(userId: string) {
   return profile;
 }
 
+async function requireBaseRdm(userId: string, purpose: string) {
+  const profile = await getProfile(userId);
+  if (basePurseBalance(walletBalancesForProfile(profile)) < 1) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `You need RDM in your Base Purse before creating ${purpose}.`,
+    });
+  }
+  return profile;
+}
+
 async function resetWeeklyInvites(profile: any) {
   const currentWeek = inviteWeekKey();
   if (profile.inviteWeek === currentWeek) return profile;
@@ -733,8 +785,10 @@ export const rdmRouter = router({
         const profile = await RdmProfile.findOneAndUpdate(
           {
             userId: ctx.session.user.id,
-            walletBalance: { $gte: input.amount },
             rewardBalance: { $gte: treeMissedDayPenalty },
+            $expr: {
+              $gte: [basePurseBalanceExpression(), input.amount],
+            },
             $or: [
               { treePledgeAmount: 0 },
               { treePledgeAmount: { $exists: false } },
@@ -771,10 +825,11 @@ export const rdmRouter = router({
             message: "This tree already has an active pledge.",
           });
         }
-        if (treePledgeWalletBalance(Number(current?.walletBalance ?? 0), input.amount) === null) {
+        const availableBase = basePurseBalance(walletBalancesForProfile(current));
+        if (basePurseAfterPledge(availableBase, input.amount) === null) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Your RDM balance is lower than this pledge.",
+            message: "Your Base Purse balance is lower than this pledge.",
           });
         }
         throw new TRPCError({
@@ -1077,6 +1132,7 @@ export const rdmRouter = router({
         source: z.enum(habitSources),
       }))
       .mutation(async ({ ctx, input }) => {
+        await requireBaseRdm(ctx.session.user.id, "a habit");
         const habit = await Habit.create({
           ...input,
           userId: ctx.session.user.id,
@@ -1344,6 +1400,7 @@ export const rdmRouter = router({
         unit: z.string().trim().min(1).max(20),
       }))
       .mutation(async ({ ctx, input }) => {
+        const profile = await requireBaseRdm(ctx.session.user.id, "a group goal");
         const group = await GoalGroup.create({
           creatorId: ctx.session.user.id,
           inviteCode: createInviteCode(),
@@ -1355,7 +1412,6 @@ export const rdmRouter = router({
           targetHit: false,
           members: [{ userId: ctx.session.user.id, name: ctx.session.user.name, initials: initialsForName(ctx.session.user.name), contribution: 0, award: 300 }],
         });
-        const profile = await getProfile(ctx.session.user.id);
         unlockBadges(profile, ["group-starter"]);
         await profile.save();
         return serializeGroup(group, ctx.session.user.id);
