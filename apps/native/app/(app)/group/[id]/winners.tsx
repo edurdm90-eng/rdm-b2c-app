@@ -44,7 +44,12 @@ export default function GroupWinnersScreen() {
 
   return (
     <AppScreen>
-      <PageHeader back title="Choose winners" subtitle={`${groupRewardStructureTitle(group.rewardStructure).toUpperCase()} · ${formatRdm(group.rewardPool)} RDM`} />
+      <PageHeader
+        back
+        onBack={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })}
+        title="Choose winners"
+        subtitle={`${groupRewardStructureTitle(group.rewardStructure).toUpperCase()} · ${formatRdm(group.rewardPool)} RDM`}
+      />
       <Text style={styles.intro}>Awards are calculated from the reward structure selected when the group was created. Review them before announcing.</Text>
       <SectionLabel>Final ranking</SectionLabel>
       {ranked.map((member, index) => (

@@ -311,7 +311,9 @@ export default function NewGroupScreen() {
     <AppScreen>
       <PageHeader
         back
-        onBack={mode === "create" && step > 1 ? () => setStep((step - 1) as CreateStep) : undefined}
+        onBack={step > 1
+          ? () => setStep((step - 1) as CreateStep)
+          : () => router.dismissTo("/(app)/(tabs)/groups")}
         title={stepTitles[step]}
         subtitle={createSubtitle}
       />

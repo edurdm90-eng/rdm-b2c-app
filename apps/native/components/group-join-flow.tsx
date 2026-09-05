@@ -71,7 +71,12 @@ export function GroupJoinFlow({
 
   return (
     <AppScreen>
-      <PageHeader back title="Join a Group Goal" subtitle="ENTER AN INVITE CODE" />
+      <PageHeader
+        back
+        onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
+        title="Join a Group Goal"
+        subtitle="ENTER AN INVITE CODE"
+      />
       <View style={styles.modeRow}>
         <Pill color={colors.plum} label="Create" onPress={onCreate} />
         <Pill active color={colors.plum} label="Join with code" />

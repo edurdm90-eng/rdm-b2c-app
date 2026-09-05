@@ -28,7 +28,12 @@ export default function GroupTopUpScreen() {
 
   return (
     <AppScreen>
-      <PageHeader back title="Top up RDM" subtitle={`BASE PURSE: ${formatRdm(wallet.data.wallet.base)} RDM`} />
+      <PageHeader
+        back
+        onBack={() => router.dismissTo("/(app)/group/settings")}
+        title="Top up RDM"
+        subtitle={`BASE PURSE: ${formatRdm(wallet.data.wallet.base)} RDM`}
+      />
       <SurfaceCard style={styles.hero}>
         <Text style={styles.eyebrow}>YOU&apos;RE ADDING</Text>
         <Text style={styles.amount}>{formatRdm(amount)} RDM</Text>

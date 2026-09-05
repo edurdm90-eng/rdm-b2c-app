@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { GroupAiNote, GroupAvatars } from "@/components/group-goal-ui";
 import {
@@ -47,8 +47,6 @@ export default function GroupDashboardScreen() {
   const data = group.data;
   const numericAmount = Number(amount);
   const currentMember = data.members.find((member) => member.currentUser);
-  const shareMessage = `Join my RDM group goal “${data.name}” with code ${data.inviteCode}. Minimum pledge: ${data.minimumPledge} RDM.`;
-
   function submitProgress() {
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       Alert.alert("Add progress", `Enter how many ${data.unit} you completed.`);
@@ -61,9 +59,10 @@ export default function GroupDashboardScreen() {
     <AppScreen>
       <PageHeader
         back
+        onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
         title={data.name}
         subtitle={`${data.category.toUpperCase()} · ${data.awarded ? "COMPLETE" : data.status === "expired" ? "EXPIRED" : data.targetHit ? "TARGET HIT" : `ENDS ${data.endDayKey ? formatDayKey(data.endDayKey).toUpperCase() : "SOON"}`}`}
-        trailing={<PrimaryButton color={colors.plum} icon="share-variant-outline" label="Invite" onPress={() => void Share.share({ message: shareMessage })} style={styles.headerButton} variant="outline" />}
+        trailing={<PrimaryButton color={colors.plum} icon="account-plus-outline" label="Invite" onPress={() => router.push({ pathname: "/(app)/group/[id]/invite", params: { id } })} style={styles.headerButton} variant="outline" />}
       />
       <GroupAiNote label="Ask AI for a progress check-in" />
       <SurfaceCard style={styles.poolCard}>

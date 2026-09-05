@@ -62,7 +62,12 @@ export default function GroupSettingsScreen() {
 
   return (
     <AppScreen>
-      <PageHeader back title="Group settings" subtitle="RDM & ACCOUNT" />
+      <PageHeader
+        back
+        onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
+        title="Group settings"
+        subtitle="RDM & ACCOUNT"
+      />
       <SurfaceCard>
         {items.map((item) => (
           <Pressable accessibilityRole={item.onPress ? "button" : undefined} disabled={!item.onPress} key={item.label} onPress={item.onPress ?? undefined} style={styles.row}>

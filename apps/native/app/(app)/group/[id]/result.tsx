@@ -38,7 +38,12 @@ export default function GroupResultScreen() {
 
   return (
     <AppScreen contentStyle={styles.screen}>
-      <PageHeader back title="Goal complete!" subtitle={data.name.toUpperCase()} />
+      <PageHeader
+        back
+        onBack={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })}
+        title="Goal complete!"
+        subtitle={data.name.toUpperCase()}
+      />
       <View style={styles.hero}>
         <Text style={styles.trophy}>🏆</Text>
         <Text style={styles.heroTitle}>Goal complete!</Text>

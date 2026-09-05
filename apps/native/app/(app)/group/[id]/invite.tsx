@@ -75,7 +75,12 @@ export default function GroupInviteScreen() {
 
   return (
     <AppScreen>
-      <PageHeader back title="Invite your group" subtitle="STEP 5 OF 5" />
+      <PageHeader
+        back
+        onBack={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })}
+        title="Invite your group"
+        subtitle="STEP 5 OF 5"
+      />
       <GroupStepDots current={5} />
       <SurfaceCard style={styles.codeCard}>
         <Text style={styles.codeLabel}>GROUP INVITE CODE</Text>
@@ -119,7 +124,7 @@ export default function GroupInviteScreen() {
         <View style={styles.infoRow}><Text style={styles.infoIcon}>2</Text><Text style={styles.infoText}>They review the target, duration, and pooled reward.</Text></View>
         <View style={styles.infoRow}><Text style={styles.infoIcon}>3</Text><Text style={styles.infoText}>They pledge at least {formatRdm(data.minimumPledge)} RDM from their own Base Purse.</Text></View>
       </SurfaceCard>
-      <PrimaryButton color={colors.growth} label="Go to group dashboard" onPress={() => router.replace({ pathname: "/(app)/group/[id]", params: { id } })} />
+      <PrimaryButton color={colors.growth} label="Go to group dashboard" onPress={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })} />
     </AppScreen>
   );
 }
