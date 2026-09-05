@@ -51,11 +51,13 @@ export function PageHeader({
   title,
   subtitle,
   back = false,
+  onBack,
   trailing,
 }: {
   title: string;
   subtitle?: string;
   back?: boolean;
+  onBack?: () => void;
   trailing?: ReactNode;
 }) {
   return (
@@ -65,7 +67,7 @@ export function PageHeader({
           accessibilityRole="button"
           accessibilityLabel="Go back"
           hitSlop={10}
-          onPress={() => router.back()}
+          onPress={onBack ?? (() => router.back())}
           style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         >
           <MaterialCommunityIcons name="arrow-left" size={20} color={colors.ink} />

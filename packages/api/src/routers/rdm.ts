@@ -38,7 +38,13 @@ import {
   gratitudeCategoryById,
   goalCategories,
   goalDurationWindow,
+  groupAwardAmounts,
   groupAwardCredits,
+  groupContributionPeriodKey,
+  groupGoalCategories,
+  groupGoalRewardStructures,
+  groupGoalStatusForDay,
+  groupPledgeTotal,
   habitCanStartNextCycle,
   habitCategories,
   habitPledgeDestinationForOperation,
@@ -219,6 +225,13 @@ function serializeProfile(profile: any) {
     },
     unlockedBadges: Array.from(profile.unlockedBadges ?? [], String),
     unlockedRewards: Array.from(profile.unlockedRewards ?? [], String),
+    collectibles: Array.from(profile.collectibles ?? []).map((collectible: any) => ({
+      id: String(collectible.collectibleId),
+      groupId: String(collectible.groupId),
+      title: String(collectible.title),
+      recipientName: String(collectible.recipientName),
+      awardedAt: new Date(collectible.awardedAt).toISOString(),
+    })),
     transactions: Array.from(profile.transactions ?? []).map((transaction: any) => ({
       id: String(transaction._id),
       title: String(transaction.title),
@@ -257,21 +270,58 @@ function serializeGoodDeedEntry(entry: any) {
 }
 
 function serializeGroup(group: any, currentUserId: string) {
+  const members = Array.from(group.members ?? [])
+    .filter((member: any) => member.fundingStatus !== "pending");
+  const timeZone = String(group.timeZone ?? "Asia/Kolkata");
+  const endDayKey = String(group.endDayKey ?? "");
+  const cadence = String(group.cadence ?? "daily") as "daily" | "weekly";
+  const currentDayKey = dayKeyForTimeZone(new Date(), timeZone);
+  const currentPeriodKey = groupContributionPeriodKey(new Date(), timeZone, cadence);
+  const daysRemaining = /^\d{4}-\d{2}-\d{2}$/.test(endDayKey)
+    ? calendarDayKeysAfter(currentDayKey, endDayKey).length
+    : 0;
   return {
     id: String(group._id),
     name: String(group.name),
+    category: String(group.category ?? "Family") as (typeof groupGoalCategories)[number],
+    activityId: String(group.activityId ?? "custom"),
+    description: String(group.description ?? ""),
     target: Number(group.target),
     current: Number(group.current),
     unit: String(group.unit),
     rewardPool: Number(group.rewardPool),
+    durationDays: Number(group.durationDays ?? 30),
+    startDayKey: String(group.startDayKey ?? ""),
+    endDayKey,
+    timeZone,
+    daysRemaining: group.targetHit || group.status === "expired" ? 0 : daysRemaining,
+    cadence,
+    pledgeBasis: String(group.pledgeBasis ?? "per_day") as "per_day" | "per_activity",
+    pledgePerUnit: Number(group.pledgePerUnit ?? 5),
+    expectedActivities: Number(group.expectedActivities ?? 30),
+    minimumPledge: Number(group.minimumPledge ?? 0),
+    rewardStructure: String(group.rewardStructure ?? "top_3") as (typeof groupGoalRewardStructures)[number],
+    status: String(group.status ?? (group.awarded ? "completed" : "active")) as "pending" | "active" | "completed" | "expired",
     targetHit: Boolean(group.targetHit),
     awarded: Boolean(group.awarded),
+    specialAwarded: Boolean(group.specialAwarded),
+    specialCollectible: group.specialCollectible
+      ? {
+        id: String(group.specialCollectible.collectibleId),
+        title: String(group.specialCollectible.title),
+        recipientName: String(group.specialCollectible.recipientName),
+        awardedAt: new Date(group.specialCollectible.awardedAt).toISOString(),
+      }
+      : null,
     inviteCode: String(group.inviteCode),
     canAward: String(group.creatorId) === currentUserId,
-    members: Array.from(group.members ?? []).map((member: any) => ({
+    members: members.map((member: any) => ({
       name: String(member.name),
       initials: String(member.initials),
       contribution: Number(member.contribution),
+      loggedCurrentPeriod: Array.from(member.contributionPeriodKeys ?? [], String)
+        .includes(currentPeriodKey),
+      pledgeAmount: Number(member.pledgeAmount ?? 0),
       award: Number(member.award),
       currentUser: member.userId ? String(member.userId) === currentUserId : false,
     })),
@@ -941,6 +991,126 @@ async function reconcileGroupAwards(group: any) {
       badgeIds: ["group-finisher"],
     });
   }
+
+  const collectible = group.specialCollectible;
+  if (collectible?.recipientUserId) {
+    const operationId = `group-collectible:${group._id}:${collectible.recipientUserId}`;
+    await getProfile(String(collectible.recipientUserId));
+    await RdmProfile.findOneAndUpdate(
+      {
+        userId: String(collectible.recipientUserId),
+        creditedOperations: { $ne: operationId },
+      },
+      {
+        $addToSet: { creditedOperations: operationId },
+        $push: { collectibles: collectible.toObject?.() ?? collectible },
+      },
+    );
+  }
+}
+
+async function returnGroupPledge({
+  amount,
+  group,
+  lockOperationId,
+  userId,
+}: {
+  amount: number;
+  group: any;
+  lockOperationId: string;
+  userId: string;
+}) {
+  if (!userId || !lockOperationId || !Number.isInteger(amount) || amount <= 0) return;
+  const operationId = `group-refund:${group._id}:${userId}`;
+  await getProfile(userId);
+  await RdmProfile.findOneAndUpdate(
+    {
+      userId,
+      creditedOperations: { $all: [lockOperationId], $ne: operationId },
+    },
+    [{
+      $set: {
+        walletBalance: { $add: ["$walletBalance", amount] },
+        creditedOperations: {
+          $setUnion: [
+            {
+              $filter: {
+                input: "$creditedOperations",
+                as: "creditedOperation",
+                cond: { $ne: ["$$creditedOperation", lockOperationId] },
+              },
+            },
+            [operationId],
+          ],
+        },
+        transactions: {
+          $concatArrays: [
+            [{
+              title: `Group pledge returned — ${group.name}`,
+              amount,
+              kind: "stake",
+              operationId,
+              createdAt: new Date(),
+            }],
+            { $ifNull: ["$transactions", []] },
+          ],
+        },
+      },
+    }],
+    { updatePipeline: true },
+  );
+}
+
+async function reconcileGroupLifecycle(group: any): Promise<any> {
+  let current = group;
+  if (current.status === "active") {
+    const pendingMembers = (current.members as unknown as Array<any>).filter(
+      (member) => member.userId && member.fundingStatus === "pending",
+    );
+    for (const member of pendingMembers) {
+      await fundPendingGroupMember(current, String(member.userId));
+      current = await GoalGroup.findById(current._id) ?? current;
+    }
+  }
+  const endDayKey = String(current.endDayKey ?? "");
+  const timeZone = String(current.timeZone ?? "Asia/Kolkata");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(endDayKey)) {
+    const status = groupGoalStatusForDay({
+      currentDayKey: dayKeyForTimeZone(new Date(), timeZone),
+      endDayKey,
+      status: String(current.status ?? "active") as "pending" | "active" | "completed" | "expired",
+      targetHit: Boolean(current.targetHit),
+    });
+    if (status === "expired") {
+      current = await GoalGroup.findOneAndUpdate(
+        {
+          _id: current._id,
+          status: "active",
+          targetHit: false,
+          awarded: false,
+        },
+        {
+          $set: { status: "expired", expiredAt: new Date(), rewardPool: 0 },
+        },
+        { returnDocument: "after" },
+      ) ?? await GoalGroup.findById(current._id) ?? current;
+    }
+  }
+
+  if (current.status === "expired") {
+    const members = current.members as unknown as Array<any>;
+    for (const member of members) {
+      if (member.fundingStatus !== "funded") continue;
+      await returnGroupPledge({
+        amount: Number(member.pledgeAmount ?? 0),
+        group: current,
+        lockOperationId: String(member.pledgeOperationId ?? ""),
+        userId: String(member.userId ?? ""),
+      });
+    }
+  }
+  await reconcileGroupAwards(current);
+  return current;
 }
 
 async function lockBasePledge({
@@ -1076,7 +1246,141 @@ async function reconcilePendingGoalFunding(userId: string) {
   for (const goal of pendingGoals) await fundPendingGoal(goal, userId);
 }
 
-async function ensureSeedData(userId: string, userName: string) {
+function pendingGroupMember(group: any, userId: string) {
+  return (group.members as unknown as Array<any>).find(
+    (member) => member.userId === userId && member.fundingStatus === "pending",
+  );
+}
+
+async function fundPendingGroupMember(group: any, userId: string) {
+  const member = pendingGroupMember(group, userId);
+  if (!member) return group;
+  const amount = Number(member.pledgeAmount);
+  const operationId = String(member.pledgeOperationId ?? `group-stake:${group._id}:${userId}`);
+
+  const expectedStatus = String(group.creatorId) === userId ? "pending" : "active";
+  const currentDayKey = dayKeyForTimeZone(new Date(), String(group.timeZone ?? "Asia/Kolkata"));
+  if (currentDayKey >= String(group.endDayKey)) {
+    const profile = await getProfile(userId);
+    if (profile.creditedOperations.includes(operationId)) {
+      await returnGroupPledge({ amount, group, lockOperationId: operationId, userId });
+    }
+    if (String(group.creatorId) === userId && group.status === "pending") {
+      await GoalGroup.deleteOne({ _id: group._id, creatorId: userId, status: "pending" });
+    } else {
+      await GoalGroup.updateOne(
+        { _id: group._id },
+        { $pull: { members: { userId, fundingStatus: "pending" } } },
+      );
+    }
+    return null;
+  }
+  const fundedGroup = await fundPendingRecord({
+    activatePending: () => GoalGroup.findOneAndUpdate(
+      {
+        _id: group._id,
+        status: expectedStatus,
+        endDayKey: { $gt: currentDayKey },
+        "members": {
+          $elemMatch: { userId, fundingStatus: "pending", pledgeAmount: amount },
+        },
+      },
+      {
+        $inc: { rewardPool: amount },
+        $set: {
+          "members.$[member].fundingStatus": "funded",
+          ...(String(group.creatorId) === userId ? { status: "active" } : {}),
+        },
+      },
+      {
+        arrayFilters: [{
+          "member.userId": userId,
+          "member.fundingStatus": "pending",
+          "member.pledgeAmount": amount,
+        }],
+        returnDocument: "after",
+      },
+    ),
+    amount,
+    deletePending: async () => {
+      if (String(group.creatorId) === userId && group.status === "pending") {
+        await GoalGroup.deleteOne({ _id: group._id, creatorId: userId, status: "pending" });
+        return;
+      }
+      await GoalGroup.updateOne(
+        { _id: group._id },
+        { $pull: { members: { userId, fundingStatus: "pending" } } },
+      );
+    },
+    findFunded: () => GoalGroup.findOne({
+      _id: group._id,
+      members: { $elemMatch: { userId, fundingStatus: "funded" } },
+    }),
+    operationId,
+    title: `Group pledge locked — ${group.name}`,
+    userId,
+  });
+  if (fundedGroup) return fundedGroup;
+
+  const profile = await getProfile(userId);
+  if (profile.creditedOperations.includes(operationId)) {
+    await returnGroupPledge({ amount, group, lockOperationId: operationId, userId });
+    await GoalGroup.updateOne(
+      { _id: group._id },
+      { $pull: { members: { userId, fundingStatus: "pending" } } },
+    );
+  }
+  return null;
+}
+
+async function reconcilePendingGroupFunding(userId: string) {
+  const pendingGroups = await GoalGroup.find({
+    "members": { $elemMatch: { userId, fundingStatus: "pending" } },
+  });
+  for (const group of pendingGroups) await fundPendingGroupMember(group, userId);
+}
+
+async function purgeLegacySeedGroups(userId: string) {
+  const legacySeeds = await GoalGroup.find({
+    creatorId: userId,
+    creationId: { $exists: false },
+    name: "Family Fitness Streak",
+    "members.name": "Others",
+  });
+  for (const group of legacySeeds) {
+    let safeToDelete = true;
+    const members = group.members as unknown as Array<any>;
+    for (const member of members) {
+      const memberUserId = String(member.userId ?? "");
+      const award = Number(member.award ?? 0);
+      if (!memberUserId || !Number.isInteger(award) || award <= 0) continue;
+      const awardOperationId = `group:${group._id}:${memberUserId}`;
+      const collectibleOperationId = `group-collectible:${group._id}:${memberUserId}`;
+      const profile = await RdmProfile.findOne({ userId: memberUserId });
+      if (!profile?.creditedOperations.includes(awardOperationId)) continue;
+      const reversed = await RdmProfile.findOneAndUpdate(
+        {
+          userId: memberUserId,
+          creditedOperations: awardOperationId,
+          walletBalance: { $gte: award },
+          peerBalance: { $gte: award },
+        },
+        {
+          $inc: { walletBalance: -award, peerBalance: -award },
+          $pull: {
+            collectibles: { groupId: String(group._id) },
+            creditedOperations: { $in: [awardOperationId, collectibleOperationId] },
+            transactions: { operationId: awardOperationId },
+          },
+        },
+      );
+      if (!reversed) safeToDelete = false;
+    }
+    if (safeToDelete) await GoalGroup.deleteOne({ _id: group._id });
+  }
+}
+
+async function ensureSeedData(userId: string, _userName: string) {
   let profile = await RdmProfile.findOneAndUpdate(
     { userId },
     { $setOnInsert: { userId, unlockedBadges: initialBadgeIds } },
@@ -1090,6 +1394,7 @@ async function ensureSeedData(userId: string, userName: string) {
   await ensureReferralCode(profile);
   await reconcilePendingHabitFunding(userId);
   await reconcilePendingGoalFunding(userId);
+  await reconcilePendingGroupFunding(userId);
 
   let habits = await Habit.find({ userId, active: true }).sort({ createdAt: 1 });
   if (habits.length === 0 && await Habit.countDocuments({ userId }) === 0) {
@@ -1117,43 +1422,8 @@ async function ensureSeedData(userId: string, userName: string) {
   }
   profile = await getProfile(userId);
 
-  let groups = await GoalGroup.find({ creatorId: userId }).sort({ createdAt: 1 });
-  if (groups.length === 0) {
-    const seededGroup = await GoalGroup.create({
-      creatorId: userId,
-      inviteCode: createInviteCode(),
-      name: "Family Fitness Streak",
-      target: 500,
-      current: 210,
-      unit: "km",
-      rewardPool: 300,
-      targetHit: true,
-      members: [
-        { userId, name: userName, initials: initialsForName(userName), contribution: 72, award: 80 },
-        { name: "Ravi A.", initials: "RA", contribution: 64, award: 120 },
-        { name: "Priya K.", initials: "PK", contribution: 51, award: 60 },
-        { name: "Others", initials: "+3", contribution: 23, award: 40 },
-      ],
-    });
-    groups = [seededGroup];
-  }
-
-  for (const group of groups) {
-    let changed = false;
-    if (!group.inviteCode) {
-      group.inviteCode = createInviteCode();
-      changed = true;
-    }
-    const members = group.members as unknown as Array<any>;
-    const owner = members.find((member) => member.name === "You" || member.userId === userId);
-    if (owner && !owner.userId) {
-      owner.userId = userId;
-      owner.name = userName;
-      group.markModified("members");
-      changed = true;
-    }
-    if (changed) await group.save();
-  }
+  await purgeLegacySeedGroups(userId);
+  const groups = await GoalGroup.find({ creatorId: userId }).sort({ createdAt: 1 });
 
   return { profile, habits, groups };
 }
@@ -1170,17 +1440,6 @@ async function getProfile(userId: string) {
   }
   profile = await resetWeeklyInvites(profile);
   await ensureReferralCode(profile);
-  return profile;
-}
-
-async function requireBaseRdm(userId: string, purpose: string) {
-  const profile = await getProfile(userId);
-  if (basePurseBalance(walletBalancesForProfile(profile)) < 1) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `You need RDM in your Base Purse before creating ${purpose}.`,
-    });
-  }
   return profile;
 }
 
@@ -2170,80 +2429,318 @@ export const rdmRouter = router({
   groups: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       await ensureSeedData(ctx.session.user.id, ctx.session.user.name);
+      await reconcilePendingGroupFunding(ctx.session.user.id);
       const groups = await GoalGroup.find({
+        creationId: { $type: "string" },
         $or: [
           { creatorId: ctx.session.user.id },
           { "members.userId": ctx.session.user.id },
         ],
-      }).sort({ createdAt: 1 });
-      for (const group of groups) await reconcileGroupAwards(group);
-      return groups.map((group) => serializeGroup(group, ctx.session.user.id));
+      }).sort({ createdAt: -1 });
+      const currentGroups = [];
+      for (const group of groups) currentGroups.push(await reconcileGroupLifecycle(group));
+      return currentGroups
+        .filter((group) => (
+          String(group.creatorId) === ctx.session.user.id
+          || (group.members as unknown as Array<any>).some(
+            (member) => member.userId === ctx.session.user.id && member.fundingStatus !== "pending",
+          )
+        ))
+        .map((group) => serializeGroup(group, ctx.session.user.id));
     }),
-    create: protectedProcedure
-      .input(z.object({
-        name: z.string().trim().min(3).max(80),
-        target: z.number().positive().max(100000),
-        unit: z.string().trim().min(1).max(20),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const profile = await requireBaseRdm(ctx.session.user.id, "a group goal");
-        const group = await GoalGroup.create({
-          creatorId: ctx.session.user.id,
-          inviteCode: createInviteCode(),
-          name: input.name,
-          target: input.target,
-          current: 0,
-          unit: input.unit,
-          rewardPool: 300,
-          targetHit: false,
-          members: [{ userId: ctx.session.user.id, name: ctx.session.user.name, initials: initialsForName(ctx.session.user.name), contribution: 0, award: 300 }],
+    detail: protectedProcedure
+      .input(z.object({ id: mongoId }))
+      .query(async ({ ctx, input }) => {
+        await reconcilePendingGroupFunding(ctx.session.user.id);
+        const foundGroup = await GoalGroup.findOne({
+          _id: input.id,
+          creationId: { $type: "string" },
+          $or: [
+            { creatorId: ctx.session.user.id },
+            { "members.userId": ctx.session.user.id },
+          ],
         });
-        unlockBadges(profile, ["group-starter"]);
-        await profile.save();
+        if (!foundGroup) throw new TRPCError({ code: "NOT_FOUND", message: "Group not found" });
+        const group = await reconcileGroupLifecycle(foundGroup);
         return serializeGroup(group, ctx.session.user.id);
       }),
-    join: protectedProcedure
-      .input(z.object({ inviteCode: z.string().trim().length(6).transform((value) => value.toUpperCase()) }))
+    preview: protectedProcedure
+      .input(z.object({
+        inviteCode: z.string().trim().length(6).transform((value) => value.toUpperCase()),
+      }))
+      .query(async ({ ctx, input }) => {
+        const foundGroup = await GoalGroup.findOne({
+          inviteCode: input.inviteCode,
+          creationId: { $type: "string" },
+          awarded: false,
+          targetHit: false,
+          status: "active",
+        });
+        if (!foundGroup) throw new TRPCError({ code: "NOT_FOUND", message: "This invite is no longer available" });
+        const group = await reconcileGroupLifecycle(foundGroup);
+        if (group.status !== "active") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "This invite is no longer available" });
+        }
+        const profile = await getProfile(ctx.session.user.id);
+        const serialized = serializeGroup(group, ctx.session.user.id);
+        return {
+          group: serialized,
+          profile: serializeProfile(profile),
+          alreadyJoined: serialized.members.some((member) => member.currentUser),
+        };
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        creationId: z.string().uuid(),
+        category: z.enum(groupGoalCategories),
+        activityId: z.string().trim().min(1).max(80),
+        name: z.string().trim().min(3).max(80),
+        description: z.string().trim().min(3).max(240),
+        target: z.number().positive().max(100000),
+        unit: z.string().trim().min(1).max(20),
+        durationDays: z.number().int().min(1).max(365),
+        startDayKey: dayKeySchema,
+        timeZone: timeZoneSchema,
+        cadence: z.enum(["daily", "weekly"]),
+        pledgeBasis: z.enum(["per_day", "per_activity"]),
+        pledgePerUnit: z.number().int().min(1).max(100000),
+        expectedActivities: z.number().int().min(1).max(365),
+        rewardStructure: z.enum(groupGoalRewardStructures),
+      }))
       .mutation(async ({ ctx, input }) => {
-        await getProfile(ctx.session.user.id);
-        const group = await GoalGroup.findOneAndUpdate(
-          {
-            inviteCode: input.inviteCode,
-            creatorId: { $ne: ctx.session.user.id },
-            "members.userId": { $ne: ctx.session.user.id },
-          },
-          {
-            $push: {
-              members: {
+        const window = goalDurationWindow(input.startDayKey, input.durationDays);
+        const totalPledge = groupPledgeTotal({
+          basis: input.pledgeBasis,
+          durationDays: input.durationDays,
+          expectedActivities: input.expectedActivities,
+          pledgePerUnit: input.pledgePerUnit,
+        });
+        const todayDayKey = dayKeyForTimeZone(new Date(), input.timeZone);
+        if (!window || input.startDayKey < todayDayKey) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a valid start date that is not in the past" });
+        }
+        if (!totalPledge || totalPledge > 100000) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "The total group pledge must be between 1 and 100,000 RDM" });
+        }
+
+        let group = await GoalGroup.findOne({
+          creatorId: ctx.session.user.id,
+          creationId: input.creationId,
+        });
+        for (let attempt = 0; !group && attempt < 4; attempt += 1) {
+          try {
+            group = await GoalGroup.create({
+              creatorId: ctx.session.user.id,
+              creationId: input.creationId,
+              inviteCode: createInviteCode(),
+              name: input.name,
+              category: input.category,
+              activityId: input.activityId,
+              description: input.description,
+              target: input.target,
+              current: 0,
+              unit: input.unit,
+              durationDays: input.durationDays,
+              startDayKey: input.startDayKey,
+              endDayKey: window.endDayKey,
+              timeZone: input.timeZone,
+              cadence: input.cadence,
+              pledgeBasis: input.pledgeBasis,
+              pledgePerUnit: input.pledgePerUnit,
+              expectedActivities: input.expectedActivities,
+              minimumPledge: totalPledge,
+              rewardStructure: input.rewardStructure,
+              rewardPool: 0,
+              status: "pending",
+              targetHit: false,
+              members: [{
                 userId: ctx.session.user.id,
                 name: ctx.session.user.name,
                 initials: initialsForName(ctx.session.user.name),
                 contribution: 0,
+                pledgeAmount: totalPledge,
+                pledgeOperationId: `group-create:${ctx.session.user.id}:${input.creationId}`,
+                fundingStatus: "pending",
                 award: 0,
+              }],
+            });
+          } catch (error: any) {
+            if (error?.code !== 11000) throw error;
+            group = await GoalGroup.findOne({
+              creatorId: ctx.session.user.id,
+              creationId: input.creationId,
+            });
+          }
+        }
+        if (!group) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not reserve a group invite code" });
+        }
+
+        const fundedGroup = await fundPendingGroupMember(group, ctx.session.user.id);
+        if (!fundedGroup) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Your Base Purse does not have enough RDM for this pledge" });
+        }
+        const profile = await getProfile(ctx.session.user.id);
+        unlockBadges(profile, ["group-starter"]);
+        await profile.save();
+        return serializeGroup(fundedGroup, ctx.session.user.id);
+      }),
+    join: protectedProcedure
+      .input(z.object({
+        inviteCode: z.string().trim().length(6).transform((value) => value.toUpperCase()),
+        pledgeAmount: z.number().int().min(1).max(100000),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await getProfile(ctx.session.user.id);
+        const foundGroup = await GoalGroup.findOne({
+          inviteCode: input.inviteCode,
+          creationId: { $type: "string" },
+          awarded: false,
+          targetHit: false,
+          status: "active",
+        });
+        if (!foundGroup) throw new TRPCError({ code: "NOT_FOUND", message: "This invite is no longer available" });
+        let group = await reconcileGroupLifecycle(foundGroup);
+        if (group.status !== "active") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "This invite is no longer available" });
+        }
+        const currentDayKey = dayKeyForTimeZone(new Date(), String(group.timeZone));
+        const existingMember = (group.members as unknown as Array<any>).find(
+          (member) => member.userId === ctx.session.user.id,
+        );
+        if (existingMember && existingMember.fundingStatus !== "pending") {
+          return serializeGroup(group, ctx.session.user.id);
+        }
+        const minimumPledge = Number(group.minimumPledge ?? 0);
+        if (input.pledgeAmount < minimumPledge) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `This group requires a minimum pledge of ${minimumPledge} RDM`,
+          });
+        }
+        if (existingMember && Number(existingMember.pledgeAmount) !== input.pledgeAmount) {
+          throw new TRPCError({ code: "CONFLICT", message: "This join request already has a different pledge" });
+        }
+        if (!existingMember) {
+          group = await GoalGroup.findOneAndUpdate(
+            {
+              _id: group._id,
+              status: "active",
+              endDayKey: { $gt: currentDayKey },
+              awarded: false,
+              targetHit: false,
+              "members.userId": { $ne: ctx.session.user.id },
+              $expr: { $lt: [{ $size: "$members" }, 50] },
+            },
+            {
+              $push: {
+                members: {
+                  userId: ctx.session.user.id,
+                  name: ctx.session.user.name,
+                  initials: initialsForName(ctx.session.user.name),
+                  contribution: 0,
+                  pledgeAmount: input.pledgeAmount,
+                  pledgeOperationId: `group-stake:${group._id}:${ctx.session.user.id}`,
+                  fundingStatus: "pending",
+                  joinedAt: new Date(),
+                  award: 0,
+                },
               },
             },
-          },
-          { returnDocument: "after" },
-        );
-        if (!group) throw new TRPCError({ code: "NOT_FOUND", message: "Invite code not found or you already joined" });
-        return serializeGroup(group, ctx.session.user.id);
+            { returnDocument: "after" },
+          );
+          if (!group) {
+            throw new TRPCError({ code: "CONFLICT", message: "The group changed before you could join" });
+          }
+        }
+        const fundedGroup = await fundPendingGroupMember(group, ctx.session.user.id);
+        if (!fundedGroup) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Your Base Purse does not have enough RDM for this pledge" });
+        }
+        return serializeGroup(fundedGroup, ctx.session.user.id);
       }),
     logContribution: protectedProcedure
-      .input(z.object({ id: mongoId, amount: z.number().positive().max(1000) }))
+      .input(z.object({
+        id: mongoId,
+        operationId: z.string().uuid(),
+        amount: z.number().positive().max(1000),
+      }))
       .mutation(async ({ ctx, input }) => {
+        const fundedMembership = {
+          $elemMatch: {
+            userId: ctx.session.user.id,
+            fundingStatus: "funded",
+          },
+        };
+        const foundGroup = await GoalGroup.findOne({
+          _id: input.id,
+          creationId: { $type: "string" },
+          members: fundedMembership,
+        });
+        if (!foundGroup) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Group not found" });
+        }
+        const currentGroup = await reconcileGroupLifecycle(foundGroup);
+        if (Array.from(currentGroup.loggedOperations ?? [], String).includes(input.operationId)) {
+          return serializeGroup(currentGroup, ctx.session.user.id);
+        }
+        const currentDayKey = dayKeyForTimeZone(new Date(), String(currentGroup.timeZone));
+        const currentPeriodKey = groupContributionPeriodKey(
+          new Date(),
+          String(currentGroup.timeZone),
+          currentGroup.cadence === "weekly" ? "weekly" : "daily",
+        );
+        const currentMember = (currentGroup.members as unknown as Array<any>).find(
+          (member) => member.userId === ctx.session.user.id && member.fundingStatus === "funded",
+        );
+        if (Array.from(currentMember?.contributionPeriodKeys ?? [], String).includes(currentPeriodKey)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `You have already logged this ${currentGroup.cadence === "weekly" ? "week" : "day"}`,
+          });
+        }
+        if (currentDayKey < String(currentGroup.startDayKey)) {
+          throw new TRPCError({ code: "CONFLICT", message: "This group goal has not started yet" });
+        }
+        if (currentGroup.status !== "active" || currentDayKey >= String(currentGroup.endDayKey)) {
+          throw new TRPCError({ code: "CONFLICT", message: "This group has ended and is not accepting more progress" });
+        }
+        if (
+          currentGroup.rewardStructure === "top_3"
+          && (currentGroup.members as unknown as Array<any>).filter(
+            (member) => member.fundingStatus === "funded",
+          ).length < 3
+          && Number(currentGroup.current) + input.amount >= Number(currentGroup.target)
+        ) {
+          throw new TRPCError({ code: "CONFLICT", message: "Top 3 rewards need at least three funded members before the final progress is logged" });
+        }
+
         const group = await GoalGroup.findOneAndUpdate(
           {
             _id: input.id,
-            $or: [
-              { creatorId: ctx.session.user.id },
-              { "members.userId": ctx.session.user.id },
-            ],
+            creationId: { $type: "string" },
+            awarded: false,
+            targetHit: false,
+            status: "active",
+            startDayKey: { $lte: currentDayKey },
+            endDayKey: { $gt: currentDayKey },
+            loggedOperations: { $ne: input.operationId },
+            members: {
+              $elemMatch: {
+                userId: ctx.session.user.id,
+                fundingStatus: "funded",
+                contributionPeriodKeys: { $ne: currentPeriodKey },
+              },
+            },
           },
           [
             {
               $set: {
                 current: { $min: ["$target", { $add: ["$current", input.amount] }] },
                 targetHit: { $or: ["$targetHit", { $gte: [{ $add: ["$current", input.amount] }, "$target"] }] },
+                loggedOperations: {
+                  $concatArrays: [{ $ifNull: ["$loggedOperations", []] }, [input.operationId]],
+                },
                 members: {
                   $map: {
                     input: "$members",
@@ -2251,7 +2748,25 @@ export const rdmRouter = router({
                     in: {
                       $cond: [
                         { $eq: ["$$member.userId", ctx.session.user.id] },
-                        { $mergeObjects: ["$$member", { contribution: { $add: ["$$member.contribution", input.amount] } }] },
+                        {
+                          $mergeObjects: [
+                            "$$member",
+                            {
+                              contribution: {
+                                $add: [
+                                  "$$member.contribution",
+                                  { $min: [input.amount, { $subtract: ["$target", "$current"] }] },
+                                ],
+                              },
+                              contributionPeriodKeys: {
+                                $concatArrays: [
+                                  { $ifNull: ["$$member.contributionPeriodKeys", []] },
+                                  [currentPeriodKey],
+                                ],
+                              },
+                            },
+                          ],
+                        },
                         "$$member",
                       ],
                     },
@@ -2262,32 +2777,95 @@ export const rdmRouter = router({
           ],
           { returnDocument: "after", updatePipeline: true },
         );
-        if (!group) throw new TRPCError({ code: "NOT_FOUND", message: "Group not found" });
+        if (!group) {
+          const existing = await GoalGroup.findOne({
+            _id: input.id,
+            loggedOperations: input.operationId,
+            members: fundedMembership,
+          });
+          if (existing) return serializeGroup(existing, ctx.session.user.id);
+          throw new TRPCError({ code: "CONFLICT", message: "This group is not accepting more progress" });
+        }
         return serializeGroup(group, ctx.session.user.id);
       }),
-    award: protectedProcedure
-      .input(z.object({ id: mongoId, amounts: z.array(z.number().int().min(0)).min(1) }))
-      .mutation(async ({ ctx, input }) => {
-        let group = await GoalGroup.findOne({ _id: input.id, creatorId: ctx.session.user.id });
+    awardPreview: protectedProcedure
+      .input(z.object({ id: mongoId }))
+      .query(async ({ ctx, input }) => {
+        const group = await GoalGroup.findOne({
+          _id: input.id,
+          creatorId: ctx.session.user.id,
+          creationId: { $type: "string" },
+        });
         if (!group) throw new TRPCError({ code: "NOT_FOUND", message: "Group not found" });
         if (!group.targetHit) throw new TRPCError({ code: "BAD_REQUEST", message: "The group target is not complete" });
-        let members = group.members as unknown as Array<{ userId?: string; contribution: number; award: number }>;
-        if (input.amounts.length !== members.length || !awardSplitIsValid(input.amounts, group.rewardPool)) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Awards must allocate the complete reward pool" });
+        const members = group.members as unknown as Array<any>;
+        if (members.some((member) => member.fundingStatus === "pending")) {
+          throw new TRPCError({ code: "CONFLICT", message: "A member pledge is still being processed" });
         }
+        const amounts = groupAwardAmounts({
+          contributions: members.map((member) => Number(member.contribution)),
+          pool: Number(group.rewardPool),
+          structure: group.rewardStructure ?? "top_3",
+        });
+        if (!amounts) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This reward structure needs more participant progress" });
+        }
+        return { group: serializeGroup(group, ctx.session.user.id), amounts };
+      }),
+    award: protectedProcedure
+      .input(z.object({ id: mongoId, specialAwarded: z.boolean().default(false) }))
+      .mutation(async ({ ctx, input }) => {
+        let group = await GoalGroup.findOne({
+          _id: input.id,
+          creatorId: ctx.session.user.id,
+          creationId: { $type: "string" },
+        });
+        if (!group) throw new TRPCError({ code: "NOT_FOUND", message: "Group not found" });
+        if (!group.targetHit) throw new TRPCError({ code: "BAD_REQUEST", message: "The group target is not complete" });
+        let members = group.members as unknown as Array<any>;
+        if (members.some((member) => member.fundingStatus === "pending")) {
+          throw new TRPCError({ code: "CONFLICT", message: "A member pledge is still being processed" });
+        }
+        const amounts = groupAwardAmounts({
+          contributions: members.map((member) => Number(member.contribution)),
+          pool: Number(group.rewardPool),
+          structure: group.rewardStructure ?? "top_3",
+        });
+        if (!amounts || !awardSplitIsValid(amounts, Number(group.rewardPool))) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "The reward pool cannot be distributed yet" });
+        }
+        const specialRecipient = members
+          .filter((member) => member.userId)
+          .sort((left, right) => Number(right.contribution) - Number(left.contribution))[0];
+        const awardedAt = new Date();
+        const specialCollectible = input.specialAwarded && specialRecipient
+          ? {
+            collectibleId: `group-goal-${group._id}`,
+            groupId: String(group._id),
+            title: `${group.name} Champion`,
+            recipientUserId: String(specialRecipient.userId),
+            recipientName: String(specialRecipient.name),
+            awardedAt,
+          }
+          : null;
         if (!group.awarded) {
           group = await GoalGroup.findOneAndUpdate(
             {
               _id: input.id,
               creatorId: ctx.session.user.id,
+              creationId: { $type: "string" },
               targetHit: true,
               awarded: false,
-              members: { $size: input.amounts.length },
+              rewardPool: group.rewardPool,
+              members: { $size: amounts.length },
             },
             [
               {
                 $set: {
                   awarded: true,
+                  specialAwarded: Boolean(specialCollectible),
+                  specialCollectible,
+                  status: "completed",
                   members: {
                     $map: {
                       input: { $range: [0, { $size: "$members" }] },
@@ -2295,7 +2873,7 @@ export const rdmRouter = router({
                       in: {
                         $mergeObjects: [
                           { $arrayElemAt: ["$members", "$$memberIndex"] },
-                          { award: { $arrayElemAt: [input.amounts, "$$memberIndex"] } },
+                          { award: { $arrayElemAt: [amounts, "$$memberIndex"] } },
                         ],
                       },
                     },
@@ -2304,13 +2882,17 @@ export const rdmRouter = router({
               },
             ],
             { returnDocument: "after", updatePipeline: true },
-          ) ?? await GoalGroup.findOne({ _id: input.id, creatorId: ctx.session.user.id });
+          ) ?? await GoalGroup.findOne({
+            _id: input.id,
+            creatorId: ctx.session.user.id,
+            creationId: { $type: "string" },
+          });
         }
 
         if (!group) throw new TRPCError({ code: "NOT_FOUND", message: "Group not found" });
         members = group.members as unknown as Array<{ userId?: string; contribution: number; award: number }>;
         const storedAmounts = members.map((member) => member.award);
-        if (storedAmounts.some((amount, index) => amount !== input.amounts[index])) {
+        if (storedAmounts.some((amount, index) => amount !== amounts[index])) {
           throw new TRPCError({ code: "CONFLICT", message: "Awards have already been distributed with a different split" });
         }
 

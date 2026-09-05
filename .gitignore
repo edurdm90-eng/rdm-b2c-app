@@ -56,3 +56,6 @@ coverage
 .cache
 tmp
 temp
+
+# Product reference material (local only)
+reference/

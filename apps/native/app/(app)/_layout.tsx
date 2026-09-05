@@ -25,6 +25,12 @@ export default function ProtectedLayout() {
       <Stack.Screen name="journal/[category]" />
       <Stack.Screen name="game/[id]" />
       <Stack.Screen name="group/new" />
+      <Stack.Screen name="group/settings" />
+      <Stack.Screen name="group/top-up" />
+      <Stack.Screen name="group/[id]/index" />
+      <Stack.Screen name="group/[id]/invite" />
+      <Stack.Screen name="group/[id]/winners" />
+      <Stack.Screen name="group/[id]/result" />
       <Stack.Screen name="leaderboard" />
       <Stack.Screen name="badges" />
     </Stack>

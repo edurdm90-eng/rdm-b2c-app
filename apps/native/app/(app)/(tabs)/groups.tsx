@@ -1,106 +1,122 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { AppScreen, ErrorState, LoadingState, PageHeader, PrimaryButton, ProgressBar, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
-import { colors, fonts, radii } from "@/lib/theme";
-import { queryClient, trpc } from "@/utils/trpc";
+import { GroupAiNote, GroupAvatars } from "@/components/group-goal-ui";
+import {
+  AppScreen,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  Pill,
+  PrimaryButton,
+  ProgressBar,
+  SectionLabel,
+  SurfaceCard,
+} from "@/components/rdm-ui";
+import { formatDayKey } from "@/lib/date";
+import { groupGoalCategories, groupRewardStructureTitle, type GroupGoalCategory } from "@/lib/group-goals";
+import { colors, fonts, formatRdm, radii } from "@/lib/theme";
+import { trpc } from "@/utils/trpc";
 
 export default function GroupsScreen() {
   const groups = useQuery(trpc.rdm.groups.list.queryOptions());
-  const [awardDrafts, setAwardDrafts] = useState<Record<string, string[]>>({});
-  const logContribution = useMutation(trpc.rdm.groups.logContribution.mutationOptions({ onSuccess: async () => { await queryClient.invalidateQueries(); await groups.refetch(); } }));
-  const award = useMutation(trpc.rdm.groups.award.mutationOptions({
-    onSuccess: async () => { await queryClient.invalidateQueries(); await groups.refetch(); Alert.alert("Tokens awarded", "The group reward pool has been distributed."); },
-    onError: (error) => Alert.alert("Could not award tokens", error.message),
-  }));
+  const [category, setCategory] = useState<GroupGoalCategory>("Family");
 
   if (groups.isLoading) return <LoadingState label="Loading your groups…" />;
-  if (groups.error || !groups.data) return <ErrorState message={groups.error?.message ?? "Groups are unavailable."} onRetry={() => void groups.refetch()} />;
+  if (groups.error || !groups.data) {
+    return <ErrorState message={groups.error?.message ?? "Groups are unavailable."} onRetry={() => void groups.refetch()} />;
+  }
+
+  const activeGroups = groups.data.filter((group) => group.status === "active");
+  const visibleGroups = groups.data.filter((group) => group.category === category);
 
   return (
     <AppScreen>
-      <PageHeader title="Group Goals" subtitle={`${groups.data.length} active group${groups.data.length === 1 ? "" : "s"}`} trailing={<PrimaryButton label="New" icon="plus" color={colors.plum} style={styles.headerButton} onPress={() => router.push("/(app)/group/new")} />} />
-      {groups.data.map((group) => (
-        <View key={group.id} style={styles.groupBlock}>
-          <SurfaceCard style={styles.groupCard}>
-            <View style={styles.groupTop}>
-              <View style={styles.avatars}>{group.members.slice(0, 4).map((member, index) => <View key={`${member.initials}-${index}`} style={[styles.avatar, index > 0 && styles.avatarOverlap]}><Text style={styles.avatarText}>{member.initials}</Text></View>)}</View>
-              <PrimaryButton label="Invite" color={colors.plum} variant="outline" style={styles.smallButton} onPress={() => void Share.share({ message: `Join my RDM group goal “${group.name}” with code ${group.inviteCode}.` })} />
+      <PageHeader
+        title="Group Goals"
+        subtitle={`${activeGroups.length} ACTIVE ACROSS ALL GROUPS`}
+        trailing={(
+          <View style={styles.headerActions}>
+            <Pressable accessibilityLabel="Group settings" accessibilityRole="button" hitSlop={10} onPress={() => router.push("/(app)/group/settings")}>
+              <MaterialCommunityIcons color={colors.inkSoft} name="cog-outline" size={23} />
+            </Pressable>
+            <PrimaryButton color={colors.plum} icon="plus" label="New" onPress={() => router.push("/(app)/group/new")} style={styles.headerButton} />
+          </View>
+        )}
+      />
+      <View style={styles.quickActions}>
+        <PrimaryButton color={colors.plum} icon="account-plus-outline" label="Join with code" onPress={() => router.push({ pathname: "/(app)/group/new", params: { mode: "join" } })} variant="outline" />
+      </View>
+      <GroupAiNote label="Use AI to plan a group goal" />
+      <View style={styles.categoryRow}>
+        {groupGoalCategories.map((item) => (
+          <Pill key={item.id} active={category === item.id} color={colors.plum} label={`${item.icon} ${item.id}`} onPress={() => setCategory(item.id)} />
+        ))}
+      </View>
+      <SectionLabel>{category} groups</SectionLabel>
+      {visibleGroups.length > 0 ? visibleGroups.map((group) => (
+        <SurfaceCard
+          key={group.id}
+          onPress={() => router.push({ pathname: "/(app)/group/[id]", params: { id: group.id } })}
+          style={styles.groupCard}
+        >
+          <View style={styles.cardTop}>
+            <GroupAvatars members={group.members} />
+            <View style={[styles.statusChip, group.awarded && styles.completedChip, group.status === "expired" && styles.expiredChip]}>
+              <Text style={[styles.statusText, group.awarded && styles.completedText, group.status === "expired" && styles.expiredText]}>{group.awarded ? "COMPLETE" : group.status === "expired" ? "EXPIRED" : group.targetHit ? "TARGET HIT" : `${group.daysRemaining} DAYS LEFT`}</Text>
             </View>
-            <Text style={styles.groupTitle}>{group.name}</Text>
-            <Text style={rdmStyles.muted}>{group.members.length} members · Target: {group.target}{group.unit} · {group.current}{group.unit} so far</Text>
-            <ProgressBar color={colors.plum} progress={group.current / group.target} />
-            <View style={styles.actionRow}>
-              <PrimaryButton label={`Log 5 ${group.unit}`} color={colors.plum} loading={logContribution.isPending} style={styles.flexButton} onPress={() => logContribution.mutate({ id: group.id, amount: 5 })} />
-              <PrimaryButton label="Share progress" color={colors.plum} variant="outline" style={styles.flexButton} onPress={() => void Share.share({ message: `${group.name}: ${group.current}/${group.target}${group.unit} complete.` })} />
-            </View>
-          </SurfaceCard>
-
-          <SectionLabel action={<View style={styles.sectionMeta}>{group.targetHit ? <Text style={styles.targetHit}>Target hit ✓</Text> : null}<Text style={styles.inviteCode}>Code {group.inviteCode}</Text></View>}>{group.name} — award tokens</SectionLabel>
-          <SurfaceCard>
-            <Text style={rdmStyles.muted}>As group creator, split the {group.rewardPool} RDM reward pool:</Text>
-            <View style={styles.memberList}>
-              {group.members.map((member, index) => (
-                <View key={member.initials} style={styles.memberRow}>
-                  <View style={styles.memberAvatar}><Text style={styles.memberAvatarText}>{member.initials}</Text></View>
-                  <View style={styles.memberCopy}><Text style={styles.memberName}>{member.currentUser ? "You" : member.name}</Text><Text style={styles.memberContribution}>{member.contribution}{group.unit} contributed</Text></View>
-                  <TextInput
-                    accessibilityLabel={`${member.name} token award`}
-                    editable={!group.awarded && group.canAward}
-                    keyboardType="number-pad"
-                    onChangeText={(value) => setAwardDrafts((current) => {
-                      const next = [...(current[group.id] ?? group.members.map((item) => String(item.award)))];
-                      next[index] = value.replace(/\D/g, "");
-                      return { ...current, [group.id]: next };
-                    })}
-                    style={[styles.memberAward, group.awarded && styles.memberAwardLocked]}
-                    value={awardDrafts[group.id]?.[index] ?? String(member.award)}
-                  />
-                </View>
-              ))}
-            </View>
-          </SurfaceCard>
-          <PrimaryButton
-            disabled={!group.targetHit || group.awarded || !group.canAward}
-            label={group.awarded ? "Tokens awarded" : group.canAward ? "Confirm & award tokens" : "Creator awards tokens"}
-            loading={award.isPending}
-            onPress={() => award.mutate({
-              id: group.id,
-              amounts: (awardDrafts[group.id] ?? group.members.map((member) => String(member.award))).map(Number),
-            })}
-          />
-        </View>
-      ))}
+          </View>
+          <Text style={styles.groupTitle}>{group.name}</Text>
+          <Text style={styles.description}>{group.description || `Reach ${group.target} ${group.unit} together.`}</Text>
+          <Text style={styles.meta}>{group.members.length} member{group.members.length === 1 ? "" : "s"} · Pool: {formatRdm(group.rewardPool)} RDM</Text>
+          <ProgressBar color={group.awarded ? colors.gold : colors.plum} progress={group.current / group.target} />
+          <View style={styles.progressRow}>
+            <Text style={styles.progressText}>{group.current} / {group.target} {group.unit}</Text>
+            <Text style={styles.dateText}>{group.endDayKey ? `Ends ${formatDayKey(group.endDayKey)}` : group.cadence}</Text>
+          </View>
+          <View style={styles.rewardRow}>
+            <MaterialCommunityIcons name="trophy-outline" color={colors.gold} size={16} />
+            <Text style={styles.rewardText}>{groupRewardStructureTitle(group.rewardStructure)}</Text>
+            <MaterialCommunityIcons name="chevron-right" color={colors.inkSoft} size={18} />
+          </View>
+        </SurfaceCard>
+      )) : (
+        <SurfaceCard style={styles.emptyCard}>
+          <Text style={styles.emptyIcon}>{groupGoalCategories.find((item) => item.id === category)?.icon}</Text>
+          <Text style={styles.emptyTitle}>No {category.toLowerCase()} group yet</Text>
+          <Text style={styles.description}>Start one in under a minute or join with an invite code.</Text>
+          <PrimaryButton color={colors.plum} icon="plus" label="Create group" onPress={() => router.push("/(app)/group/new")} variant="outline" />
+        </SurfaceCard>
+      )}
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
   headerButton: { minHeight: 36, paddingHorizontal: 12 },
-  groupBlock: { gap: 12 },
+  headerActions: { alignItems: "center", flexDirection: "row", gap: 10 },
+  quickActions: { alignItems: "flex-start" },
+  categoryRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   groupCard: { gap: 10 },
-  groupTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  avatars: { flexDirection: "row" },
-  avatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.plum, borderWidth: 2, borderColor: colors.panel, alignItems: "center", justifyContent: "center" },
-  avatarOverlap: { marginLeft: -8 },
-  avatarText: { color: colors.backgroundDeep, fontFamily: fonts.bodyBold, fontSize: 9 },
-  smallButton: { minHeight: 34, paddingHorizontal: 12 },
-  groupTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 17 },
-  actionRow: { flexDirection: "row", gap: 8 },
-  flexButton: { flex: 1, minHeight: 40, paddingHorizontal: 8 },
-  targetHit: { color: colors.growth, fontFamily: fonts.bodyBold, fontSize: 10 },
-  sectionMeta: { alignItems: "flex-end", gap: 2 },
-  inviteCode: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 9 },
-  memberList: { marginTop: 8 },
-  memberRow: { minHeight: 54, borderTopWidth: 1, borderTopColor: colors.line, flexDirection: "row", alignItems: "center", gap: 10 },
-  memberAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.plumTint, alignItems: "center", justifyContent: "center" },
-  memberAvatarText: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 9 },
-  memberCopy: { flex: 1 },
-  memberName: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12 },
-  memberContribution: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9, marginTop: 2 },
-  memberAward: { width: 54, minHeight: 36, borderRadius: 9, borderWidth: 1, borderColor: "rgba(240,180,41,0.35)", backgroundColor: colors.goldTint, color: colors.gold, fontFamily: fonts.monoBold, fontSize: 12, paddingHorizontal: 8, textAlign: "right" },
-  memberAwardLocked: { borderColor: "transparent", backgroundColor: "transparent" },
+  cardTop: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  statusChip: { backgroundColor: colors.plumTint, borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 5 },
+  completedChip: { backgroundColor: colors.goldTint },
+  expiredChip: { backgroundColor: colors.coralTint },
+  statusText: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 8, letterSpacing: 0.5 },
+  completedText: { color: colors.gold },
+  expiredText: { color: colors.coral },
+  groupTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 19 },
+  description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
+  meta: { color: colors.plum, fontFamily: fonts.mono, fontSize: 10 },
+  progressRow: { flexDirection: "row", justifyContent: "space-between" },
+  progressText: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 10 },
+  dateText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9 },
+  rewardRow: { alignItems: "center", borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", gap: 7, paddingTop: 10 },
+  rewardText: { color: colors.gold, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 10 },
+  emptyCard: { alignItems: "center", gap: 9, paddingVertical: 22 },
+  emptyIcon: { fontSize: 32 },
+  emptyTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 17 },
 });

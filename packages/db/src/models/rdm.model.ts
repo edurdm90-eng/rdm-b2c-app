@@ -4,6 +4,12 @@ import { goodDeedIds } from "../good-deeds";
 
 const { Schema, model, models } = mongoose;
 
+function utcDayKeyAfter(days: number) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 export const transactionKinds = ["habit", "game", "gratitude", "deed", "remorse", "peer", "charity", "redeem", "stake"] as const;
 export const habitSources = ["template", "custom"] as const;
 export const habitStages = ["pledge", "act", "reflect", "reward"] as const;
@@ -24,6 +30,18 @@ const transactionSchema = new Schema(
     createdAt: { type: Date, required: true, default: Date.now },
   },
   { _id: true },
+);
+
+const collectibleSchema = new Schema(
+  {
+    collectibleId: { type: String, required: true },
+    groupId: { type: String, required: true },
+    title: { type: String, required: true },
+    recipientUserId: { type: String, required: true },
+    recipientName: { type: String, required: true },
+    awardedAt: { type: Date, required: true },
+  },
+  { _id: false },
 );
 
 const profileSchema = new Schema(
@@ -60,6 +78,7 @@ const profileSchema = new Schema(
     creditedReferrals: { type: [String], required: true, default: [] },
     creditedOperations: { type: [String], required: true, default: [] },
     unlockedRewards: { type: [String], required: true, default: [] },
+    collectibles: { type: [collectibleSchema], required: true, default: [] },
     unlockedBadges: {
       type: [String],
       required: true,
@@ -199,6 +218,16 @@ const memberSchema = new Schema(
     name: { type: String, required: true },
     initials: { type: String, required: true },
     contribution: { type: Number, required: true, default: 0 },
+    contributionPeriodKeys: { type: [String], required: true, default: [] },
+    pledgeAmount: { type: Number, required: true, min: 0, default: 0 },
+    pledgeOperationId: { type: String },
+    fundingStatus: {
+      type: String,
+      enum: ["pending", "funded"],
+      required: true,
+      default: "funded",
+    },
+    joinedAt: { type: Date, required: true, default: Date.now },
     award: { type: Number, required: true, default: 0 },
   },
   { _id: false },
@@ -207,18 +236,71 @@ const memberSchema = new Schema(
 const groupSchema = new Schema(
   {
     creatorId: { type: String, required: true, index: true },
+    creationId: { type: String },
     inviteCode: { type: String, required: true, unique: true },
     name: { type: String, required: true },
+    category: {
+      type: String,
+      enum: ["Family", "Friends", "Work", "Social"],
+      required: true,
+      default: "Family",
+    },
+    activityId: { type: String, required: true, default: "custom" },
+    description: { type: String, required: true, default: "" },
     target: { type: Number, required: true },
     current: { type: Number, required: true },
     unit: { type: String, required: true },
-    rewardPool: { type: Number, required: true, default: 300 },
+    durationDays: { type: Number, required: true, min: 1, default: 30 },
+    startDayKey: { type: String, required: true, default: () => utcDayKeyAfter(0) },
+    endDayKey: { type: String, required: true, default: () => utcDayKeyAfter(30) },
+    timeZone: { type: String, required: true, default: "Asia/Kolkata" },
+    cadence: {
+      type: String,
+      enum: ["daily", "weekly"],
+      required: true,
+      default: "daily",
+    },
+    pledgeBasis: {
+      type: String,
+      enum: ["per_day", "per_activity"],
+      required: true,
+      default: "per_day",
+    },
+    pledgePerUnit: { type: Number, required: true, min: 1, default: 5 },
+    expectedActivities: { type: Number, required: true, min: 1, default: 30 },
+    minimumPledge: { type: Number, required: true, min: 0, default: 0 },
+    rewardStructure: {
+      type: String,
+      enum: ["winner_takes_all", "top_3", "win_as_group"],
+      required: true,
+      default: "top_3",
+    },
+    rewardPool: { type: Number, required: true, min: 0, default: 0 },
+    status: {
+      type: String,
+      enum: ["pending", "active", "completed", "expired"],
+      required: true,
+      default: "active",
+    },
+    expiredAt: { type: Date },
     targetHit: { type: Boolean, required: true, default: false },
     awarded: { type: Boolean, required: true, default: false },
+    specialAwarded: { type: Boolean, required: true, default: false },
+    specialCollectible: { type: collectibleSchema },
+    loggedOperations: { type: [String], required: true, default: [] },
     members: { type: [memberSchema], required: true },
   },
   { timestamps: true },
 );
+
+groupSchema.index(
+  { creatorId: 1, creationId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { creationId: { $type: "string" } },
+  },
+);
+groupSchema.index({ "members.userId": 1, status: 1, createdAt: -1 });
 
 const gameSessionSchema = new Schema(
   {

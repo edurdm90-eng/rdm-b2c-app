@@ -11,6 +11,119 @@ export const goalCategories = ["Focus", "Health", "Money", "Family", "Sustainabi
 
 export type GoalCategory = (typeof goalCategories)[number];
 
+export const groupGoalCategories = ["Family", "Friends", "Work", "Social"] as const;
+export const groupGoalRewardStructures = ["winner_takes_all", "top_3", "win_as_group"] as const;
+
+export type GroupGoalCategory = (typeof groupGoalCategories)[number];
+export type GroupPledgeBasis = "per_day" | "per_activity";
+export type GroupGoalRewardStructure = (typeof groupGoalRewardStructures)[number];
+export type GroupGoalStatus = "pending" | "active" | "completed" | "expired";
+
+export function groupPledgeTotal({
+  basis,
+  durationDays,
+  expectedActivities,
+  pledgePerUnit,
+}: {
+  basis: GroupPledgeBasis;
+  durationDays: number;
+  expectedActivities: number;
+  pledgePerUnit: number;
+}) {
+  const commitmentCount = basis === "per_day" ? durationDays : expectedActivities;
+  if (
+    !Number.isInteger(commitmentCount)
+    || commitmentCount <= 0
+    || !Number.isInteger(pledgePerUnit)
+    || pledgePerUnit <= 0
+  ) {
+    return null;
+  }
+  return commitmentCount * pledgePerUnit;
+}
+
+export function groupAwardAmounts({
+  contributions,
+  pool,
+  structure,
+}: {
+  contributions: ReadonlyArray<number>;
+  pool: number;
+  structure: GroupGoalRewardStructure;
+}) {
+  if (
+    contributions.length === 0
+    || !Number.isInteger(pool)
+    || pool <= 0
+    || contributions.some((amount) => !Number.isFinite(amount) || amount < 0)
+  ) {
+    return null;
+  }
+
+  const rankedIndexes = contributions
+    .map((amount, index) => ({ amount, index }))
+    .sort((left, right) => right.amount - left.amount || left.index - right.index)
+    .map(({ index }) => index);
+  const amounts = contributions.map(() => 0);
+
+  if (structure === "winner_takes_all") {
+    amounts[rankedIndexes[0] ?? 0] = pool;
+    return amounts;
+  }
+
+  if (structure === "top_3") {
+    if (contributions.length < 3) return null;
+    amounts[rankedIndexes[0] ?? 0] = Math.floor(pool * 0.6);
+    amounts[rankedIndexes[1] ?? 1] = Math.floor(pool * 0.3);
+    amounts[rankedIndexes[2] ?? 2] = pool - amounts.reduce((total, amount) => total + amount, 0);
+    return amounts;
+  }
+
+  const contributionTotal = contributions.reduce((total, amount) => total + amount, 0);
+  if (contributionTotal <= 0) return null;
+  const exactAmounts = contributions.map((amount) => (amount / contributionTotal) * pool);
+  exactAmounts.forEach((amount, index) => {
+    amounts[index] = Math.floor(amount);
+  });
+  const undistributed = pool - amounts.reduce((total, amount) => total + amount, 0);
+  const remainderOrder = exactAmounts
+    .map((amount, index) => ({ fraction: amount - Math.floor(amount), index }))
+    .sort((left, right) => right.fraction - left.fraction || left.index - right.index);
+  for (let index = 0; index < undistributed; index += 1) {
+    const recipient = remainderOrder[index];
+    if (recipient) amounts[recipient.index] = (amounts[recipient.index] ?? 0) + 1;
+  }
+  return amounts;
+}
+
+export function groupGoalStatusForDay({
+  currentDayKey,
+  endDayKey,
+  status,
+  targetHit,
+}: {
+  currentDayKey: string;
+  endDayKey: string;
+  status: GroupGoalStatus;
+  targetHit: boolean;
+}): GroupGoalStatus {
+  if (status !== "active" || targetHit) return status;
+  return currentDayKey >= endDayKey ? "expired" : "active";
+}
+
+export function groupContributionPeriodKey(
+  date: Date,
+  timeZone: string,
+  cadence: "daily" | "weekly",
+) {
+  const dayKey = dayKeyForTimeZone(date, timeZone);
+  if (cadence === "daily") return `day:${dayKey}`;
+  const weekStart = new Date(`${dayKey}T00:00:00.000Z`);
+  const daysAfterMonday = (weekStart.getUTCDay() + 6) % 7;
+  weekStart.setUTCDate(weekStart.getUTCDate() - daysAfterMonday);
+  return `week:${weekStart.toISOString().slice(0, 10)}`;
+}
+
 export function goalDurationWindow(startDayKey: string, durationDays: number) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDayKey) || !Number.isInteger(durationDays) || durationDays <= 0) {
     return null;

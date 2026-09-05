@@ -17,7 +17,11 @@ import {
   goodDeedSubmissionResult,
   gratitudeCategories,
   goalDurationWindow,
+  groupAwardAmounts,
   groupAwardCredits,
+  groupContributionPeriodKey,
+  groupGoalStatusForDay,
+  groupPledgeTotal,
   habitCanStartNextCycle,
   habitPledgeDestinationForOperation,
   habitPledgeSchedule,
@@ -50,6 +54,96 @@ test("group awards must allocate the full pool", () => {
   assert.equal(awardSplitIsValid([80, 120, 60, 40], 300), true);
   assert.equal(awardSplitIsValid([80, 120], 300), false);
   assert.equal(awardSplitIsValid([300.5], 300.5), false);
+});
+
+test("group pledges lock the full per-day or per-activity commitment", () => {
+  assert.equal(groupPledgeTotal({
+    basis: "per_day",
+    durationDays: 30,
+    expectedActivities: 12,
+    pledgePerUnit: 5,
+  }), 150);
+  assert.equal(groupPledgeTotal({
+    basis: "per_activity",
+    durationDays: 30,
+    expectedActivities: 12,
+    pledgePerUnit: 10,
+  }), 120);
+  assert.equal(groupPledgeTotal({
+    basis: "per_day",
+    durationDays: 0,
+    expectedActivities: 12,
+    pledgePerUnit: 5,
+  }), null);
+  assert.equal(groupPledgeTotal({
+    basis: "per_activity",
+    durationDays: 30,
+    expectedActivities: 0,
+    pledgePerUnit: 5,
+  }), null);
+});
+
+test("group reward structures distribute the complete pool by performance", () => {
+  const contributions = [82, 96, 58, 32];
+  assert.deepEqual(
+    groupAwardAmounts({ contributions, pool: 300, structure: "winner_takes_all" }),
+    [0, 300, 0, 0],
+  );
+  assert.deepEqual(
+    groupAwardAmounts({ contributions, pool: 300, structure: "top_3" }),
+    [90, 180, 30, 0],
+  );
+  assert.deepEqual(
+    groupAwardAmounts({ contributions, pool: 300, structure: "win_as_group" }),
+    [92, 107, 65, 36],
+  );
+  assert.equal(
+    groupAwardAmounts({ contributions: [10, 5], pool: 300, structure: "top_3" }),
+    null,
+  );
+});
+
+test("active group goals expire at their exclusive end-day boundary", () => {
+  assert.equal(groupGoalStatusForDay({
+    currentDayKey: "2026-09-11",
+    endDayKey: "2026-09-12",
+    status: "active",
+    targetHit: false,
+  }), "active");
+  assert.equal(groupGoalStatusForDay({
+    currentDayKey: "2026-09-12",
+    endDayKey: "2026-09-12",
+    status: "active",
+    targetHit: false,
+  }), "expired");
+  assert.equal(groupGoalStatusForDay({
+    currentDayKey: "2026-09-12",
+    endDayKey: "2026-09-12",
+    status: "active",
+    targetHit: true,
+  }), "active");
+  assert.equal(groupGoalStatusForDay({
+    currentDayKey: "2026-09-12",
+    endDayKey: "2026-09-12",
+    status: "completed",
+    targetHit: true,
+  }), "completed");
+});
+
+test("group contribution periods follow the goal time zone and cadence", () => {
+  const sundayUtc = new Date("2026-09-06T20:00:00.000Z");
+  assert.equal(
+    groupContributionPeriodKey(sundayUtc, "Asia/Kolkata", "daily"),
+    "day:2026-09-07",
+  );
+  assert.equal(
+    groupContributionPeriodKey(sundayUtc, "Asia/Kolkata", "weekly"),
+    "week:2026-09-07",
+  );
+  assert.equal(
+    groupContributionPeriodKey(new Date("2026-09-13T12:00:00.000Z"), "Asia/Kolkata", "weekly"),
+    "week:2026-09-07",
+  );
 });
 
 test("the badge framework exposes 24 achievements with 9 initially unlocked", () => {
