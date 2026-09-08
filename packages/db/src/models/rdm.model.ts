@@ -10,7 +10,7 @@ function utcDayKeyAfter(days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-export const transactionKinds = ["habit", "goal", "game", "gratitude", "deed", "remorse", "peer", "charity", "redeem", "stake"] as const;
+export const transactionKinds = ["habit", "goal", "game", "gratitude", "deed", "remorse", "peer", "charity", "redeem", "stake", "airdrop"] as const;
 export const habitSources = ["template", "custom"] as const;
 export const habitStages = ["pledge", "act", "reflect", "reward"] as const;
 export const habitOutcomes = ["completed", "missed"] as const;

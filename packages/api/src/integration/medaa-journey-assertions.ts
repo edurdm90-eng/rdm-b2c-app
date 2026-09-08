@@ -106,6 +106,50 @@ async function assertOperationOnce(h: Harness, operationId: string) {
 
 export const medaaRegressionCases: Array<{ name: string; run: (dependencies: Dependencies) => Promise<void> }> = [
   {
+    name: "Medaa API contract guard: all horizons persist and invalid revisions cannot overwrite saved progress",
+    async run({ db, caller }) {
+      // This guards the public API contract; it does not reproduce or claim to
+      // test the native client's delayed-query/cache race. No AI action is called.
+      const userId = randomUUID();
+      const medaa = caller(userId).medaa;
+      for (const horizonYears of [1, 2, 3] as const) {
+        const startInput = { creationId: randomUUID(), timeZone: "UTC" };
+        const initial = await medaa.start(startInput);
+        assert.equal(initial.journey?.stage, "horizon");
+        assert.equal(initial.journey.horizonYears, null);
+        assert.deepEqual(await medaa.start(startInput), initial);
+
+        const selected = await medaa.setHorizon({ conversationId: initial.id,
+          expectedRevision: initial.revision, horizonYears });
+        assert.equal(selected.journey?.horizonYears, horizonYears);
+        assert.equal(selected.journey.stage, "long-term");
+        assert.equal(selected.revision, initial.revision + 1);
+        assert.deepEqual(await caller(userId).medaa.conversation({ id: initial.id }), selected);
+        assert.deepEqual(await medaa.start(startInput), selected);
+
+        const otherHorizon = horizonYears === 3 ? 1 : 3;
+        for (const expectedRevision of [initial.revision, selected.revision + 1]) {
+          await rejectsCode(() => medaa.setHorizon({ conversationId: initial.id,
+            expectedRevision, horizonYears: otherHorizon }), "CONFLICT");
+          await rejectsCode(() => medaa.defineLongTerm({ conversationId: initial.id,
+            expectedRevision, longTermGoal: "This conflicting ambition must not be saved", category: "Money" }), "CONFLICT");
+          assert.deepEqual(await caller(userId).medaa.conversation({ id: initial.id }), selected);
+        }
+
+        const defined = await medaa.defineLongTerm({ conversationId: initial.id,
+          expectedRevision: selected.revision, longTermGoal: "Build a sustainable independent business", category: "Focus" });
+        assert.equal(defined.journey?.stage, "short-term");
+        assert.equal(defined.journey.horizonYears, horizonYears);
+        assert.equal(defined.revision, selected.revision + 1);
+        assert.deepEqual(await caller(userId).medaa.conversation({ id: initial.id }), defined);
+        assert.deepEqual(await medaa.start(startInput), defined);
+        assert.equal(await db.MedaaConversation.countDocuments({ userId, creationId: startInput.creationId }), 1);
+      }
+      assert.equal((await medaa.conversations()).length, 3);
+      assert.equal(await db.MedaaUsage.countDocuments({ userId }), 0);
+    },
+  },
+  {
     name: "Medaa initially permits two goals and unlocks a third only after the selected goals are created",
     async run(dependencies) {
       const h = await harness(dependencies);

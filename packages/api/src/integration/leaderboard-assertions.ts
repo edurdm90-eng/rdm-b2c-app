@@ -23,12 +23,12 @@ export async function verifySavedLeaderboard({ db, auth, appRouter }: {
     session: { id: randomUUID(), token: randomUUID(), userId: user.id, expiresAt: new Date(Date.now() + 86_400_000), createdAt: new Date(), updatedAt: new Date() },
   } });
   const api = caller(viewer);
-  await db.RdmProfile.create([
+  await Promise.all([
     { userId: viewer.id, xp: 100, walletBalance: 100 },
     { userId: friend.id, xp: 300, walletBalance: 100 },
     { userId: teammate.id, xp: 500, walletBalance: 100 },
     { userId: outsider.id, xp: 1000, walletBalance: 100 },
-  ]);
+  ].map(({ userId, ...progress }) => db.RdmProfile.updateOne({ userId }, { $set: progress })));
   await db.Referral.create({ inviterId: viewer.id, inviteeId: friend.id, inviteCode: "AB23CD" });
   const group = await api.rdm.groups.create({
     creationId: randomUUID(), category: "Friends", activityId: "custom", name: `${prefix} group`,

@@ -1,3 +1,4 @@
+import { grantSignupAirdrop } from "@rdm-b2c/auth/signup-airdrop";
 import {
   GameSession,
   Goal,
@@ -1805,6 +1806,11 @@ export async function reconcileCommitmentsBatch(afterId?: string) {
 }
 
 async function getProfile(userId: string) {
+  try {
+    await grantSignupAirdrop(userId);
+  } catch {
+    console.error("Signup airdrop is pending and will be retried on the next profile access.");
+  }
   let profile = await RdmProfile.findOneAndUpdate(
     { userId },
     { $setOnInsert: { userId, unlockedBadges: initialBadgeIds } },

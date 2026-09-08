@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { MEDAA_JOURNEY_GENERATION_LIMIT, medaaJourneyStages, type MedaaAiAction, type MedaaAiRequest, type MedaaConversation, type MedaaDraftContent, type MedaaJourneyStage } from "@rdm-b2c/api/domain/medaa";
 import type { GoalCategory } from "@rdm-b2c/api/domain/rdm";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { replaceEqualDeep, useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -14,6 +14,13 @@ import { PageHeader, PrimaryButton, SurfaceCard } from "@/components/rdm-ui";
 import { colors, fonts, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
+
+function keepNewestConversation(previous: MedaaConversation | undefined, incoming: MedaaConversation): MedaaConversation {
+  // A read started before a save may arrive after it. Never roll that journey back.
+  // Equal revisions still accept updates such as a serialized generation timeout.
+  if (previous?.id === incoming.id && previous.revision > incoming.revision) return previous;
+  return replaceEqualDeep(previous, incoming);
+}
 
 export default function AiCoachScreen() {
   const params = useLocalSearchParams<{ conversationId?: string; draftId?: string }>();
@@ -33,6 +40,9 @@ export default function AiCoachScreen() {
   const history = useQuery(trpc.medaa.conversations.queryOptions(undefined, { enabled: focused }));
   const conversation = useQuery(trpc.medaa.conversation.queryOptions({ id: conversationId }, {
     enabled: Boolean(conversationId) && focused,
+    structuralSharing: (previous, incoming) => keepNewestConversation(
+      previous as MedaaConversation | undefined, incoming as MedaaConversation,
+    ),
     refetchInterval: (query) => query.state.data?.pendingRequestId ? 2_000 : false,
     refetchIntervalInBackground: false,
   }));
@@ -57,7 +67,8 @@ export default function AiCoachScreen() {
   const addManual = useMutation(trpc.medaa.addManual.mutationOptions());
 
   function receive(next: MedaaConversation) {
-    queryClient.setQueryData(trpc.medaa.conversation.queryKey({ id: next.id }), next);
+    queryClient.setQueryData<MedaaConversation>(trpc.medaa.conversation.queryKey({ id: next.id }),
+      (previous) => keepNewestConversation(previous, next));
     void queryClient.invalidateQueries({ queryKey: trpc.medaa.conversations.queryKey() });
   }
 

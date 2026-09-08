@@ -29,6 +29,7 @@ The default uses the documented older `gpt-5-mini` API model, not an assumed `5.
 ## Persistence, cost, and privacy
 
 - Journey state, draft versions, reviews, requests, and created-item links persist in MongoDB database `rdm-business`. Reloading resumes saved progress; users access only their own records. Server validation controls categories, dates, schedules, confirmed RDM amounts, affordability, and creation.
+- The native cache keeps the newest revision for each journey. A delayed background read cannot roll back a successful save; genuine server-side revision conflicts still require refreshing the saved state.
 - AI runs only after an explicit suggestion, regeneration, or fixed refinement action. The server allows **12 generations per journey** and **30 requests per account per UTC day** by default. Reopening a saved batch does not generate it again.
 - Each provider call has a **30-second timeout**, minimal reasoning, and a **3,000-token output ceiling** including reasoning. There is no automatic provider retry or paid tool call.
 - OpenAI receives only the bounded ambition (12–300 characters), selected horizon/category, fixed action, up to **30 relevant draft summaries**, and app date/timezone/rules. It receives **no chat history, wallet/RDM values, journals, reflections, authentication details, or other users' records**. User-entered ambition and draft content are necessarily included; do not enter secrets there.
@@ -47,6 +48,6 @@ Run `pnpm check-types`, `pnpm test`, and `pnpm --filter server test:integration`
 
 Set `RDM_TEST_MONGOD` to your local `mongod` executable if it is not on PATH. The database fixture uses the real API and wallet logic, an injected model boundary, and no OpenAI credential. Medaa persistence cases cover initial/extra goal limits, saved suggestions and refinements, rejected requests, daily admission, 1 RDM/day and exclusive end dates, insufficient funds, repeated/concurrent Set, and confirmed recovery across date rollover.
 
-The verified implementation passed **72 unit/provider tests**, **29 integration tests**, workspace type checks, production builds, and Expo exports for Android, iOS, and web. See [the implementation review](medaa-journey-review.md) for scope and remaining live checks.
+The current implementation passed **72 unit/provider tests**, **35 integration tests**, workspace type checks, production builds, and Expo exports for Android, iOS, and web. See [the original implementation review](medaa-journey-review.md) and [the signup/race-fix review](signup-medaa-fix-review.md) for scope and remaining live checks.
 
 After adding the key, manually verify: no AI call during horizon/ambition entry, fixed suggestions and refinements, unsafe/off-topic ambition handling, cached suggestions, generation limits, insufficient Base RDM, repeated Set taps, plan limits, resume/back navigation, and connection interruption. Type checks or deterministic fixtures cannot establish live model quality or account access. Live OpenAI calls incur usage; no paid request was made during keyless implementation.
