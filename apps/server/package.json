@@ -7,7 +7,8 @@
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "tsx watch src/index.ts",
-    "test": "tsx --test ../../packages/api/src/domain/rdm.test.ts",
+    "test": "tsx --test ../../packages/api/src/domain/*.test.ts tests/*.test.ts",
+    "test:integration": "tsx --test ../../packages/api/src/integration/*.test.ts",
     "start": "node dist/index.mjs"
   },
   "dependencies": {

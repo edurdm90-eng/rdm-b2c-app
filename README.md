@@ -33,6 +33,8 @@ This project uses MongoDB with Mongoose.
 1. Make sure you have MongoDB set up.
 2. Update your `apps/server/.env` file with your MongoDB connection URI.
 
+The application stores authentication and activity in the `rdm-business` database, using separate collections. Keep credentials in the ignored environment files.
+
 Then, run the development server:
 
 ```bash
@@ -42,6 +44,29 @@ pnpm run dev
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
 Use the Expo Go app to run the mobile application.
 The API is running at [http://localhost:3000](http://localhost:3000).
+
+## Persistent App Behavior
+
+- New accounts start with no habits, goals, transactions, earned badges, XP, or RDM. Framework choices and game questions are catalogs, not fabricated user activity.
+- Habit commitments reserve Base RDM for the selected weekdays between the inclusive start date and exclusive end date. Completed days settle to Reward; missed scheduled days settle to Remorse. Rest days are not charged.
+- Personal goals save progress and notes. Completion releases the reserved goal pledge to Reward; missing the deadline releases it to Remorse. Finished goals remain in history.
+- Trees grow from saved fertilizer, water, and sunlight activity. Tree-day accounting uses the timezone selected when the tree was created.
+- Group membership, contributions, pooled stakes, awards, and expiry refunds are saved and protected against duplicate settlement.
+- Games persist accepted actions and scores. Empty sessions earn nothing; eligible session rewards are credited once, including after retries.
+- The running API scans commitments in batches every minute and catches up overdue outcomes on relevant requests. Keep the server running for background settlement; after downtime, catch-up resumes.
+
+Base RDM funding still needs an approved allocation or purchase flow. AI suggestions, charity fulfillment, and reward redemption are unavailable; these screens do not simulate successful external actions. Existing mixed demo/user accounts require reviewed cleanup; see [legacy demo cleanup](docs/legacy-demo-cleanup.md).
+
+## Verification
+
+```sh
+pnpm test
+pnpm --filter server test:integration
+pnpm check-types
+pnpm build
+```
+
+Integration tests launch a disposable local MongoDB and never use the configured application database. Install `mongod` on your PATH or set `RDM_TEST_MONGOD` to its executable path. Fixture RDM exists only inside this temporary test database. Native bundling and physical-device testing remain separate from the web/server build.
 
 ## UI Customization
 

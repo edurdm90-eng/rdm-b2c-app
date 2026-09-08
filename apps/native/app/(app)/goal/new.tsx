@@ -1,3 +1,4 @@
+import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   dayKeyForTimeZone,
   goalCategories,
@@ -8,10 +9,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import {
   AppScreen,
+  ErrorState,
   PageHeader,
   Pill,
   PrimaryButton,
@@ -27,8 +29,10 @@ type DurationChoice = "30" | "90" | "custom";
 
 export default function NewGoalScreen() {
   const timeZone = getDeviceTimeZone();
-  const [creationId] = useState(() => Crypto.randomUUID());
-  const startDayKey = dayKeyForTimeZone(new Date(), timeZone);
+  const [creationId, setCreationId] = useState(() => Crypto.randomUUID());
+  const todayDayKey = dayKeyForTimeZone(new Date(), timeZone);
+  const [startDayKey, setStartDayKey] = useState(todayDayKey);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<GoalCategory>("Money");
   const [target, setTarget] = useState("");
@@ -48,11 +52,14 @@ export default function NewGoalScreen() {
   const canAfford = validPledge && numericPledge <= availableBase;
 
   const createGoal = useMutation(trpc.rdm.goals.create.mutationOptions({
-    onSuccess: async () => {
+    onSuccess: async (goal) => {
       await queryClient.invalidateQueries();
-      router.replace("/(app)/(tabs)/goals");
+      router.replace({ pathname: "/(app)/goal/[id]", params: { id: goal.id } });
     },
-    onError: (mutationError) => setError(mutationError.message),
+    onError: (mutationError) => {
+      setError(mutationError.message);
+      if (mutationError.data?.code === "BAD_REQUEST") setCreationId(Crypto.randomUUID());
+    },
   }));
 
   function submit() {
@@ -62,6 +69,10 @@ export default function NewGoalScreen() {
     }
     if (!window || window.durationDays > 3_650) {
       setError("Choose a duration between 1 and 3,650 days.");
+      return;
+    }
+    if (startDayKey < todayDayKey) {
+      setError("The goal start date cannot be in the past.");
       return;
     }
     if (!validPledge) {
@@ -84,6 +95,8 @@ export default function NewGoalScreen() {
       pledgeAmount: numericPledge,
     });
   }
+
+  if (wallet.error) return <ErrorState message={wallet.error.message} onRetry={() => void wallet.refetch()} />;
 
   return (
     <AppScreen>
@@ -121,6 +134,34 @@ export default function NewGoalScreen() {
         style={styles.input}
         value={target}
       />
+
+      <SectionLabel>Start date</SectionLabel>
+      {Platform.OS === "web" ? (
+        <TextInput accessibilityLabel="Goal start date" autoCapitalize="none" maxLength={10}
+          onChangeText={setStartDayKey} placeholder="YYYY-MM-DD" placeholderTextColor={colors.inkSoft}
+          style={styles.input} value={startDayKey} />
+      ) : (
+        <>
+          <Pressable accessibilityRole="button" accessibilityLabel="Goal start date"
+            onPress={() => setDatePickerOpen(true)} style={styles.dateButton}>
+            <Text style={styles.dateValue}>{formatDayKey(startDayKey)}</Text>
+            <Text style={styles.dateAction}>Choose date</Text>
+          </Pressable>
+          {datePickerOpen ? (
+            <View>
+              <DateTimePicker display={Platform.OS === "ios" ? "spinner" : "default"}
+                minimumDate={new Date(`${todayDayKey}T12:00:00`)} mode="date"
+                value={new Date(`${startDayKey}T12:00:00`)} onChange={(event, date) => {
+                  if (Platform.OS === "android") setDatePickerOpen(false);
+                  if (event.type === "set" && date) {
+                    setStartDayKey([date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-"));
+                  }
+                }} />
+              {Platform.OS === "ios" ? <PrimaryButton label="Done" variant="outline" onPress={() => setDatePickerOpen(false)} /> : null}
+            </View>
+          ) : null}
+        </>
+      )}
 
       <SectionLabel>Duration</SectionLabel>
       <View style={styles.chips}>
@@ -181,12 +222,8 @@ export default function NewGoalScreen() {
             ? `${window.durationDays} days · ${formatDayKey(window.startDayKey)} to ${formatDayKey(window.endDayKey)}. The finish date is the deadline boundary.`
             : "Enter a valid duration to calculate the goal window."}
         </Text>
+        <Text style={styles.summaryCopy}>Complete the goal to move the full pledge to Reward. An incomplete goal moves the pledge to Remorse at the deadline.</Text>
       </SurfaceCard>
-
-      <View style={styles.aiNote}>
-        <Text style={styles.aiTitle}>✨ Use AI to structure this goal</Text>
-        <Text style={styles.aiCopy}>AI goal coaching will be connected in a later step.</Text>
-      </View>
 
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       <PrimaryButton
@@ -212,6 +249,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  dateButton: { minHeight: 52, borderRadius: radii.medium, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  dateValue: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14 },
+  dateAction: { color: colors.growth, fontFamily: fonts.bodyBold, fontSize: 11 },
   summaryCard: { gap: 10, backgroundColor: colors.growthTint },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   summaryRight: { alignItems: "flex-end" },
@@ -219,8 +259,5 @@ const styles = StyleSheet.create({
   summaryValue: { color: colors.growth, fontFamily: fonts.monoBold, fontSize: 12.5, marginTop: 3 },
   summaryError: { color: colors.coral },
   summaryCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
-  aiNote: { borderRadius: radii.medium, padding: 14, backgroundColor: colors.aiTint, borderWidth: 1, borderColor: "rgba(95,166,237,0.24)", gap: 4 },
-  aiTitle: { color: colors.ai, fontFamily: fonts.bodyBold, fontSize: 12 },
-  aiCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   error: { color: colors.coral, fontFamily: fonts.bodyMedium, fontSize: 12 },
 });

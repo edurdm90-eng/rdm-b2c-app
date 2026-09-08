@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { Share, StyleSheet, Text, View } from "react-native";
 
+import { GroupErrorState } from "@/components/group-goal-ui";
 import {
   AppScreen,
-  ErrorState,
   LoadingState,
   PageHeader,
   PrimaryButton,
@@ -17,17 +17,21 @@ import { trpc } from "@/utils/trpc";
 export default function GroupResultScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = String(params.id ?? "");
+  const focused = useIsFocused();
+  const validId = /^[a-f\d]{24}$/i.test(id);
   const group = useQuery({
     ...trpc.rdm.groups.detail.queryOptions({ id }),
-    enabled: /^[a-f\d]{24}$/i.test(id),
+    enabled: validId && focused,
+    refetchInterval: (query) => focused && !query.state.data?.awarded ? 15_000 : false,
+    refetchIntervalInBackground: false,
   });
 
   if (group.isLoading) return <LoadingState label="Opening group results…" />;
   if (group.error || !group.data) {
-    return <ErrorState message={group.error?.message ?? "Results are unavailable."} onRetry={() => void group.refetch()} />;
+    return <GroupErrorState message={group.error?.message ?? "Results are unavailable."} onBack={() => router.dismissTo("/(app)/(tabs)/groups")} onRetry={validId ? () => void group.refetch() : undefined} />;
   }
   if (!group.data.awarded) {
-    return <ErrorState message="The group creator has not announced the results yet." />;
+    return <GroupErrorState message="The group creator has not announced the results yet." onBack={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })} onRetry={() => void group.refetch()} />;
   }
 
   const data = group.data;

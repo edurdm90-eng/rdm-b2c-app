@@ -1,14 +1,17 @@
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, useGlobalSearchParams, usePathname } from "expo-router";
 
 import { LoadingState } from "@/components/rdm-ui";
 import { authClient } from "@/lib/auth-client";
+import { groupLoginReturnParams } from "@/lib/auth-return";
 import { colors } from "@/lib/theme";
 
 export default function ProtectedLayout() {
   const { data: session, isPending } = authClient.useSession();
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
 
   if (isPending) return <LoadingState label="Loading your RDM space…" />;
-  if (!session?.user) return <Redirect href="/login" />;
+  if (!session?.user) return <Redirect href={{ pathname: "/login", params: groupLoginReturnParams(pathname, params) }} />;
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
@@ -18,6 +21,7 @@ export default function ProtectedLayout() {
       <Stack.Screen name="habit/new" />
       <Stack.Screen name="habit/[id]" />
       <Stack.Screen name="goal/new" />
+      <Stack.Screen name="goal/[id]" />
       <Stack.Screen name="tree" />
       <Stack.Screen name="streak-missed" />
       <Stack.Screen name="good-deeds" />

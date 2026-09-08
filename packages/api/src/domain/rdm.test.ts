@@ -314,10 +314,10 @@ test("group contribution periods follow the goal time zone and cadence", () => {
   );
 });
 
-test("the badge framework exposes 24 achievements with 9 initially unlocked", () => {
+test("the badge framework exposes 24 achievements and new users earn every badge", () => {
   assert.equal(badgeCatalog.length, 24);
   assert.equal(new Set(badgeCatalog.map((badge) => badge.id)).size, 24);
-  assert.equal(initialBadgeIds.length, 9);
+  assert.equal(initialBadgeIds.length, 0);
   assert.equal(initialBadgeIds.every((id) => badgeCatalog.some((badge) => badge.id === id)), true);
 });
 

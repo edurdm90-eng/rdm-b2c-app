@@ -1,14 +1,13 @@
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useQuery } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Share, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { GroupAvatars, GroupStepDots } from "@/components/group-goal-ui";
+import { GroupAvatars, GroupErrorState, GroupStepDots } from "@/components/group-goal-ui";
 import {
   AppScreen,
-  ErrorState,
   LoadingState,
   PageHeader,
   Pill,
@@ -22,19 +21,26 @@ import { trpc } from "@/utils/trpc";
 export default function GroupInviteScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = String(params.id ?? "");
+  const focused = useIsFocused();
+  const validId = /^[a-f\d]{24}$/i.test(id);
   const [directMode, setDirectMode] = useState<"email" | "whatsapp">("email");
   const [directRecipient, setDirectRecipient] = useState("");
   const group = useQuery({
     ...trpc.rdm.groups.detail.queryOptions({ id }),
-    enabled: /^[a-f\d]{24}$/i.test(id),
+    enabled: validId && focused,
+    refetchInterval: focused ? 15_000 : false,
+    refetchIntervalInBackground: false,
   });
 
   if (group.isLoading) return <LoadingState label="Preparing your invite…" />;
   if (group.error || !group.data) {
-    return <ErrorState message={group.error?.message ?? "Group not found."} onRetry={() => void group.refetch()} />;
+    return <GroupErrorState message={group.error?.message ?? "Group not found."} onBack={() => router.dismissTo("/(app)/(tabs)/groups")} onRetry={validId ? () => void group.refetch() : undefined} />;
   }
 
   const data = group.data;
+  if (data.status !== "active" || data.targetHit || data.awarded) {
+    return <GroupErrorState message="This group is no longer accepting new members." onBack={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })} />;
+  }
   const inviteLink = Linking.createURL("/(app)/group/new", {
     queryParams: { code: data.inviteCode, mode: "join" },
   });
@@ -93,7 +99,7 @@ export default function GroupInviteScreen() {
         </View>
         <PrimaryButton color={colors.plum} icon="share-variant-outline" label="Share invite" onPress={() => void Share.share({ message })} style={styles.fullButton} variant="outline" />
       </SurfaceCard>
-      <Text style={styles.helper}>Anyone with this code can preview the goal and request to join. Their pledge is deducted only after they confirm.</Text>
+      <Text style={styles.helper}>Anyone with this code can preview the goal and join. Their pledge is deducted only after they confirm.</Text>
       <SectionLabel>Send a direct invite</SectionLabel>
       <SurfaceCard style={styles.directCard}>
         <View style={styles.modeRow}>
@@ -116,7 +122,8 @@ export default function GroupInviteScreen() {
         ) : (
           <Text style={styles.helper}>Open WhatsApp and choose one or more people or groups to receive this invite.</Text>
         )}
-        <PrimaryButton color={directMode === "email" ? colors.ai : colors.growth} icon="send-outline" label={directMode === "email" ? "Email invites" : "Open WhatsApp"} onPress={() => void sendDirectInvite()} />
+        <PrimaryButton color={directMode === "email" ? colors.ai : colors.growth} icon="send-outline" label={directMode === "email" ? "Open email app" : "Open WhatsApp"} onPress={() => void sendDirectInvite()} />
+        <Text style={styles.helper}>Review and send the invitation in your email or messaging app.</Text>
       </SurfaceCard>
       <SectionLabel>How joining works</SectionLabel>
       <SurfaceCard>

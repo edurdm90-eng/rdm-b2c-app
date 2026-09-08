@@ -12,7 +12,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { AppScreen, PageHeader, Pill, PrimaryButton, SectionLabel, SurfaceCard } from "@/components/rdm-ui";
+import { AppScreen, ErrorState, PageHeader, Pill, PrimaryButton, SectionLabel, SurfaceCard } from "@/components/rdm-ui";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -31,6 +31,7 @@ function dateToDayKey(date: Date) {
 
 function addDays(dayKey: string, days: number) {
   const date = new Date(`${dayKey}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return dayKey;
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
@@ -108,7 +109,13 @@ export default function NewHabitScreen() {
   const todayDayKey = dayKeyForTimeZone(new Date(), timeZone);
   const [title, setTitle] = useState(template?.title ?? "");
   const [category, setCategory] = useState<HabitCategory>(template?.category ?? "Focus");
-  const [cadence, setCadence] = useState<string>(template?.cadence ?? "Daily");
+  const [cadence, setCadence] = useState<"Daily" | "Weekdays" | "Custom weekly">(
+    template?.id === "deep-work" ? "Weekdays"
+      : template && template.cadence !== "Daily" ? "Custom weekly" : "Daily",
+  );
+  const [customWeekdays, setCustomWeekdays] = useState<number[]>([]);
+  const weekdays = useMemo(() => cadence === "Daily" ? [1, 2, 3, 4, 5, 6, 7]
+    : cadence === "Weekdays" ? [1, 2, 3, 4, 5] : customWeekdays, [cadence, customWeekdays]);
   const [target, setTarget] = useState(template?.target ?? "");
   const [pledge, setPledge] = useState(template?.pledge ?? "");
   const [rdmPledgePerDay, setRdmPledgePerDay] = useState("10");
@@ -122,8 +129,9 @@ export default function NewHabitScreen() {
       startDayKey,
       endDayKey,
       dailyPledge: numericDailyPledge,
+      weekdays,
     }),
-    [endDayKey, numericDailyPledge, startDayKey],
+    [endDayKey, numericDailyPledge, startDayKey, weekdays],
   );
   const availableBase = wallet.data?.wallet.base ?? 0;
   const canAfford = Boolean(pledgeSchedule && pledgeSchedule.totalPledge <= availableBase);
@@ -142,7 +150,7 @@ export default function NewHabitScreen() {
       return;
     }
     if (!pledgeSchedule || pledgeSchedule.dayCount > 365) {
-      setError("Choose a daily RDM amount and a commitment window between 1 and 365 days.");
+      setError("Choose your weekdays, an RDM amount, and at least one scheduled date within 365 calendar days.");
       return;
     }
     if (startDayKey < todayDayKey) {
@@ -161,12 +169,17 @@ export default function NewHabitScreen() {
       target: target.trim(),
       pledge: pledge.trim(),
       rdmPledgePerDay: numericDailyPledge,
+      rdmPledgeWeekdays: weekdays,
       rdmPledgeStartDayKey: startDayKey,
       rdmPledgeEndDayKey: endDayKey,
       timeZone,
       icon: template?.icon ?? "target",
       source: template ? "template" : "custom",
     });
+  }
+
+  if (wallet.error) {
+    return <ErrorState message={wallet.error.message} onRetry={() => void wallet.refetch()} />;
   }
 
   return (
@@ -177,7 +190,23 @@ export default function NewHabitScreen() {
       <SectionLabel>Category</SectionLabel>
       <View style={styles.pills}>{habitCategories.map((item) => <Pill key={item} active={category === item} label={item} onPress={() => setCategory(item)} />)}</View>
       <SectionLabel>Cadence</SectionLabel>
-      <TextInput accessibilityLabel="Cadence" onChangeText={setCadence} placeholder="Daily, weekdays, three times a week…" placeholderTextColor={colors.inkSoft} style={styles.input} value={cadence} />
+      <View style={styles.pills}>
+        {(["Daily", "Weekdays", "Custom weekly"] as const).map((item) => (
+          <Pill key={item} active={cadence === item} label={item} onPress={() => setCadence(item)} />
+        ))}
+      </View>
+      {cadence === "Custom weekly" ? (
+        <View style={styles.pills}>
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label, index) => (
+            <Pill key={label} active={customWeekdays.includes(index + 1)} label={label} onPress={() => {
+              const day = index + 1;
+              setCustomWeekdays((current) => current.includes(day)
+                ? current.filter((item) => item !== day) : [...current, day].sort());
+            }} />
+          ))}
+        </View>
+      ) : null}
+      <Text style={styles.scheduleHint}>Only selected days are charged. Rest days keep your streak and carry no penalty.</Text>
       <SectionLabel>Measurable target</SectionLabel>
       <TextInput accessibilityLabel="Target" onChangeText={setTarget} placeholder="What counts as done?" placeholderTextColor={colors.inkSoft} style={styles.input} value={target} />
       <SectionLabel>Your pledge</SectionLabel>
@@ -227,8 +256,8 @@ export default function NewHabitScreen() {
         </View>
         <Text style={styles.rdmSummaryCopy}>
           {pledgeSchedule
-            ? `${pledgeSchedule.dayCount} ${pledgeSchedule.dayCount === 1 ? "day" : "days"} × ${formatRdm(numericDailyPledge)} RDM. Each day moves to Reward when completed or Remorse when missed.`
-            : "Enter a valid daily amount and date window to calculate your total pledge."}
+            ? `${pledgeSchedule.dayCount} scheduled ${pledgeSchedule.dayCount === 1 ? "day" : "days"} × ${formatRdm(numericDailyPledge)} RDM. Each scheduled day moves to Reward when completed or Remorse when missed.`
+            : "Choose weekdays and a valid amount/date window containing at least one scheduled day."}
         </Text>
       </SurfaceCard>
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -246,6 +275,7 @@ const styles = StyleSheet.create({
   dateAction: { color: colors.growth, fontFamily: fonts.bodyBold, fontSize: 11 },
   datePickerWrap: { borderRadius: radii.medium, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, overflow: "hidden", padding: 8, gap: 8 },
   endDateHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, lineHeight: 15, marginTop: -8 },
+  scheduleHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   pills: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   promiseNote: { borderRadius: radii.medium, padding: 14, backgroundColor: colors.plumTint, borderWidth: 1, borderColor: "rgba(179,154,232,0.22)", gap: 4 },
   promiseTitle: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 12 },

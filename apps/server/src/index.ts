@@ -6,6 +6,7 @@ import { env } from "@rdm-b2c/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { startSettlementWorker } from "./settlement-worker";
 
 const app = new Hono();
 
@@ -54,5 +55,6 @@ serve(
   },
   (info) => {
     console.log(`Server is running on http://localhost:${info.port}`);
+    startSettlementWorker();
   },
 );

@@ -1,12 +1,12 @@
 import { Fraunces_600SemiBold, useFonts as useFrauncesFonts } from "@expo-google-fonts/fraunces";
 import { Inter_400Regular, Inter_600SemiBold, Inter_700Bold, useFonts as useInterFonts } from "@expo-google-fonts/inter";
 import { JetBrainsMono_500Medium, JetBrainsMono_700Bold, useFonts as useJetBrainsFonts } from "@expo-google-fonts/jetbrains-mono";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { focusManager, QueryClientProvider } from "@tanstack/react-query";
 import { DarkTheme, ThemeProvider } from "expo-router/react-navigation";
 import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { StyleSheet } from "react-native";
+import { AppState, Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { colors } from "@/lib/theme";
@@ -36,6 +36,18 @@ export default function RootLayout() {
   useEffect(() => {
     if (ready) void SplashScreen.hideAsync();
   }, [ready]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    focusManager.setFocused(AppState.currentState === "active");
+    const subscription = AppState.addEventListener("change", (state) => {
+      focusManager.setFocused(state === "active");
+    });
+    return () => {
+      subscription.remove();
+      focusManager.setFocused(undefined);
+    };
+  }, []);
 
   if (!ready) return null;
 

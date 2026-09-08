@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
-import { Share, StyleSheet, Text, View } from "react-native";
+import { router, useIsFocused } from "expo-router";
+import { StyleSheet, Text, View } from "react-native";
 import { useState } from "react";
 
 import { AppScreen, ErrorState, LoadingState, PageHeader, Pill, PrimaryButton, SurfaceCard } from "@/components/rdm-ui";
@@ -8,24 +9,35 @@ import { colors, fonts, radii } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
 export default function LeaderboardScreen() {
+  const focused = useIsFocused();
   const [scope, setScope] = useState<"friends" | "groups" | "global">("friends");
-  const leaderboard = useQuery(trpc.rdm.social.leaderboard.queryOptions({ scope }));
+  const leaderboard = useQuery({
+    ...trpc.rdm.social.leaderboard.queryOptions({ scope }),
+    enabled: focused,
+    refetchInterval: focused ? 30_000 : false,
+    refetchIntervalInBackground: false,
+  });
 
-  if (leaderboard.isLoading) return <LoadingState label="Loading this week's climb…" />;
-  if (leaderboard.error || !leaderboard.data) return <ErrorState message={leaderboard.error?.message ?? "Leaderboard unavailable."} onRetry={() => void leaderboard.refetch()} />;
-
-  const topThree = leaderboard.data.entries.slice(0, 3);
+  const entries = leaderboard.data?.entries ?? [];
+  const topThree = entries.slice(0, 3);
   const podium = [topThree[2], topThree[0], topThree[1]].filter((entry) => entry !== undefined);
-  const rest = leaderboard.data.entries.slice(3);
+  const rest = entries.slice(3);
 
   return (
     <AppScreen>
-      <PageHeader back title="Leaderboard" subtitle="This week" />
+      <PageHeader back onBack={() => router.dismissTo("/(app)/(tabs)")} title="Leaderboard" subtitle="All-time XP · Top 50" />
       <View style={styles.tabs}>
         <Pill active={scope === "friends"} color={colors.plum} label="Friends" onPress={() => setScope("friends")} />
-        <Pill active={scope === "groups"} color={colors.plum} label="My Groups" onPress={() => setScope("groups")} />
+        <Pill active={scope === "groups"} color={colors.plum} label="Group members" onPress={() => setScope("groups")} />
         <Pill active={scope === "global"} color={colors.plum} label="Global" onPress={() => setScope("global")} />
       </View>
+      <Text style={styles.description}>{scope === "friends" ? "You and friends connected through accepted referral codes." : scope === "groups" ? "You and members of your group goals, ranked by each person's total XP." : "RDM members ranked by their total earned XP."}</Text>
+      {leaderboard.isLoading ? <LoadingState label="Loading saved rankings…" /> : leaderboard.error ? (
+        <ErrorState message={leaderboard.error.message} onRetry={() => void leaderboard.refetch()} />
+      ) : entries.length === 0 ? (
+        <SurfaceCard><Text style={styles.emptyTitle}>No rankings yet</Text><Text style={styles.description}>Recorded progress will appear here as members earn XP.</Text></SurfaceCard>
+      ) : (
+        <>
       <View style={styles.podium}>
         {podium.map((entry) => (
           <View key={entry.rank} style={[styles.podiumItem, entry.rank === 1 && styles.firstItem]}>
@@ -33,13 +45,13 @@ export default function LeaderboardScreen() {
               {entry.rank === 1 ? <MaterialCommunityIcons name="crown" size={22} color={colors.gold} /> : <Text style={styles.avatarText}>{entry.initials}</Text>}
             </View>
             <View style={[styles.podiumBar, entry.rank === 1 && styles.firstBar]}>
-              <Text style={styles.points}>{entry.points.toLocaleString()}</Text>
+              <Text style={styles.points}>{entry.points.toLocaleString()} XP</Text>
               <Text numberOfLines={1} style={styles.name}>{entry.currentUser ? "You" : entry.name}</Text>
             </View>
           </View>
         ))}
       </View>
-      <SurfaceCard style={styles.listCard}>
+      {rest.length > 0 ? <SurfaceCard style={styles.listCard}>
         {rest.map((entry) => (
           <View key={entry.rank} style={[styles.row, entry.currentUser && styles.meRow]}>
             <Text style={styles.rank}>{entry.rank}</Text>
@@ -48,14 +60,18 @@ export default function LeaderboardScreen() {
             <Text style={styles.rowPoints}>{entry.points.toLocaleString()}</Text>
           </View>
         ))}
-      </SurfaceCard>
-      <PrimaryButton label="Invite friends to climb faster" color={colors.plum} icon="account-multiple-plus-outline" onPress={() => void Share.share({ message: "Join my weekly RDM leaderboard." })} />
+      </SurfaceCard> : null}
+        </>
+      )}
+      <PrimaryButton label="Open group goals" color={colors.plum} icon="account-multiple-plus-outline" onPress={() => router.push("/(app)/(tabs)/groups")} />
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  tabs: { flexDirection: "row", gap: 8 },
+  tabs: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
+  emptyTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 18, marginBottom: 7 },
   podium: { minHeight: 190, flexDirection: "row", alignItems: "flex-end", justifyContent: "center", gap: 8, paddingTop: 8 },
   podiumItem: { width: "30%", alignItems: "center" },
   firstItem: { width: "33%" },

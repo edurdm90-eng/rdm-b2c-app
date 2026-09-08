@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -22,7 +22,13 @@ import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
 export default function GroupsScreen() {
-  const groups = useQuery(trpc.rdm.groups.list.queryOptions());
+  const focused = useIsFocused();
+  const groups = useQuery({
+    ...trpc.rdm.groups.list.queryOptions(),
+    enabled: focused,
+    refetchInterval: focused ? 15_000 : false,
+    refetchIntervalInBackground: false,
+  });
   const [category, setCategory] = useState<GroupGoalCategory>("Family");
 
   if (groups.isLoading) return <LoadingState label="Loading your groups…" />;

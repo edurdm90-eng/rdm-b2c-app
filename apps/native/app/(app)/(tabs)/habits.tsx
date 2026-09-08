@@ -1,9 +1,10 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
+import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { AppScreen, ErrorState, IconBubble, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { AppScreen, ErrorState, IconBubble, LoadingState, PageHeader, Pill, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
 import { colors, fonts } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -11,16 +12,24 @@ type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 export default function HabitsScreen() {
   const habits = useQuery(trpc.rdm.habits.list.queryOptions());
+  const [view, setView] = useState<"active" | "history">("active");
 
   if (habits.isLoading) return <LoadingState label="Loading your habits…" />;
   if (habits.error || !habits.data) return <ErrorState message={habits.error?.message ?? "Habits are unavailable."} onRetry={() => void habits.refetch()} />;
+  const activeHabits = habits.data.filter((habit) => habit.active && habit.rdmPledge?.status !== "finished");
+  const finishedHabits = habits.data.filter((habit) => !habit.active || habit.rdmPledge?.status === "finished");
+  const visibleHabits = view === "active" ? activeHabits : finishedHabits;
 
   return (
     <AppScreen>
-      <PageHeader title="My Habits" subtitle={`${habits.data.length} active · keep the promise small`} />
+      <PageHeader title="My Habits" subtitle={`${activeHabits.length} active · ${finishedHabits.length} finished`} />
       <PrimaryButton label="Create a habit" icon="plus" onPress={() => router.push("/(app)/framework")} />
-      <SectionLabel>Active habits</SectionLabel>
-      {habits.data.map((habit) => (
+      <View style={styles.filters}>
+        <Pill active={view === "active"} label={`Active (${activeHabits.length})`} onPress={() => setView("active")} />
+        <Pill active={view === "history"} label={`History (${finishedHabits.length})`} onPress={() => setView("history")} />
+      </View>
+      <SectionLabel>{view === "active" ? "Active habits" : "Finished commitments"}</SectionLabel>
+      {visibleHabits.map((habit) => (
         <SurfaceCard key={habit.id} onPress={() => router.push({ pathname: "/(app)/habit/[id]", params: { id: habit.id } })} style={styles.habitCard}>
           <IconBubble name={habit.icon as IconName} color={colors.growth} />
           <View style={styles.habitCopy}>
@@ -28,11 +37,13 @@ export default function HabitsScreen() {
             <Text style={rdmStyles.muted}>{habit.target} · {habit.cadence}</Text>
             {habit.rdmPledge ? (
               <Text style={styles.rdmPledge}>
-                {habit.rdmPledge.perDay} RDM/day · {habit.rdmPledge.remaining} RDM locked
+                {habit.rdmPledge.perDay} RDM/scheduled day · {habit.rdmPledge.remaining} RDM locked
               </Text>
             ) : null}
             <View style={styles.metaRow}>
-              <Text style={styles.stage}>{habit.stage}</Text>
+              <Text style={styles.stage}>{habit.rdmPledge?.status === "finished" ? "Finished"
+                : habit.rdmPledge?.status === "upcoming" ? "Upcoming"
+                  : habit.rdmPledge && !habit.rdmPledge.scheduledToday ? "Rest day" : habit.stage}</Text>
               <View
                 accessibilityLabel={`${habit.streak} day streak`}
                 style={styles.streakBadge}
@@ -45,11 +56,11 @@ export default function HabitsScreen() {
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.inkSoft} />
         </SurfaceCard>
       ))}
-      {habits.data.length === 0 ? (
+      {visibleHabits.length === 0 ? (
         <SurfaceCard style={styles.emptyCard}>
           <IconBubble name="sprout-outline" />
-          <Text style={styles.emptyTitle}>Your first promise starts here</Text>
-          <Text style={rdmStyles.muted}>Choose a proven framework or write one in your own words.</Text>
+          <Text style={styles.emptyTitle}>{view === "active" ? "Your next promise starts here" : "No finished commitments yet"}</Text>
+          <Text style={rdmStyles.muted}>{view === "active" ? "Choose a proven framework or write one in your own words." : "Completed habit windows and their daily records remain available here."}</Text>
         </SurfaceCard>
       ) : null}
     </AppScreen>
@@ -57,6 +68,7 @@ export default function HabitsScreen() {
 }
 
 const styles = StyleSheet.create({
+  filters: { flexDirection: "row", gap: 8 },
   habitCard: { flexDirection: "row", alignItems: "center", gap: 12 },
   habitCopy: { flex: 1, gap: 4 },
   habitTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 14 },

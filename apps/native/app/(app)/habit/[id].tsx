@@ -16,6 +16,8 @@ type ScheduledPledgeSummary = {
   dayCount: number;
   settledDayKeys: string[];
   startDayKey: string;
+  scheduledToday: boolean;
+  nextDayKey: string | null;
   status: "upcoming" | "active" | "finished";
 };
 
@@ -38,12 +40,18 @@ function habitPresentation({
   }
   if (scheduledPledge.status === "upcoming") {
     return {
-      subtitle: `STARTS ${scheduledPledge.startDayKey}`,
+      subtitle: `STARTS ${scheduledPledge.nextDayKey ?? scheduledPledge.startDayKey}`,
       todayState: "upcoming",
     } as const;
   }
   if (scheduledPledge.status === "finished") {
     return { subtitle: "PLEDGE COMPLETE", todayState: "finished" } as const;
+  }
+  if (!scheduledPledge.scheduledToday) {
+    return {
+      subtitle: scheduledPledge.nextDayKey ? `NEXT ${scheduledPledge.nextDayKey}` : "REST DAY",
+      todayState: "rest",
+    } as const;
   }
   const dayNumber = Math.min(
     scheduledPledge.dayCount,
@@ -67,11 +75,12 @@ export default function HabitDetailScreen() {
   const [reflection, setReflection] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [missOpen, setMissOpen] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   useEffect(() => {
-    if (habit.data?.lastAction) setActionNote(habit.data.lastAction);
-    if (habit.data?.reflection) setReflection(habit.data.reflection);
-  }, [habit.data?.lastAction, habit.data?.reflection]);
+    setActionNote(habit.data?.lastAction ?? "");
+    setReflection(habit.data?.reflection ?? "");
+  }, [habit.data?.id, habit.data?.lastAction, habit.data?.reflection, habit.data?.rdmPledge?.currentDayKey]);
 
   async function refresh() {
     await queryClient.invalidateQueries();
@@ -122,7 +131,7 @@ export default function HabitDetailScreen() {
           <View style={styles.rdmPledgeGrid}>
             <View style={styles.rdmPledgeCell}>
               <Text style={styles.rdmPledgeValue}>{scheduledPledge.perDay} RDM</Text>
-              <Text style={styles.rdmPledgeLabel}>Each day</Text>
+              <Text style={styles.rdmPledgeLabel}>Scheduled day</Text>
             </View>
             <View style={styles.rdmPledgeCell}>
               <Text style={styles.rdmPledgeValue}>{scheduledPledge.remaining} RDM</Text>
@@ -134,12 +143,16 @@ export default function HabitDetailScreen() {
             </View>
           </View>
         ) : null}
+        <Text style={styles.scheduleCopy}>{data.cadence} · {data.target}</Text>
+        {scheduledPledge ? <Text style={rdmStyles.muted}>{scheduledPledge.startDayKey} → {scheduledPledge.endDayKey} (end date excluded)</Text> : null}
       </SurfaceCard>
 
       <SurfaceCard>
         <SectionLabel>Today's act</SectionLabel>
         {presentation.todayState === "upcoming" && scheduledPledge ? (
-          <Text style={rdmStyles.muted}>This habit starts on {scheduledPledge.startDayKey}. Your RDM is locked, but no daily amount will move before then.</Text>
+          <Text style={rdmStyles.muted}>Your first scheduled day is {scheduledPledge.nextDayKey ?? scheduledPledge.startDayKey}. Your RDM is locked, but no daily amount will move before then.</Text>
+        ) : presentation.todayState === "rest" ? (
+          <Text style={rdmStyles.muted}>Today is a rest day. Your streak is preserved and no RDM moves. {scheduledPledge?.nextDayKey ? `Your next commitment is ${scheduledPledge.nextDayKey}.` : "All scheduled days have been settled."}</Text>
         ) : presentation.todayState === "finished" ? (
           <Text style={rdmStyles.muted}>The pledge window is complete. Every scheduled day has been settled.</Text>
         ) : presentation.todayState === "act" ? (
@@ -164,11 +177,28 @@ export default function HabitDetailScreen() {
         <SectionLabel>This week</SectionLabel>
         <View style={styles.weekRow}>
           {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => {
-            const hit = data.completedDays.includes(index + 1);
-            return <View key={`${day}-${index}`} style={[styles.day, hit && styles.dayHit]}><Text style={[styles.dayText, hit && styles.dayTextHit]}>{day}</Text></View>;
+            const actualDay = data.weekProgress[index];
+            const hit = actualDay?.completed ?? false;
+            return <View accessibilityLabel={`${actualDay?.dayKey ?? day}: ${hit ? "completed" : "not completed"}`} key={`${day}-${index}`} style={[styles.day, hit && styles.dayHit]}><Text style={[styles.dayText, hit && styles.dayTextHit]}>{day}</Text></View>;
           })}
         </View>
       </SurfaceCard>
+
+      {data.history.length > 0 ? (
+        <SurfaceCard>
+          <SectionLabel>Habit history</SectionLabel>
+          {data.history.slice(0, showAllHistory ? undefined : 7).map((entry) => (
+            <View key={entry.dayKey} style={styles.historyEntry}>
+              <Text style={[styles.historyTitle, { color: entry.outcome === "completed" ? colors.growth : colors.coral }]}>
+                {entry.dayKey} · {entry.outcome === "completed" ? "Completed" : "Missed"}
+              </Text>
+              {entry.note ? <Text style={rdmStyles.muted}>{entry.note}</Text> : null}
+              {entry.reflection ? <Text style={rdmStyles.muted}>Reflection: {entry.reflection}</Text> : null}
+            </View>
+          ))}
+          {data.history.length > 7 ? <PrimaryButton variant="outline" label={showAllHistory ? "Show recent days" : `Show all ${data.history.length} days`} onPress={() => setShowAllHistory((current) => !current)} /> : null}
+        </SurfaceCard>
+      ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {data.stage === "reflect" ? (
@@ -178,7 +208,7 @@ export default function HabitDetailScreen() {
           reflect.mutate({ id, reflection: reflection.trim(), timeZone });
         }} />
       ) : null}
-      {data.stage === "reward" ? (
+      {data.stage === "reward" && data.lastOutcome ? (
         <View style={[styles.rewardCard, data.lastOutcome === "missed" && styles.missedCard]}>
           <MaterialCommunityIcons name={data.lastOutcome === "missed" ? "backup-restore" : "trophy-outline"} size={32} color={data.lastOutcome === "missed" ? colors.coral : colors.gold} />
           <View style={styles.rewardCopy}>
@@ -232,6 +262,9 @@ const styles = StyleSheet.create({
   stepLine: { position: "absolute", top: 16, left: "67%", width: "66%", height: 2, backgroundColor: colors.line },
   stepLineComplete: { backgroundColor: colors.growth },
   pledge: { color: colors.ink, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 8 },
+  scheduleCopy: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 11, marginTop: 12, marginBottom: 4 },
+  historyEntry: { gap: 5, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.line },
+  historyTitle: { fontFamily: fonts.bodyBold, fontSize: 12 },
   rdmPledgeGrid: { flexDirection: "row", gap: 7, marginTop: 14 },
   rdmPledgeCell: { flex: 1, minHeight: 58, borderRadius: 10, backgroundColor: colors.panelRaised, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
   rdmPledgeValue: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 12 },

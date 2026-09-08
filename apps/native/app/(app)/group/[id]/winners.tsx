@@ -1,11 +1,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { GroupErrorState } from "@/components/group-goal-ui";
 import {
   AppScreen,
-  ErrorState,
   LoadingState,
   PageHeader,
   PrimaryButton,
@@ -19,10 +19,14 @@ import { queryClient, trpc } from "@/utils/trpc";
 export default function GroupWinnersScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = String(params.id ?? "");
+  const focused = useIsFocused();
+  const validId = /^[a-f\d]{24}$/i.test(id);
   const [specialAwarded, setSpecialAwarded] = useState(false);
   const preview = useQuery({
     ...trpc.rdm.groups.awardPreview.queryOptions({ id }),
-    enabled: /^[a-f\d]{24}$/i.test(id),
+    enabled: validId && focused,
+    refetchInterval: focused ? 15_000 : false,
+    refetchIntervalInBackground: false,
   });
   const award = useMutation(trpc.rdm.groups.award.mutationOptions({
     onSuccess: async () => {
@@ -34,7 +38,7 @@ export default function GroupWinnersScreen() {
 
   if (preview.isLoading) return <LoadingState label="Calculating fair awards…" />;
   if (preview.error || !preview.data) {
-    return <ErrorState message={preview.error?.message ?? "Awards are unavailable."} onRetry={() => void preview.refetch()} />;
+    return <GroupErrorState message={preview.error?.message ?? "Awards are unavailable."} onBack={() => router.dismissTo("/(app)/(tabs)/groups")} onRetry={validId ? () => void preview.refetch() : undefined} />;
   }
 
   const { group, amounts } = preview.data;
@@ -67,7 +71,7 @@ export default function GroupWinnersScreen() {
         <Text style={styles.specialIcon}>🏅</Text>
         <View style={styles.memberCopy}>
           <Text style={styles.specialTitle}>Award a special winner collectible</Text>
-          <Text style={styles.memberProgress}>A one-off recognition selected by the group creator.</Text>
+          <Text style={styles.memberProgress}>Recognize the member with the highest contribution.</Text>
         </View>
         <View style={[styles.switchTrack, specialAwarded && styles.switchTrackOn]}><View style={[styles.switchKnob, specialAwarded && styles.switchKnobOn]} /></View>
       </Pressable>

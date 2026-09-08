@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -22,14 +22,17 @@ export function GroupJoinFlow({
   initialCode?: string;
   onCreate: () => void;
 }) {
+  const focused = useIsFocused();
   const [inviteCode, setInviteCode] = useState(() => String(initialCode ?? "").slice(0, 6).toUpperCase());
   const [joinPledge, setJoinPledge] = useState("");
   const [error, setError] = useState<string | null>(null);
   const normalizedInviteCode = inviteCode.trim().toUpperCase();
   const preview = useQuery({
     ...trpc.rdm.groups.preview.queryOptions({ inviteCode: normalizedInviteCode }),
-    enabled: normalizedInviteCode.length === 6,
+    enabled: normalizedInviteCode.length === 6 && focused,
     retry: false,
+    refetchInterval: focused && normalizedInviteCode.length === 6 ? 15_000 : false,
+    refetchIntervalInBackground: false,
   });
   const joinGroup = useMutation(trpc.rdm.groups.join.mutationOptions({
     onSuccess: async (group) => {
@@ -51,7 +54,7 @@ export function GroupJoinFlow({
   }, [joinPledge, preview.data]);
 
   function submitJoin() {
-    if (!preview.data) {
+    if (!preview.data || preview.error) {
       setError("Enter a valid six-character invite code first.");
       return;
     }
@@ -98,7 +101,12 @@ export function GroupJoinFlow({
         value={inviteCode}
       />
       {preview.isFetching ? <Text style={styles.helper}>Checking invite…</Text> : null}
-      {preview.error ? <Text style={styles.error}>{preview.error.message}</Text> : null}
+      {preview.error ? (
+        <View>
+          <Text style={styles.error}>{preview.error.message}</Text>
+          <PrimaryButton label="Check invite again" onPress={() => void preview.refetch()} variant="outline" />
+        </View>
+      ) : null}
       {preview.data ? (
         <>
           <SurfaceCard style={styles.previewCard}>
@@ -123,7 +131,7 @@ export function GroupJoinFlow({
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <PrimaryButton
         color={colors.growth}
-        disabled={!preview.data || (!preview.data.alreadyJoined && !joinHasFunds)}
+        disabled={!preview.data || !!preview.error || (!preview.data.alreadyJoined && !joinHasFunds)}
         label={preview.data?.alreadyJoined ? "Open group dashboard" : `Pledge ${Number.isFinite(numericJoinPledge) ? formatRdm(numericJoinPledge) : 0} RDM & join`}
         loading={joinGroup.isPending}
         onPress={submitJoin}

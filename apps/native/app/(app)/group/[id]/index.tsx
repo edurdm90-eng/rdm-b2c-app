@@ -1,14 +1,13 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { GroupAiNote, GroupAvatars } from "@/components/group-goal-ui";
+import { GroupAiNote, GroupAvatars, GroupErrorState } from "@/components/group-goal-ui";
 import {
   AppScreen,
-  ErrorState,
   LoadingState,
   PageHeader,
   PrimaryButton,
@@ -24,32 +23,36 @@ import { queryClient, trpc } from "@/utils/trpc";
 export default function GroupDashboardScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = String(params.id ?? "");
-  const [amount, setAmount] = useState("5");
+  const focused = useIsFocused();
+  const validId = /^[a-f\d]{24}$/i.test(id);
+  const [amount, setAmount] = useState("");
   const [operationId, setOperationId] = useState(() => Crypto.randomUUID());
   const group = useQuery({
     ...trpc.rdm.groups.detail.queryOptions({ id }),
-    enabled: /^[a-f\d]{24}$/i.test(id),
+    enabled: validId && focused,
+    refetchInterval: focused ? 15_000 : false,
+    refetchIntervalInBackground: false,
   });
   const logContribution = useMutation(trpc.rdm.groups.logContribution.mutationOptions({
     onSuccess: async () => {
       setOperationId(Crypto.randomUUID());
+      setAmount("");
       await queryClient.invalidateQueries();
-      await group.refetch();
     },
     onError: (error) => Alert.alert("Could not log progress", error.message),
   }));
 
   if (group.isLoading) return <LoadingState label="Opening group dashboard…" />;
   if (group.error || !group.data) {
-    return <ErrorState message={group.error?.message ?? "Group not found."} onRetry={() => void group.refetch()} />;
+    return <GroupErrorState message={group.error?.message ?? "Group not found."} onBack={() => router.dismissTo("/(app)/(tabs)/groups")} onRetry={validId ? () => void group.refetch() : undefined} />;
   }
 
   const data = group.data;
   const numericAmount = Number(amount);
   const currentMember = data.members.find((member) => member.currentUser);
   function submitProgress() {
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      Alert.alert("Add progress", `Enter how many ${data.unit} you completed.`);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0 || numericAmount > 1000) {
+      Alert.alert("Add progress", `Enter a positive amount up to 1,000 ${data.unit}.`);
       return;
     }
     logContribution.mutate({ id, amount: numericAmount, operationId });
@@ -62,7 +65,7 @@ export default function GroupDashboardScreen() {
         onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
         title={data.name}
         subtitle={`${data.category.toUpperCase()} · ${data.awarded ? "COMPLETE" : data.status === "expired" ? "EXPIRED" : data.targetHit ? "TARGET HIT" : `ENDS ${data.endDayKey ? formatDayKey(data.endDayKey).toUpperCase() : "SOON"}`}`}
-        trailing={<PrimaryButton color={colors.plum} icon="account-plus-outline" label="Invite" onPress={() => router.push({ pathname: "/(app)/group/[id]/invite", params: { id } })} style={styles.headerButton} variant="outline" />}
+        trailing={data.status === "active" && !data.targetHit ? <PrimaryButton color={colors.plum} icon="account-plus-outline" label="Invite" onPress={() => router.push({ pathname: "/(app)/group/[id]/invite", params: { id } })} style={styles.headerButton} variant="outline" /> : undefined}
       />
       <GroupAiNote label="Ask AI for a progress check-in" />
       <SurfaceCard style={styles.poolCard}>
@@ -100,7 +103,7 @@ export default function GroupDashboardScreen() {
         <SurfaceCard style={styles.logCard}>
           <SectionLabel>Log your progress</SectionLabel>
           <View style={styles.logRow}>
-            <TextInput accessibilityLabel={`Progress in ${data.unit}`} keyboardType="decimal-pad" onChangeText={setAmount} placeholder="5" placeholderTextColor={colors.inkSoft} style={styles.progressInput} value={amount} />
+            <TextInput accessibilityLabel={`Progress in ${data.unit}`} keyboardType="decimal-pad" onChangeText={setAmount} placeholder="Amount completed" placeholderTextColor={colors.inkSoft} style={styles.progressInput} value={amount} />
             <Text style={styles.unitLabel}>{data.unit}</Text>
           </View>
           <Text style={styles.helper}>You have logged {currentMember?.contribution ?? 0} {data.unit}. You can submit one combined update each {data.cadence === "weekly" ? "week" : "day"}.</Text>

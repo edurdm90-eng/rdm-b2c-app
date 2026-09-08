@@ -10,10 +10,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { GroupAiNote, GroupStepDots } from "@/components/group-goal-ui";
+import { GroupAiNote, GroupErrorState, GroupStepDots } from "@/components/group-goal-ui";
 import { GroupJoinFlow } from "@/components/group-join-flow";
 import {
   AppScreen,
+  LoadingState,
   PageHeader,
   Pill,
   PrimaryButton,
@@ -305,6 +306,11 @@ export default function NewGroupScreen() {
 
   if (mode === "join") {
     return <GroupJoinFlow initialCode={params.code} onCreate={() => setMode("create")} />;
+  }
+
+  if (wallet.isLoading) return <LoadingState label="Checking your Base Purse…" />;
+  if (wallet.error || !wallet.data) {
+    return <GroupErrorState message={wallet.error?.message ?? "Your wallet is unavailable."} onBack={() => router.dismissTo("/(app)/(tabs)/groups")} onRetry={() => void wallet.refetch()} />;
   }
 
   return (

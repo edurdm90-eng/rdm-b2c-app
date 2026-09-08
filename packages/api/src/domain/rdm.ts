@@ -252,10 +252,12 @@ export function habitPledgeSchedule({
   startDayKey,
   endDayKey,
   dailyPledge,
+  weekdays = [1, 2, 3, 4, 5, 6, 7],
 }: {
   startDayKey: string;
   endDayKey: string;
   dailyPledge: number;
+  weekdays?: ReadonlyArray<number>;
 }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDayKey) || !/^\d{4}-\d{2}-\d{2}$/.test(endDayKey)) {
     return null;
@@ -269,20 +271,23 @@ export function habitPledgeSchedule({
     || end.toISOString().slice(0, 10) !== endDayKey
     || !Number.isInteger(dailyPledge)
     || dailyPledge <= 0
+    || weekdays.length === 0
+    || weekdays.some((day) => !Number.isInteger(day) || day < 1 || day > 7)
   ) {
     return null;
   }
   const dayCount = Math.round((end.getTime() - start.getTime()) / 86_400_000);
-  if (dayCount <= 0) return null;
+  if (dayCount <= 0 || dayCount > 365) return null;
   const dayKeys = Array.from({ length: dayCount }, (_, index) => {
     const day = new Date(start);
     day.setUTCDate(day.getUTCDate() + index);
     return day.toISOString().slice(0, 10);
-  });
+  }).filter((dayKey) => weekdays.includes(new Date(`${dayKey}T00:00:00.000Z`).getUTCDay() || 7));
+  if (dayKeys.length === 0) return null;
   return {
     dayKeys,
-    dayCount,
-    totalPledge: dayCount * dailyPledge,
+    dayCount: dayKeys.length,
+    totalPledge: dayKeys.length * dailyPledge,
   };
 }
 
@@ -292,7 +297,48 @@ export function missedHabitPledgeDayKeys(
   currentDayKey: string,
 ) {
   const settled = new Set(settledDayKeys);
-  return scheduledDayKeys.filter((dayKey) => dayKey < currentDayKey && !settled.has(dayKey));
+  return [...new Set(scheduledDayKeys)].sort()
+    .filter((dayKey) => dayKey < currentDayKey && !settled.has(dayKey));
+}
+
+export function habitScheduleProgress({
+  scheduledDayKeys,
+  settledDayKeys,
+  completedDayKeys,
+  currentDayKey,
+}: {
+  scheduledDayKeys: ReadonlyArray<string>;
+  settledDayKeys: ReadonlyArray<string>;
+  completedDayKeys: ReadonlyArray<string>;
+  currentDayKey: string;
+}) {
+  const scheduled = [...new Set(scheduledDayKeys)].sort();
+  const settled = new Set(settledDayKeys);
+  const completed = new Set(completedDayKeys);
+  let streak = 0;
+  for (const dayKey of scheduled) {
+    if (dayKey > currentDayKey) break;
+    if (settled.has(dayKey) && completed.has(dayKey)) streak += 1;
+    else if (dayKey < currentDayKey || settled.has(dayKey)) streak = 0;
+  }
+  return {
+    streak,
+    scheduledToday: scheduled.includes(currentDayKey),
+    settledToday: scheduled.includes(currentDayKey) && settled.has(currentDayKey),
+    nextDayKey: scheduled.find((dayKey) => dayKey >= currentDayKey && !settled.has(dayKey)) ?? null,
+  };
+}
+
+export function habitWeekProgress(completedDayKeys: ReadonlyArray<string>, currentDayKey: string) {
+  const monday = new Date(`${currentDayKey}T00:00:00.000Z`);
+  monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() + 6) % 7);
+  const completed = new Set(completedDayKeys);
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(monday);
+    day.setUTCDate(day.getUTCDate() + index);
+    const dayKey = day.toISOString().slice(0, 10);
+    return { dayKey, completed: dayKey <= currentDayKey && completed.has(dayKey) };
+  });
 }
 
 export function habitPledgeDestinationForOperation(
@@ -681,17 +727,7 @@ export const badgeCatalog = [
   { id: "golden-bloom", title: "Golden Bloom", tier: "Gold", icon: "diamond-stone" },
 ] as const;
 
-export const initialBadgeIds = [
-  "first-sprout",
-  "seven-day-streak",
-  "group-starter",
-  "first-game",
-  "three-day",
-  "community-hand",
-  "hydration-start",
-  "thirty-pledges",
-  "first-charity",
-] as const;
+export const initialBadgeIds: ReadonlyArray<(typeof badgeCatalog)[number]["id"]> = [];
 
 export function gameDayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);

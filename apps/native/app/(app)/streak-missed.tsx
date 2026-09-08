@@ -62,7 +62,9 @@ export default function StreakMissedScreen() {
               ? "Streak missed yesterday."
               : `Tree care was missed on ${missedDay.dayKey}.`}
           </Text>{" "}
-          Your tree didn&apos;t get tended — {formatRdm(missedDay.transferredAmount)} RDM has moved automatically.
+          {missedDay.transferredAmount > 0
+            ? `${formatRdm(missedDay.transferredAmount)} available Reward RDM moved to Remorse.`
+            : "Your Reward Purse was empty, so no RDM moved. You can tend your tree again today."}
         </Text>
       </View>
 

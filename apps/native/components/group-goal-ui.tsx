@@ -1,7 +1,17 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { StyleSheet, Text, View } from "react-native";
 
+import { AppScreen, ErrorState, PageHeader } from "@/components/rdm-ui";
 import { colors, fonts, radii } from "@/lib/theme";
+
+export function GroupErrorState({ message, onBack, onRetry }: { message: string; onBack: () => void; onRetry?: () => void }) {
+  return (
+    <AppScreen scroll={false}>
+      <PageHeader back onBack={onBack} title="Group goal" />
+      <ErrorState message={message} onRetry={onRetry} />
+    </AppScreen>
+  );
+}
 
 export function GroupStepDots({ current, total = 5 }: { current: number; total?: number }) {
   return (

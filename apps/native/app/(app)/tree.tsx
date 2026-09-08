@@ -163,7 +163,7 @@ export default function TreeScreen() {
     <AppScreen contentStyle={styles.content}>
       <PageHeader
         back
-        subtitle={`DAY ${profile.streak} · ${profile.plantStage}`}
+        subtitle={hasPledge ? `DAY ${profile.tree.dayNumber} · ${profile.plantStage}` : "YOUR GROWTH STARTS HERE"}
         title="Grow Every Day"
       />
 
@@ -220,7 +220,7 @@ export default function TreeScreen() {
           <View style={styles.pledgeNoteRow}>
             <MaterialCommunityIcons color={colors.inkSoft} name="alert-outline" size={15} />
             <Text style={styles.pledgeNote}>
-              Pledges use Base RDM. Miss a streak day and RDM shifts from Reward → Remorse Purse automatically.
+              Pledges use Base RDM. A missed care day moves up to 10 available Reward RDM to Remorse. Any care action counts.
             </Text>
           </View>
           {notice ? (
@@ -237,12 +237,12 @@ export default function TreeScreen() {
       {hasPledge ? (
         <>
           <View
-            accessibilityLabel={`${profile.plantStage} tree, ${profile.tree.growth.points} growth points from a ${profile.streak} day streak, ${profile.tree.waterCount} water actions, and ${profile.tree.sunlightCount} sunlight actions`}
+            accessibilityLabel={`${profile.plantStage} tree, ${profile.tree.growth.points} growth points from ${profile.tree.fertilizerCount} fertilizer, ${profile.tree.waterCount} water, and ${profile.tree.sunlightCount} sunlight actions`}
             style={styles.treeVisual}
           >
             <GrowingTreeArtwork width={profile.tree.growth.artworkWidth} />
             <Text style={styles.growthCaption}>
-              {profile.streak} fertilizer + {profile.tree.waterCount} water + {profile.tree.sunlightCount} sunlight · {profile.tree.growth.points} growth
+              {profile.tree.fertilizerCount} fertilizer + {profile.tree.waterCount} water + {profile.tree.sunlightCount} sunlight · {profile.tree.growth.points} growth
             </Text>
           </View>
 

@@ -80,7 +80,7 @@ export default function HomeScreen() {
         <View style={styles.treeCopy}>
           <Text style={styles.treeTitle}>Grow Your Tree</Text>
           <Text style={styles.treeMeta}>
-            Day {profile.streak} · {profile.plantStage} stage · Tap to tend it
+            {profile.tree.pledgedAt ? `Day ${profile.tree.dayNumber} · ${profile.plantStage} · Tap to tend it` : "Plant your first tree with Base RDM"}
           </Text>
         </View>
         <MaterialCommunityIcons name="arrow-right" size={20} color={colors.inkSoft} />

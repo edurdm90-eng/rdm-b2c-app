@@ -10,7 +10,7 @@ function utcDayKeyAfter(days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-export const transactionKinds = ["habit", "game", "gratitude", "deed", "remorse", "peer", "charity", "redeem", "stake"] as const;
+export const transactionKinds = ["habit", "goal", "game", "gratitude", "deed", "remorse", "peer", "charity", "redeem", "stake"] as const;
 export const habitSources = ["template", "custom"] as const;
 export const habitStages = ["pledge", "act", "reflect", "reward"] as const;
 export const habitOutcomes = ["completed", "missed"] as const;
@@ -47,10 +47,11 @@ const collectibleSchema = new Schema(
 const profileSchema = new Schema(
   {
     userId: { type: String, required: true, unique: true, index: true },
-    xp: { type: Number, required: true, default: 640 },
-    level: { type: Number, required: true, default: 7 },
-    streak: { type: Number, required: true, default: 18 },
-    plantStage: { type: String, required: true, default: "Budding" },
+    dataVersion: { type: Number, default: 1 },
+    xp: { type: Number, required: true, default: 0 },
+    level: { type: Number, required: true, default: 1 },
+    streak: { type: Number, required: true, default: 0 },
+    plantStage: { type: String, required: true, default: "Seedling" },
     treePledgeAmount: { type: Number, required: true, default: 0 },
     treePledgedAt: { type: Date },
     treeTimeZone: { type: String, required: true, default: "Asia/Kolkata" },
@@ -68,12 +69,12 @@ const profileSchema = new Schema(
     treeMissedProcessedAt: { type: Date },
     treeMissedAcknowledgedAt: { type: Date },
     treeLastEvaluatedDayKey: { type: String },
-    walletBalance: { type: Number, required: true, default: 1240 },
-    rewardBalance: { type: Number, required: true, default: 320 },
-    remorseBalance: { type: Number, required: true, default: 40 },
-    peerBalance: { type: Number, required: true, default: 15 },
+    walletBalance: { type: Number, required: true, default: 0 },
+    rewardBalance: { type: Number, required: true, default: 0 },
+    remorseBalance: { type: Number, required: true, default: 0 },
+    peerBalance: { type: Number, required: true, default: 0 },
     weeklyInvites: { type: Number, required: true, default: 0 },
-    inviteWeek: { type: String, required: true, default: "" },
+    inviteWeek: { type: String, default: "" },
     referralCode: { type: String, unique: true, sparse: true },
     creditedReferrals: { type: [String], required: true, default: [] },
     creditedOperations: { type: [String], required: true, default: [] },
@@ -87,13 +88,7 @@ const profileSchema = new Schema(
     transactions: {
       type: [transactionSchema],
       required: true,
-      default: () => [
-        { title: "Deep Work Focus — reflection", amount: 25, kind: "habit", createdAt: new Date() },
-        { title: "Word Sprint game", amount: 8, kind: "game", createdAt: new Date(Date.now() - 3.6e6) },
-        { title: "Missed pledge — Hydration", amount: -10, kind: "remorse", createdAt: new Date(Date.now() - 8.64e7) },
-        { title: "Awarded by Family group", amount: 15, kind: "peer", createdAt: new Date(Date.now() - 1.728e8) },
-        { title: "Gift to Plant a Tree Trust", amount: -20, kind: "charity", createdAt: new Date(Date.now() - 3.456e8) },
-      ],
+      default: [],
     },
   },
   { timestamps: true },
@@ -115,9 +110,21 @@ const habitSchema = new Schema(
     rdmPledgeStartDayKey: { type: String },
     rdmPledgeEndDayKey: { type: String },
     rdmPledgeTimeZone: { type: String },
+    rdmPledgeWeekdays: { type: [Number], default: undefined },
     rdmPledgeFundingStatus: { type: String, enum: ["pending", "funded"] },
     rdmPledgeSettledDayKeys: { type: [String], required: true, default: [] },
     rdmPledgeCompletedDayKeys: { type: [String], required: true, default: [] },
+    dayEntries: {
+      type: [{
+        _id: false,
+        dayKey: { type: String, required: true },
+        outcome: { type: String, enum: habitOutcomes, required: true },
+        note: { type: String },
+        reflection: { type: String },
+        settledAt: { type: Date, required: true },
+      }],
+      default: [],
+    },
     currentDayKey: { type: String },
     lastSettledDayKey: { type: String },
     source: { type: String, enum: habitSources, required: true },
@@ -155,7 +162,22 @@ const goalSchema = new Schema(
     timeZone: { type: String, required: true },
     pledgeAmount: { type: Number, required: true, min: 1 },
     fundingStatus: { type: String, enum: ["pending", "funded"], required: true },
+    status: { type: String, enum: ["active", "completed", "missed"], required: true, default: "active" },
     progress: { type: Number, required: true, min: 0, max: 100, default: 0 },
+    progressVersion: { type: Number, required: true, min: 0, default: 0 },
+    progressUpdates: {
+      type: [{
+        requestId: { type: String, required: true },
+        progress: { type: Number, required: true, min: 0, max: 100 },
+        note: { type: String, required: true, maxlength: 500 },
+        status: { type: String, enum: ["active", "completed", "missed"], required: true },
+        recordedAt: { type: Date, required: true },
+      }],
+      required: true,
+      default: [],
+    },
+    outcomeAt: { type: Date },
+    settledAt: { type: Date },
     active: { type: Boolean, required: true, default: false },
   },
   { timestamps: true },
@@ -163,6 +185,7 @@ const goalSchema = new Schema(
 
 goalSchema.index({ userId: 1, creationId: 1 }, { unique: true });
 goalSchema.index({ userId: 1, active: 1, createdAt: -1 });
+goalSchema.index({ userId: 1, fundingStatus: 1, status: 1, settledAt: 1 });
 
 const gratitudeEntrySchema = new Schema(
   {

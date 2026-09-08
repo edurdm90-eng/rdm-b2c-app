@@ -37,6 +37,7 @@ const categoryPresentation: Record<GoalCategory, {
 export default function GoalsScreen() {
   const goals = useQuery(trpc.rdm.goals.list.queryOptions());
   const [category, setCategory] = useState<"All" | GoalCategory>("All");
+  const [status, setStatus] = useState<"all" | "active" | "completed" | "missed">("all");
 
   if (goals.isLoading) return <LoadingState label="Loading your goals…" />;
   if (goals.error || !goals.data) {
@@ -48,17 +49,25 @@ export default function GoalsScreen() {
     );
   }
 
-  const visibleGoals = category === "All"
-    ? goals.data
-    : goals.data.filter((goal) => goal.category === category);
+  const visibleGoals = goals.data.filter((goal) =>
+    (category === "All" || goal.category === category)
+    && (status === "all" || goal.status === status));
+  const activeCount = goals.data.filter((goal) => goal.status === "active").length;
 
   return (
     <View style={styles.screen}>
       <AppScreen contentStyle={styles.content}>
         <PageHeader
           title="My Goals"
-          subtitle={`${goals.data.length} active · turn plans into progress`}
+          subtitle={`${activeCount} active · ${goals.data.length - activeCount} in history`}
         />
+        <View style={styles.statusFilters}>
+          {(["all", "active", "completed", "missed"] as const).map((item) => (
+            <Pill key={item} active={status === item} color={colors.plum}
+              label={item === "all" ? "All goals" : item.charAt(0).toUpperCase() + item.slice(1)}
+              onPress={() => setStatus(item)} />
+          ))}
+        </View>
         <ScrollView
           horizontal
           contentContainerStyle={styles.categories}
@@ -78,7 +87,8 @@ export default function GoalsScreen() {
         {visibleGoals.map((goal) => {
           const presentation = categoryPresentation[goal.category];
           return (
-            <SurfaceCard key={goal.id} style={styles.goalCard}>
+            <SurfaceCard key={goal.id} style={styles.goalCard}
+              onPress={() => router.push({ pathname: "/(app)/goal/[id]", params: { id: goal.id } })}>
               <View style={styles.goalHeader}>
                 <IconBubble
                   backgroundColor={presentation.backgroundColor}
@@ -87,7 +97,9 @@ export default function GoalsScreen() {
                 />
                 <View style={styles.goalCopy}>
                   <Text style={styles.goalTitle}>{goal.title}</Text>
-                  <Text style={rdmStyles.muted}>Goal · {goal.progress}% complete</Text>
+                  <Text style={rdmStyles.muted}>
+                    {goal.upcoming ? "Upcoming" : goal.status.charAt(0).toUpperCase() + goal.status.slice(1)} · {goal.progress}% complete
+                  </Text>
                 </View>
                 <Text style={styles.category}>{goal.category}</Text>
               </View>
@@ -97,7 +109,9 @@ export default function GoalsScreen() {
                 <Text style={styles.duration}>
                   {goal.durationDays} days · ends {formatDayKey(goal.endDayKey)}
                 </Text>
-                <Text style={styles.pledge}>{formatRdm(goal.pledgeAmount)} RDM locked</Text>
+                <Text style={[styles.pledge, goal.status === "missed" && styles.missed]}>
+                  {formatRdm(goal.pledgeAmount)} RDM {goal.status === "active" ? "locked" : goal.status === "completed" ? "→ Reward" : "→ Remorse"}
+                </Text>
               </View>
             </SurfaceCard>
           );
@@ -107,10 +121,12 @@ export default function GoalsScreen() {
           <SurfaceCard style={styles.emptyCard}>
             <IconBubble name="flag-checkered" color={colors.plum} backgroundColor={colors.plumTint} />
             <Text style={styles.emptyTitle}>
-              {goals.data.length === 0 ? "Set your first goal" : `No ${category} goals yet`}
+              {goals.data.length === 0 ? "Set your first goal" : "No goals match these filters"}
             </Text>
             <Text style={[rdmStyles.muted, styles.emptyCopy]}>
-              Define the finish line, choose a duration, and back the commitment with Base RDM.
+              {goals.data.length === 0
+                ? "Define the finish line, choose a duration, and back the commitment with Base RDM."
+                : "Try another category or status to see your saved goals."}
             </Text>
           </SurfaceCard>
         ) : null}
@@ -132,6 +148,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: 96 },
   categories: { gap: 8, paddingRight: 18 },
+  statusFilters: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   goalCard: { gap: 12 },
   goalHeader: { flexDirection: "row", alignItems: "center", gap: 11 },
   goalCopy: { flex: 1, gap: 3 },
@@ -141,6 +158,7 @@ const styles = StyleSheet.create({
   goalFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   duration: { flex: 1, color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9.5 },
   pledge: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 9.5 },
+  missed: { color: colors.coral },
   emptyCard: { alignItems: "center", gap: 10, paddingVertical: 28 },
   emptyTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 18 },
   emptyCopy: { textAlign: "center" },

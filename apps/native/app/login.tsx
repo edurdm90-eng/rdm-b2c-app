@@ -1,16 +1,18 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { AppScreen, PrimaryButton } from "@/components/rdm-ui";
 import { authClient } from "@/lib/auth-client";
+import { postLoginDestination } from "@/lib/auth-return";
 import { colors, fonts, radii } from "@/lib/theme";
 import { queryClient, trpcClient } from "@/utils/trpc";
 
 type Mode = "sign-in" | "sign-up";
 
 export default function LoginScreen() {
+  const params = useLocalSearchParams();
   const { refetch: refreshSession } = authClient.useSession();
   const [mode, setMode] = useState<Mode>("sign-in");
   const [name, setName] = useState("");
@@ -52,8 +54,8 @@ export default function LoginScreen() {
       }
 
       await refreshSession();
-      await queryClient.invalidateQueries();
-      router.replace("/(app)/(tabs)");
+      queryClient.clear();
+      router.replace(postLoginDestination(params));
     } catch {
       setError("RDM could not reach the server. Check your connection and try again.");
     } finally {
@@ -75,7 +77,7 @@ export default function LoginScreen() {
           {mode === "sign-up" ? (
             <>
               <TextInput accessibilityLabel="Name" autoCapitalize="words" onChangeText={setName} placeholder="Your name" placeholderTextColor={colors.inkSoft} style={styles.input} value={name} />
-              <TextInput accessibilityLabel="Invite code" autoCapitalize="characters" maxLength={6} onChangeText={setInviteCode} placeholder="Invite code (optional)" placeholderTextColor={colors.inkSoft} style={styles.input} value={inviteCode} />
+              <TextInput accessibilityLabel="Referral code" autoCapitalize="characters" maxLength={6} onChangeText={setInviteCode} placeholder="Referral code (optional)" placeholderTextColor={colors.inkSoft} style={styles.input} value={inviteCode} />
             </>
           ) : null}
           <TextInput accessibilityLabel="Email" autoCapitalize="none" autoComplete="email" keyboardType="email-address" onChangeText={setEmail} placeholder="Email address" placeholderTextColor={colors.inkSoft} style={styles.input} value={email} />
