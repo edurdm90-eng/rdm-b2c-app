@@ -11,7 +11,10 @@ import {
   medaaAiActionSchema,
   medaaJourneyStages,
   medaaLongTermGoalSchema,
+  medaaGoalSelectionLimit,
+  isMedaaShortCommitment,
   MEDAA_JOURNEY_GENERATION_LIMIT,
+  MEDAA_MAX_COMMITMENT_DAYS,
   MEDAA_PLAN_ITEM_LIMIT,
   type MedaaConversation as ConversationView,
   type MedaaDraft,
@@ -249,11 +252,15 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
         return saveJourney(stored, ctx.session.user.id, input.expectedRevision, { ...journey, stage: input.stage });
       }),
 
-    chooseGoals: protectedProcedure.input(revisionInput.extend({ draftIds: z.array(z.string().uuid()).max(2)
+    chooseGoals: protectedProcedure.input(revisionInput.extend({ draftIds: z.array(z.string().uuid()).max(MEDAA_PLAN_ITEM_LIMIT)
       .refine((ids) => new Set(ids).size === ids.length, "Choose each goal once"), continueToGoals: z.boolean().default(true) }))
       .mutation(async ({ ctx, input }) => {
         const stored = await ownedConversation(input.conversationId, ctx.session.user.id);
         const journey = requireJourney(stored);
+        const selectionLimit = medaaGoalSelectionLimit(journey.selectedGoalIds, stored.drafts);
+        if (input.draftIds.length > selectionLimit) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Choose up to two goals first. Create them before adding a third goal to this plan." });
+        }
         if (input.continueToGoals && input.draftIds.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose at least one short-term goal." });
         const available = stored.drafts.filter((draft) => draft.content.type === "goal");
         if (input.draftIds.some((id) => !available.some((draft) => draft.id === id))
@@ -342,10 +349,10 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
         : input.action.kind === "suggest-habits" ? journey.habitSuggestionsReady : false;
       if (!previous && !input.regenerate && hasSavedSuggestions) return viewConversation(input.conversationId, userId);
       if (!provider.configured()) throw new TRPCError({
-        code: "PRECONDITION_FAILED", message: "Medaa Ai is not connected yet. You can still build and save your plan manually.",
+        code: "PRECONDITION_FAILED", message: "Medaa Ai is not connected yet. Your saved drafts remain available; use the Habits or Goals tab to create your own.",
       });
       if (journey.generations >= MEDAA_JOURNEY_GENERATION_LIMIT) throw new TRPCError({
-        code: "TOO_MANY_REQUESTS", message: "This journey has used its 12 AI requests. Your plan stays saved and you can edit it manually.",
+        code: "TOO_MANY_REQUESTS", message: "This journey has used its 12 AI requests. Your saved suggestions remain available to review and edit.",
       });
       if (stored.messages.length + (previous ? 1 : 2) > MAX_MESSAGES) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This journey is full. Start a new journey; your existing plan stays saved." });
@@ -406,6 +413,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
           const existing = suggestion.replaceDraftId
             ? drafts.find((draft) => draft.id === suggestion.replaceDraftId)
             : drafts.find((draft) => draft.content.type === suggestion.content.type
+              && isMedaaShortCommitment(draft.content)
               && draft.content.title.toLocaleLowerCase() === suggestion.content.title.toLocaleLowerCase());
           if (suggestion.replaceDraftId && (!existing || existing.status !== "draft")) {
             throw new TRPCError({ code: "BAD_GATEWAY", message: "Medaa Ai could not safely update that draft. Please retry." });
@@ -474,7 +482,10 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
       if (input.content.type !== draft.content.type) throw new TRPCError({ code: "BAD_REQUEST", message: "A goal cannot become a habit or vice versa. Add a separate draft instead." });
       const days = Math.round((Date.parse(`${input.endDayKey}T00:00:00Z`) - Date.parse(`${input.startDayKey}T00:00:00Z`)) / 86_400_000);
       const window = goalDurationWindow(input.startDayKey, days);
-      if (!window || window.endDayKey !== input.endDayKey || days > (draft.content.type === "habit" ? 365 : 3_650)
+      if (days > MEDAA_MAX_COMMITMENT_DAYS) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Keep Medaa commitments within ${MEDAA_MAX_COMMITMENT_DAYS} calendar days. Shorten the target and review the dates again.` });
+      }
+      if (!window || window.endDayKey !== input.endDayKey
         || input.startDayKey < dayKeyForTimeZone(new Date(), input.timeZone)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Choose valid future dates. The end date is the exclusive finish boundary." });
       }
@@ -524,6 +535,11 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
         requireSelectedDraft(stored, draft);
         const normal = rdmRouter.createCaller(ctx);
         if (draft.status === "draft") {
+          const reviewedDays = Math.round((Date.parse(`${draft.review.endDayKey}T00:00:00Z`)
+            - Date.parse(`${draft.review.startDayKey}T00:00:00Z`)) / 86_400_000);
+          if (reviewedDays > MEDAA_MAX_COMMITMENT_DAYS) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: `This saved review exceeds ${MEDAA_MAX_COMMITMENT_DAYS} calendar days. Shorten the target and dates, then review again before Set.` });
+          }
           if (stored.journey && stored.drafts.filter((item) => item.content.type === draft!.content.type
             && item.status !== "draft").length >= MEDAA_PLAN_ITEM_LIMIT) {
             throw new TRPCError({ code: "BAD_REQUEST", message: `Each journey supports at most three ${draft.content.type === "habit" ? "habits" : "goals"}. Your draft is saved.` });

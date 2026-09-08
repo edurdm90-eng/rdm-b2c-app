@@ -2,6 +2,9 @@ import { z } from "zod";
 
 import { goalCategories, habitCategories, isValidTimeZone } from "./rdm";
 
+export const MEDAA_DEFAULT_COMMITMENT_DAYS = 14;
+export const MEDAA_MAX_COMMITMENT_DAYS = 30;
+
 function containsApiKey(value: string) {
   return /sk-[A-Za-z0-9_-]{20,}/u.test(value);
 }
@@ -30,6 +33,12 @@ export const medaaDraftContentSchema = z.object({
 });
 
 export type MedaaDraftContent = z.infer<typeof medaaDraftContentSchema>;
+
+/** New suggestions are short commitments; stored/frozen legacy drafts stay readable. */
+export function isMedaaShortCommitment(content: MedaaDraftContent) {
+  return content.durationDays !== null && content.durationDays >= 1
+    && content.durationDays <= MEDAA_MAX_COMMITMENT_DAYS;
+}
 
 export const medaaResponseSchema = z.object({
   message: z.string().trim().min(1).max(2_000),
@@ -100,6 +109,9 @@ export function medaaActionResponseSchema(action: MedaaAiAction, drafts: Readonl
   return medaaResponseSchema.superRefine((result, ctx) => {
     if (result.suggestions.length === 0) return;
     const invalid = () => ctx.addIssue({ code: "custom", message: "Suggestions do not match the requested journey action." });
+    if (result.suggestions.some(({ content }) => !isMedaaShortCommitment(content)
+      || (content.type === "goal" && (content.weekdays.length !== 0 || content.pledge !== null))
+      || (content.type === "habit" && (content.weekdays.length === 0 || content.pledge === null)))) invalid();
     if (action.kind === "refine") {
       const original = drafts.find((draft) => draft.id === action.draftId);
       const suggestion = result.suggestions[0];
@@ -110,10 +122,7 @@ export function medaaActionResponseSchema(action: MedaaAiAction, drafts: Readonl
     const type = action.kind === "suggest-goals" ? "goal" : "habit";
     const titles = result.suggestions.map((suggestion) => suggestion.content.title.toLocaleLowerCase());
     if (result.suggestions.length !== 3 || new Set(titles).size !== titles.length
-      || result.suggestions.some(({ replaceDraftId, content }) => replaceDraftId !== null || content.type !== type
-        || content.durationDays === null
-        || (type === "goal" && (content.durationDays < 90 || content.durationDays > 180 || content.weekdays.length !== 0 || content.pledge !== null))
-        || (type === "habit" && (content.weekdays.length === 0 || content.pledge === null)))) invalid();
+      || result.suggestions.some(({ replaceDraftId, content }) => replaceDraftId !== null || content.type !== type)) invalid();
   });
 }
 
@@ -139,6 +148,12 @@ export const medaaLongTermGoalSchema = z.string().trim().min(12, "Describe a mea
 
 export const MEDAA_JOURNEY_GENERATION_LIMIT = 12;
 export const MEDAA_PLAN_ITEM_LIMIT = 3;
+
+export function medaaGoalSelectionLimit(selectedGoalIds: readonly string[], drafts: ReadonlyArray<Pick<MedaaDraft, "id" | "status">>) {
+  const initialGoalsCreated = selectedGoalIds.length > 0 && selectedGoalIds.every((id) =>
+    drafts.some((draft) => draft.id === id && draft.status === "created"));
+  return selectedGoalIds.length >= MEDAA_PLAN_ITEM_LIMIT || initialGoalsCreated ? MEDAA_PLAN_ITEM_LIMIT : 2;
+}
 
 export const medaaGoalExamples = [
   { title: "Build a sustainable business", category: "Money" },

@@ -2,6 +2,7 @@ import { env } from "@rdm-b2c/env/server";
 import { z } from "zod";
 
 import {
+  MEDAA_MAX_COMMITMENT_DAYS,
   medaaAiActionSchema,
   medaaActionResponseSchema,
   medaaDraftContentSchema,
@@ -49,7 +50,7 @@ const responseJsonSchema = {
                 maxItems: 7,
                 items: { type: "integer", minimum: 1, maximum: 7 },
               },
-              durationDays: { type: ["integer", "null"], minimum: 1, maximum: 3_650 },
+              durationDays: { type: "integer", minimum: 1, maximum: MEDAA_MAX_COMMITMENT_DAYS },
             },
           },
         },

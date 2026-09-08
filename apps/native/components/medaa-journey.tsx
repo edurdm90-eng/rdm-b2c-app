@@ -1,16 +1,15 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { MEDAA_PLAN_ITEM_LIMIT, medaaGoalExamples, medaaLongTermGoalSchema, medaaDraftContentSchema, type MedaaAiAction, type MedaaConversation, type MedaaDraft, type MedaaDraftContent, type MedaaJourney, type MedaaJourneyStage } from "@rdm-b2c/api/domain/medaa";
-import { goalCategories, habitCategories, type GoalCategory } from "@rdm-b2c/api/domain/rdm";
-import * as Crypto from "expo-crypto";
+import { MEDAA_DEFAULT_COMMITMENT_DAYS, MEDAA_MAX_COMMITMENT_DAYS, MEDAA_PLAN_ITEM_LIMIT, medaaGoalExamples, medaaGoalSelectionLimit, medaaLongTermGoalSchema, type MedaaAiAction, type MedaaConversation, type MedaaDraft, type MedaaJourney, type MedaaJourneyStage } from "@rdm-b2c/api/domain/medaa";
+import { goalCategories, type GoalCategory } from "@rdm-b2c/api/domain/rdm";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Pill, PrimaryButton, SectionLabel, SurfaceCard } from "@/components/rdm-ui";
 import { colors, fonts, radii } from "@/lib/theme";
 
 export const medaaStageTitles: Record<MedaaJourneyStage, string> = {
-  horizon: "Choose your horizon", "long-term": "Your long-term goal", "short-term": "Next 3–6 months",
+  horizon: "Choose your horizon", "long-term": "Your long-term goal", "short-term": "Your next two weeks",
   goals: "Your short-term goals", habits: "Habits that get you there", plan: "Your plan", next: "What’s next?",
 };
 
@@ -25,7 +24,6 @@ type Props = {
   onNavigate: (stage: MedaaJourneyStage) => void;
   onGenerate: (action: MedaaAiAction, regenerate?: boolean) => void;
   onOpenDraft: (id: string) => void;
-  onManual: (type: "habit" | "goal") => void;
 };
 
 export function MedaaJourneyStep(props: Props) {
@@ -42,7 +40,7 @@ export function MedaaJourneyStep(props: Props) {
         <Text style={styles.horizonNumber}>{years}</Text><Text style={styles.horizonLabel}>{years === 1 ? "YEAR" : "YEARS"}</Text>
       </Pressable>)}
     </View>
-    <Text style={styles.helper}>Choose a horizon to begin. Your long-term ambition is planning context, not an RDM-backed commitment.</Text>
+    <Text style={styles.helper}>Choose a horizon for your bigger direction. You do not pledge RDM for these years: Medaa starts with a {MEDAA_DEFAULT_COMMITMENT_DAYS}-day commitment, editable from 1–{MEDAA_MAX_COMMITMENT_DAYS} days.</Text>
   </View>;
   if (!data) return null;
   if (journey.stage === "long-term") return <LongTermStep {...props} journey={journey} />;
@@ -102,36 +100,35 @@ function LongTermStep({ journey, data, disabled, onLongTerm }: Props & { journey
   </View>;
 }
 
-function ShortTermStep({ data, journey, disabled, aiDisabled, attemptsRemaining, onGenerate, onChooseGoals, onManual, onNavigate }: Props & { data: MedaaConversation; journey: MedaaJourney }) {
+function ShortTermStep({ data, journey, disabled, aiDisabled, attemptsRemaining, onGenerate, onChooseGoals }: Props & { data: MedaaConversation; journey: MedaaJourney }) {
   const selected = journey.selectedGoalIds;
   const shownIds = new Set([...journey.goalSuggestionIds, ...journey.selectedGoalIds]);
   const suggestions = data.drafts.filter((draft) => draft.content.type === "goal" && shownIds.has(draft.id));
-  const extraPlanGoals = journey.selectedGoalIds.length > 2;
+  const selectionLimit = medaaGoalSelectionLimit(selected, data.drafts);
   return <View style={styles.stack}>
     <Text style={styles.heading}>One concrete step forward.</Text>
-    <Text style={styles.helper}>What could you achieve in the next 3–6 months? Choose up to two goals that move you toward your long-term direction.</Text>
+    <Text style={styles.helper}>What could you realistically achieve in the next two weeks? Choose {selectionLimit === 2 ? "up to two goals" : "an additional goal, up to three in this plan"} that move you toward your long-term direction. Review a 1–{MEDAA_MAX_COMMITMENT_DAYS}-day commitment before setting it.</Text>
     <PrimaryButton label={journey.goalSuggestionsReady ? "Get AI help · show saved suggestions" : "Get AI help — suggest short-term goals"}
       icon="creation-outline" color={colors.ai} disabled={aiDisabled} onPress={() => onGenerate({ kind: "suggest-goals" })} />
-    <View style={styles.counterRow}><Text style={styles.tag}>SHORT-TERM GOALS</Text><Text style={styles.counter}>{selected.length} / {extraPlanGoals ? 3 : 2} chosen</Text></View>
+    <View style={styles.counterRow}><Text style={styles.tag}>SHORT-TERM GOALS</Text><Text style={styles.counter}>{selected.length} / {selectionLimit} chosen</Text></View>
     {suggestions.map((draft) => {
       const checked = selected.includes(draft.id);
-      const fixed = draft.status !== "draft" || extraPlanGoals;
+      const fixed = draft.status !== "draft";
       return <Pressable key={draft.id} accessibilityRole="checkbox" accessibilityLabel={draft.content.title}
-        accessibilityState={{ checked, disabled: disabled || fixed || (!checked && selected.length >= 2) }}
-        disabled={disabled || fixed || (!checked && selected.length >= 2)} onPress={() => onChooseGoals(checked ? selected.filter((id) => id !== draft.id) : [...selected, draft.id], false)}
+        accessibilityState={{ checked, disabled: disabled || fixed || (!checked && selected.length >= selectionLimit) }}
+        disabled={disabled || fixed || (!checked && selected.length >= selectionLimit)} onPress={() => onChooseGoals(checked ? selected.filter((id) => id !== draft.id) : [...selected, draft.id], false)}
         style={[styles.suggestion, checked && styles.selectedSuggestion]}>
         <MaterialCommunityIcons name={checked ? "checkbox-marked" : "checkbox-blank-outline"} size={25} color={checked ? colors.ai : colors.inkSoft} />
         <View style={styles.flex}><Text style={styles.itemTitle}>{draft.content.title}</Text><Text style={styles.helper}>{draft.content.target}</Text>
-          <Text style={styles.small}>{draft.origin === "manual" ? "Your draft · " : "AI suggestion · "}{draft.content.durationDays ? `${draft.content.durationDays} days` : "Choose duration when adding"}{draft.status === "created" ? " · Added" : ""}</Text></View>
+          <Text style={styles.small}>{needsShorterReview(draft) ? "Saved earlier · needs shorter review · " : draft.origin === "manual" ? "Your draft · " : "AI suggestion · "}{draft.content.durationDays ? `${draft.content.durationDays} days` : "Choose duration when adding"}{draft.status === "created" ? " · Added" : ""}</Text></View>
       </Pressable>;
     })}
+    {journey.goalSuggestionsReady && suggestions.some(needsShorterReview) ? <Text style={styles.helper}>Earlier suggestions stay saved. Use “Show me other suggestions” for a new batch, or open a chosen draft to shorten its target and dates before Set.</Text> : null}
     {journey.goalSuggestionsReady ? <PrimaryButton label="Show me other suggestions" icon="refresh" color={colors.ai} variant="outline" disabled={aiDisabled}
       onPress={() => onGenerate({ kind: "suggest-goals" }, true)} /> : null}
     <AiUsage remaining={attemptsRemaining} />
-    <PrimaryButton label="Write my own short-term goal" icon="plus" color={colors.growth} variant="outline" disabled={disabled || selected.length >= 2}
-      onPress={() => onManual("goal")} />
     <PrimaryButton label={`Continue with ${selected.length} ${selected.length === 1 ? "goal" : "goals"}`} color={colors.growth}
-      disabled={disabled || selected.length === 0} onPress={() => extraPlanGoals ? onNavigate("goals") : onChooseGoals(selected)} />
+      disabled={disabled || selected.length === 0} onPress={() => onChooseGoals(selected)} />
   </View>;
 }
 
@@ -146,18 +143,17 @@ function ChosenGoalsStep({ data, journey, disabled, onOpenDraft, onNavigate }: P
     <Text style={styles.helper}>{created} of {goals.length} chosen goals created. Suggestions do not count as created commitments.</Text>
     <PrimaryButton label="Continue to supporting habits" color={colors.ai} disabled={disabled || goals.length === 0 || created !== goals.length}
       onPress={() => onNavigate("habits")} />
-    {journey.selectedGoalIds.length <= 2 ? <PrimaryButton label="Change selection" color={colors.ai} variant="outline" disabled={disabled}
-      onPress={() => onNavigate("short-term")} /> : null}
+    <PrimaryButton label="Change selection" color={colors.ai} variant="outline" disabled={disabled} onPress={() => onNavigate("short-term")} />
   </View>;
 }
 
-function HabitsStep({ data, journey, disabled, aiDisabled, attemptsRemaining, onGenerate, onOpenDraft, onManual, onNavigate }: Props & { data: MedaaConversation; journey: MedaaJourney }) {
+function HabitsStep({ data, journey, disabled, aiDisabled, attemptsRemaining, onGenerate, onOpenDraft, onNavigate }: Props & { data: MedaaConversation; journey: MedaaJourney }) {
   const shownIds = new Set(journey.habitSuggestionIds);
   const habits = data.drafts.filter((draft) => draft.content.type === "habit" && (shownIds.has(draft.id) || draft.status !== "draft" || draft.review));
   const fundedCount = data.drafts.filter((draft) => draft.content.type === "habit" && draft.status !== "draft").length;
   return <View style={styles.stack}>
     <Text style={styles.heading}>Habits that get you there</Text>
-    <Text style={styles.helper}>Small repeatable actions support your goals. Pick what fits your routine, then choose the dates, weekdays, and daily pledge.</Text>
+    <Text style={styles.helper}>Start with two weeks of small repeatable actions. Pick what fits your routine, then review a 1–{MEDAA_MAX_COMMITMENT_DAYS}-day period, weekdays, and your daily pledge.</Text>
     <PrimaryButton label={journey.habitSuggestionsReady ? "Get AI help · show saved habits" : "Get AI help — suggest supporting habits"} icon="creation-outline" color={colors.ai}
       disabled={aiDisabled || fundedCount >= MEDAA_PLAN_ITEM_LIMIT} onPress={() => onGenerate({ kind: "suggest-habits" })} />
     <View style={styles.counterRow}><Text style={styles.tag}>SUPPORTING HABITS</Text><Text style={styles.counter}>{fundedCount} / 3 set</Text></View>
@@ -165,7 +161,6 @@ function HabitsStep({ data, journey, disabled, aiDisabled, attemptsRemaining, on
     {journey.habitSuggestionsReady ? <PrimaryButton label="Show me other suggestions" icon="refresh" color={colors.ai} variant="outline" disabled={aiDisabled || fundedCount >= MEDAA_PLAN_ITEM_LIMIT}
       onPress={() => onGenerate({ kind: "suggest-habits" }, true)} /> : null}
     <AiUsage remaining={attemptsRemaining} />
-    <PrimaryButton label="Add my own habit" icon="plus" color={colors.growth} variant="outline" disabled={disabled || fundedCount >= MEDAA_PLAN_ITEM_LIMIT} onPress={() => onManual("habit")} />
     <PrimaryButton label="Continue to my plan" color={colors.ai} disabled={disabled} onPress={() => onNavigate("plan")} />
   </View>;
 }
@@ -190,7 +185,7 @@ function PlanStep({ data, journey, disabled, onOpenDraft, onNavigate }: Props & 
   </View>;
 }
 
-function NextStep({ data, disabled, onManual, onNavigate }: Props & { data: MedaaConversation }) {
+function NextStep({ data, disabled, onNavigate }: Props & { data: MedaaConversation }) {
   const goals = data.drafts.filter((draft) => draft.content.type === "goal" && draft.status === "created").length;
   const habits = data.drafts.filter((draft) => draft.content.type === "habit" && draft.status === "created").length;
   const committedGoals = data.drafts.filter((draft) => draft.content.type === "goal" && draft.status !== "draft").length;
@@ -201,15 +196,19 @@ function NextStep({ data, disabled, onManual, onNavigate }: Props & { data: Meda
       <Text style={styles.heading}>{goals + habits ? "Your next chapter is taking shape." : "Your direction is saved."}</Text>
       <Text style={styles.helper}>{goals} goals · {habits} habits created. Want to add anything else?</Text>
     </SurfaceCard>
-    <NextOption title="Create more goals" subtitle={`${goals} / 3 created in this plan`} icon="flag-outline" color={colors.gold}
-      disabled={disabled || committedGoals >= MEDAA_PLAN_ITEM_LIMIT} onPress={() => onManual("goal")} />
-    <NextOption title="Create more habits" subtitle={`${habits} / 3 created in this plan`} icon="repeat" color={colors.growth}
-      disabled={disabled || committedHabits >= MEDAA_PLAN_ITEM_LIMIT || !canAddHabits} onPress={() => onManual("habit")} />
+    <NextOption title="Explore more goal suggestions" subtitle={`${goals} / 3 created · choose AI help on the next screen`} icon="flag-outline" color={colors.gold}
+      disabled={disabled || committedGoals >= MEDAA_PLAN_ITEM_LIMIT} onPress={() => onNavigate("short-term")} />
+    <NextOption title="Explore more habit suggestions" subtitle={`${habits} / 3 created · choose AI help on the next screen`} icon="repeat" color={colors.growth}
+      disabled={disabled || committedHabits >= MEDAA_PLAN_ITEM_LIMIT || !canAddHabits} onPress={() => onNavigate("habits")} />
     {!canAddHabits ? <Text style={styles.helper}>Create your chosen short-term goals before adding their supporting habits.</Text> : null}
     <Text style={styles.helper}>Up to 3 goals and 3 habits per plan. These limits do not apply to your whole account.</Text>
     <PrimaryButton label="Back to my plan" color={colors.ai} variant="outline" disabled={disabled} onPress={() => onNavigate("plan")} />
     <PrimaryButton label="Skip for now — Go to Home" color={colors.growth} disabled={disabled} onPress={() => router.replace("/(app)/(tabs)")} />
   </View>;
+}
+
+function needsShorterReview(draft: MedaaDraft) {
+  return draft.status === "draft" && (draft.content.durationDays ?? 0) > MEDAA_MAX_COMMITMENT_DAYS;
 }
 
 function DraftRow({ draft, disabled, onOpen }: { draft: MedaaDraft; disabled: boolean; onOpen: () => void }) {
@@ -218,7 +217,7 @@ function DraftRow({ draft, disabled, onOpen }: { draft: MedaaDraft; disabled: bo
     <View style={[styles.itemIcon, { backgroundColor: habit ? colors.growthTint : colors.goldTint }]}>
       <MaterialCommunityIcons name={habit ? "repeat" : "flag-outline"} color={habit ? colors.growth : colors.gold} size={22} />
     </View>
-    <View style={styles.flex}><Text style={styles.itemTitle}>{draft.content.title}</Text><Text style={styles.small}>{draft.content.durationDays ? `${draft.content.durationDays} days · ` : ""}{draft.content.category}</Text></View>
+    <View style={styles.flex}><Text style={styles.itemTitle}>{draft.content.title}</Text><Text style={styles.small}>{needsShorterReview(draft) ? "Saved earlier · needs shorter review · " : ""}{draft.content.durationDays ? `${draft.content.durationDays} days · ` : ""}{draft.content.category}</Text></View>
     <Pressable accessibilityRole="button" accessibilityLabel={`${draft.status === "created" ? "Open" : "Add"} ${habit ? "habit" : "goal"}: ${draft.content.title}`}
       disabled={disabled} onPress={onOpen} style={[styles.addButton, draft.status === "created" && styles.addedButton, disabled && styles.disabled]}>
       <Text style={[styles.addText, draft.status === "created" && styles.addedText]}>{draft.status === "created" ? "✓ Added" : draft.status === "setting" ? "Retry Set" : `+ Add ${habit ? "Habit" : "Goal"}`}</Text>
@@ -227,42 +226,13 @@ function DraftRow({ draft, disabled, onOpen }: { draft: MedaaDraft; disabled: bo
 }
 
 function AiUsage({ remaining }: { remaining: number }) {
-  return <Text style={styles.small}>{remaining} AI requests remaining in this journey. Suggestions run only when you ask; manual planning is always available.</Text>;
+  return <Text style={styles.small}>{remaining} AI requests remaining in this journey. Opening a step does not request AI; your saved suggestions remain available.</Text>;
 }
 
 function NextOption({ title, subtitle, icon, color, disabled, onPress }: { title: string; subtitle: string; icon: "flag-outline" | "repeat"; color: string; disabled: boolean; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.nextOption, disabled && styles.disabled]}>
-    <MaterialCommunityIcons name={icon} size={27} color={color} /><View style={styles.flex}><Text style={styles.itemTitle}>{title}</Text><Text style={styles.helper}>{subtitle}</Text></View><Text style={styles.addText}>+ Add</Text>
+    <MaterialCommunityIcons name={icon} size={27} color={color} /><View style={styles.flex}><Text style={styles.itemTitle}>{title}</Text><Text style={styles.helper}>{subtitle}</Text></View><Text style={styles.addText}>View →</Text>
   </Pressable>;
-}
-
-export function MedaaManualForm({ type, initialCategory, disabled, onSave, onCancel }: {
-  type: "habit" | "goal"; initialCategory: GoalCategory; disabled: boolean;
-  onSave: (content: MedaaDraftContent, requestId: string) => Promise<void>; onCancel: () => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [target, setTarget] = useState("");
-  const [category, setCategory] = useState<GoalCategory>(type === "habit" && initialCategory === "Family" ? "Focus" : initialCategory);
-  const [error, setError] = useState<string | null>(null);
-  const requestId = useRef(Crypto.randomUUID());
-  return <View style={styles.stack}>
-    <Text style={styles.heading}>{type === "habit" ? "Your habit, your way." : "Your next goal."}</Text>
-    <Text style={styles.helper}>Write your own {type}. You’ll review the dates, schedule, and RDM pledge on the next screen. No AI request is used.</Text>
-    <SectionLabel>Title</SectionLabel>
-    <TextInput accessibilityLabel={`Manual ${type} title`} value={title} onChangeText={setTitle} editable={!disabled} maxLength={80} style={styles.input} placeholder={`Name your ${type}`} placeholderTextColor={colors.inkSoft} />
-    <SectionLabel>Measurable completion condition</SectionLabel>
-    <TextInput accessibilityLabel={`Manual ${type} target`} value={target} onChangeText={setTarget} editable={!disabled} maxLength={120} multiline style={[styles.input, styles.multiline]}
-      placeholder={type === "habit" ? "e.g. Read 10 pages" : "e.g. Finish reading 3 books"} placeholderTextColor={colors.inkSoft} />
-    <SectionLabel>Category</SectionLabel>
-    <View style={styles.chips}>{(type === "habit" ? habitCategories : goalCategories).map((item) => <Pill key={item} label={item} color={colors.ai} active={category === item} onPress={disabled ? undefined : () => setCategory(item)} />)}</View>
-    {error ? <Text style={styles.error}>{error}</Text> : null}
-    <PrimaryButton label="Continue to commitment details" color={colors.growth} disabled={disabled} onPress={() => {
-      const parsed = medaaDraftContentSchema.safeParse({ type, title, target, category, pledge: null, weekdays: [], durationDays: null });
-      if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Complete your title and measurable target."); return; }
-      setError(null); void onSave(parsed.data, requestId.current);
-    }} />
-    <PrimaryButton label="Cancel" color={colors.ai} variant="outline" disabled={disabled} onPress={onCancel} />
-  </View>;
 }
 
 const styles = StyleSheet.create({

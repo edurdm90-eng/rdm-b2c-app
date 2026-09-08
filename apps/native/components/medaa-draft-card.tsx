@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { medaaPrepareSchema, type MedaaConversation, type MedaaDraft, type MedaaDraftContent } from "@rdm-b2c/api/domain/medaa";
+import { MEDAA_DEFAULT_COMMITMENT_DAYS, MEDAA_MAX_COMMITMENT_DAYS, isMedaaShortCommitment, medaaPrepareSchema, type MedaaConversation, type MedaaDraft, type MedaaDraftContent } from "@rdm-b2c/api/domain/medaa";
 import { dayKeyForTimeZone, goalCategories, goalDurationWindow, habitCategories } from "@rdm-b2c/api/domain/rdm";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
@@ -30,11 +30,12 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
   onClose?: () => void;
 }) {
   const today = dayKeyForTimeZone(new Date(), timeZone);
+  const initialDuration = isMedaaShortCommitment(draft.content) ? draft.content.durationDays ?? MEDAA_DEFAULT_COMMITMENT_DAYS : MEDAA_DEFAULT_COMMITMENT_DAYS;
+  const initialEnd = draft.review?.endDayKey ?? goalDurationWindow(today, initialDuration)?.endDayKey ?? "";
   const [editing, setEditing] = useState(initialEditing);
   const [content, setContent] = useState<MedaaDraftContent>(draft.content);
   const [startDayKey, setStartDayKey] = useState(draft.review?.startDayKey ?? today);
-  const [endDayKey, setEndDayKey] = useState(draft.review?.endDayKey
-    ?? (draft.content.durationDays ? goalDurationWindow(today, draft.content.durationDays)?.endDayKey : "") ?? "");
+  const [endDayKey, setEndDayKey] = useState(initialEnd);
   // An AI suggestion must never choose how much of the user's currency to spend.
   const [pledge, setPledge] = useState(draft.review ? String(draft.review.pledgeAmount) : "");
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +44,9 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
   const isHabit = content.type === "habit";
   const isCreated = draft.status === "created";
   const setting = draft.status === "setting";
+  const duration = commitmentDays(startDayKey, endDayKey);
+  const needsShorterCommitment = draft.status === "draft" && ((draft.content.durationDays ?? 0) > MEDAA_MAX_COMMITMENT_DAYS
+    || Boolean(draft.review && commitmentDays(draft.review.startDayKey, draft.review.endDayKey) > MEDAA_MAX_COMMITMENT_DAYS));
   const hasElapsedDates = setting && Boolean(draft.review && draft.review.startDayKey < today);
   const review = editing ? null : draft.review;
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions(undefined, {
@@ -57,11 +61,20 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
   const locked = disabled || busy || setting;
   const hasUnsavedChanges = JSON.stringify(content) !== JSON.stringify(draft.content)
     || startDayKey !== (draft.review?.startDayKey ?? today)
-    || endDayKey !== (draft.review?.endDayKey ?? (draft.content.durationDays ? goalDurationWindow(today, draft.content.durationDays)?.endDayKey : "") ?? "")
+    || endDayKey !== initialEnd
     || pledge !== (draft.review ? String(draft.review.pledgeAmount) : "");
 
   function updateContent(update: Partial<MedaaDraftContent>) {
     setContent((current) => ({ ...current, ...update }));
+    setError(null);
+  }
+
+  function updateStart(value: string) {
+    setStartDayKey(value);
+    const days = Number.isInteger(duration) && duration >= 1 && duration <= MEDAA_MAX_COMMITMENT_DAYS
+      ? duration : MEDAA_DEFAULT_COMMITMENT_DAYS;
+    const window = goalDurationWindow(value, days);
+    if (window) setEndDayKey(window.endDayKey);
     setError(null);
   }
 
@@ -73,7 +86,10 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
   async function prepareReview() {
     if (submitting.current || locked) return;
     setError(null);
-    const duration = (Date.parse(`${endDayKey}T00:00:00.000Z`) - Date.parse(`${startDayKey}T00:00:00.000Z`)) / 86_400_000;
+    if (!Number.isInteger(duration) || duration < 1 || duration > MEDAA_MAX_COMMITMENT_DAYS) {
+      setError(`Choose a commitment from 1–${MEDAA_MAX_COMMITMENT_DAYS} calendar days and a completion condition that fits those dates.`);
+      return;
+    }
     const parsed = medaaPrepareSchema.safeParse({
       conversationId,
       draftId: draft.id,
@@ -105,7 +121,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
   }
 
   async function setCommitment() {
-    if (submitting.current || disabled || busy || !draft.review || isCreated) return;
+    if (submitting.current || disabled || busy || !draft.review || isCreated || needsShorterCommitment) return;
     submitting.current = true;
     setError(null);
     try {
@@ -138,6 +154,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
       <Text style={styles.title}>{draft.content.title}</Text>
       <Text style={styles.target}>{draft.content.target}</Text>
       <Text style={styles.meta}>{draft.content.category}{draft.content.durationDays ? ` · ${draft.content.durationDays}-day suggestion` : ""}</Text>
+      {needsShorterCommitment ? <Text style={styles.error}>This saved draft is longer than {MEDAA_MAX_COMMITMENT_DAYS} days. Shorten its completion condition and dates, then review again before Set.{onRefine ? " You can also ask Medaa Ai for a smaller step using “Less time”." : ""}{!draft.review ? ` The date fields start with ${MEDAA_DEFAULT_COMMITMENT_DAYS} days; the original target has not been changed.` : " Your existing review is unchanged."}</Text> : null}
       {onRefine && draft.status === "draft" ? <View style={styles.actions}>
         <Text style={styles.helper}>Use Medaa Ai to refine this {isHabit ? "habit" : "goal"}:</Text>
         <View style={styles.chips}>
@@ -191,8 +208,19 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
                 onChangeText={(value) => updateContent({ pledge: value })} style={[styles.input, styles.multiline]} />
             </>
           ) : null}
-          <MedaaDateField label="Start date" value={startDayKey} minimum={today} disabled={locked} onChange={setStartDayKey} />
-          <MedaaDateField label="End date (exclusive)" value={endDayKey} minimum={startDayKey || today} disabled={locked} onChange={setEndDayKey} />
+          <SectionLabel>Short commitment · 1–{MEDAA_MAX_COMMITMENT_DAYS} days</SectionLabel>
+          <Text style={styles.helper}>Start with {MEDAA_DEFAULT_COMMITMENT_DAYS} days. Adjust the dates and completion condition to a realistic step, not your entire long-term ambition.</Text>
+          <MedaaDateField label="Start date" value={startDayKey} minimum={today} disabled={locked} onChange={updateStart} />
+          <MedaaDateField label="End date (exclusive)" value={endDayKey}
+            minimum={goalDurationWindow(startDayKey, 1)?.endDayKey ?? today}
+            maximum={goalDurationWindow(startDayKey, MEDAA_MAX_COMMITMENT_DAYS)?.endDayKey}
+            disabled={locked} onChange={(value) => { setEndDayKey(value); setError(null); }} />
+          <Text style={styles.helper}>{Number.isInteger(duration) && duration > 0 ? `${duration} calendar days selected.` : "Choose valid start and end dates."} Start included; end excluded.</Text>
+          <PrimaryButton label={`Use ${MEDAA_DEFAULT_COMMITMENT_DAYS} days`} color={colors.ai} variant="outline" disabled={locked || !goalDurationWindow(startDayKey, MEDAA_DEFAULT_COMMITMENT_DAYS)}
+            onPress={() => {
+              const window = goalDurationWindow(startDayKey, MEDAA_DEFAULT_COMMITMENT_DAYS);
+              if (window) { setEndDayKey(window.endDayKey); setError(null); }
+            }} />
           <Text style={styles.helper}>{isHabit
             ? "Only your selected weekdays before the end date are pledged. The end date itself is not charged."
             : "Your goal must be completed before the end date."} Time zone: {timeZone}.</Text>
@@ -208,7 +236,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
             onPress={() => {
               setContent(draft.content);
               setStartDayKey(draft.review?.startDayKey ?? today);
-              setEndDayKey(draft.review?.endDayKey ?? (draft.content.durationDays ? goalDurationWindow(today, draft.content.durationDays)?.endDayKey : "") ?? "");
+              setEndDayKey(initialEnd);
               setPledge(draft.review ? String(draft.review.pledgeAmount) : "");
               setError(null);
               setEditing(false);
@@ -248,7 +276,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
             </Pressable>
           </> : null}
           <PrimaryButton label={`${setting ? "Retry Set" : "Set"} ${isHabit ? "Habit" : "Goal"}`} icon="check" color={colors.ai}
-            loading={set.isPending} disabled={disabled || busy || (hasElapsedDates && !confirmElapsedDates) || (!setting && (!canAfford || wallet.isPending))}
+            loading={set.isPending} disabled={disabled || busy || needsShorterCommitment || (hasElapsedDates && !confirmElapsedDates) || (!setting && (!canAfford || wallet.isPending))}
             onPress={() => void setCommitment()} />
           {!setting ? <PrimaryButton label="Edit details" variant="outline" color={colors.ai} disabled={disabled || busy}
             onPress={() => { setError(null); setEditing(true); }} /> : null}
@@ -270,13 +298,21 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
   );
 }
 
-function MedaaDateField({ label, value, minimum, disabled, onChange }: {
-  label: string; value: string; minimum: string; disabled: boolean; onChange: (value: string) => void;
+function commitmentDays(start: string, end: string) {
+  return (Date.parse(`${end}T00:00:00.000Z`) - Date.parse(`${start}T00:00:00.000Z`)) / 86_400_000;
+}
+
+function MedaaDateField({ label, value, minimum, maximum, disabled, onChange }: {
+  label: string; value: string; minimum: string; maximum?: string; disabled: boolean; onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const minimumDate = new Date(`${minimum}T12:00:00`);
+  const maximumDate = maximum ? new Date(`${maximum}T12:00:00`) : undefined;
   const parsedDate = new Date(`${value}T12:00:00`);
-  const pickerDate = Number.isNaN(parsedDate.getTime()) ? minimumDate : parsedDate;
+  const validMinimum = Number.isNaN(minimumDate.getTime()) ? new Date() : minimumDate;
+  const validMaximum = maximumDate && !Number.isNaN(maximumDate.getTime()) ? maximumDate : undefined;
+  const pickerDate = new Date(Math.min(validMaximum?.getTime() ?? Infinity,
+    Math.max(validMinimum.getTime(), Number.isNaN(parsedDate.getTime()) ? validMinimum.getTime() : parsedDate.getTime())));
   return (
     <View style={styles.dateField}>
       <SectionLabel>{label}</SectionLabel>
@@ -288,8 +324,8 @@ function MedaaDateField({ label, value, minimum, disabled, onChange }: {
             <MaterialCommunityIcons name="calendar-outline" size={21} color={colors.ai} />
           </Pressable>
           {open ? <DateTimePicker mode="date" themeVariant="dark" display={Platform.OS === "ios" ? "spinner" : "default"}
-            minimumDate={Number.isNaN(minimumDate.getTime()) ? new Date() : minimumDate}
-            value={Number.isNaN(pickerDate.getTime()) ? new Date() : pickerDate} onChange={(event, date) => {
+            minimumDate={validMinimum} maximumDate={validMaximum}
+            value={pickerDate} onChange={(event, date) => {
               if (Platform.OS === "android") setOpen(false);
               if (event.type === "set" && date) onChange([date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-"));
             }} /> : null}

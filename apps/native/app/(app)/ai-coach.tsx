@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { MEDAA_JOURNEY_GENERATION_LIMIT, medaaJourneyStages, type MedaaAiAction, type MedaaAiRequest, type MedaaConversation, type MedaaDraftContent, type MedaaJourneyStage } from "@rdm-b2c/api/domain/medaa";
+import { MEDAA_JOURNEY_GENERATION_LIMIT, medaaJourneyStages, type MedaaAiAction, type MedaaAiRequest, type MedaaConversation, type MedaaJourneyStage } from "@rdm-b2c/api/domain/medaa";
 import type { GoalCategory } from "@rdm-b2c/api/domain/rdm";
 import { replaceEqualDeep, useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
@@ -9,7 +9,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollVie
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { MedaaDraftCard } from "@/components/medaa-draft-card";
-import { MedaaJourneyStep, MedaaLongTermBadge, MedaaManualForm, medaaStageTitles } from "@/components/medaa-journey";
+import { MedaaJourneyStep, MedaaLongTermBadge, medaaStageTitles } from "@/components/medaa-journey";
 import { PageHeader, PrimaryButton, SurfaceCard } from "@/components/rdm-ui";
 import { colors, fonts, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
@@ -28,7 +28,6 @@ export default function AiCoachScreen() {
   const draftId = typeof params.draftId === "string" ? params.draftId : "";
   const focused = useIsFocused();
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [manualType, setManualType] = useState<"habit" | "goal" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [localAttempt, setLocalAttempt] = useState<MedaaAiRequest | null>(null);
@@ -64,7 +63,6 @@ export default function AiCoachScreen() {
   const chooseGoals = useMutation(trpc.medaa.chooseGoals.mutationOptions());
   const generate = useMutation(trpc.medaa.generate.mutationOptions());
   const dismiss = useMutation(trpc.medaa.dismissGeneration.mutationOptions());
-  const addManual = useMutation(trpc.medaa.addManual.mutationOptions());
 
   function receive(next: MedaaConversation) {
     queryClient.setQueryData<MedaaConversation>(trpc.medaa.conversation.queryKey({ id: next.id }),
@@ -72,7 +70,7 @@ export default function AiCoachScreen() {
     void queryClient.invalidateQueries({ queryKey: trpc.medaa.conversations.queryKey() });
   }
 
-  useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [stage, draftId, manualType, conversationId]);
+  useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [stage, draftId, conversationId]);
   const resolvedAttempt = Boolean(localAttempt && data?.messages.some((item) => item.id === `assistant:${localAttempt.requestId}`));
   useEffect(() => {
     if (resolvedAttempt) { setLocalAttempt(null); setError(null); }
@@ -125,12 +123,12 @@ export default function AiCoachScreen() {
     if (result) setLocalAttempt(null);
   }
 
-  function openDraft(id: string) { setError(null); setManualType(null); router.setParams({ draftId: id }); }
+  function openDraft(id: string) { setError(null); router.setParams({ draftId: id }); }
   function closeDraft() { setError(null); router.setParams({ draftId: "" }); }
 
   function selectJourney(id: string) {
     if (locked) return;
-    setManualType(null); setLocalAttempt(null); setError(null); setHistoryOpen(false);
+    setLocalAttempt(null); setError(null); setHistoryOpen(false);
     startId.current = Crypto.randomUUID();
     router.setParams({ conversationId: id, draftId: "" });
   }
@@ -138,22 +136,20 @@ export default function AiCoachScreen() {
   function back() {
     if (busy) return;
     if (historyOpen) { setHistoryOpen(false); return; }
-    if (manualType) { setManualType(null); return; }
     if (draftId) { closeDraft(); return; }
     if (!journey || stage === "horizon" || pending) { router.replace("/(app)/(tabs)"); return; }
     const previous: Record<MedaaJourneyStage, MedaaJourneyStage> = {
       horizon: "horizon", "long-term": "horizon", "short-term": "long-term", goals: "short-term",
       habits: "goals", plan: "goals", next: "plan",
     };
-    if (stage === "goals" && journey.selectedGoalIds.length > 2) { goTo("plan"); return; }
     if (stage === "plan" && journey.selectedGoalIds.length === 0) { goTo("short-term"); return; }
     goTo(previous[stage]);
   }
 
-  const title = manualType ? `Add a ${manualType === "habit" ? "Habit" : "Goal"}` : selectedDraft
+  const title = selectedDraft
     ? `${selectedDraft.status === "created" ? "Your" : "Add a"} ${selectedDraft.content.type === "habit" ? "Habit" : "Goal"}`
     : "Medaa Ai";
-  const subtitle = selectedDraft || manualType ? "PART OF YOUR PLAN" : data && !journey ? "SAVED CONVERSATION" : medaaStageTitles[stage].toUpperCase();
+  const subtitle = selectedDraft ? "PART OF YOUR PLAN" : data && !journey ? "SAVED CONVERSATION" : medaaStageTitles[stage].toUpperCase();
   const notice = error ?? data?.failureMessage ?? conversation.error?.message ?? status.error?.message;
   const latestReply = data?.lastRequest ? data.messages.find((item) => item.id === `assistant:${data.lastRequest?.requestId}`) : null;
   const replyMatchesStep = (stage === "short-term" && data?.lastRequest?.action.kind === "suggest-goals" && !draftId)
@@ -169,7 +165,7 @@ export default function AiCoachScreen() {
               onPress={() => setHistoryOpen(!historyOpen)} style={styles.iconButton}>
               <MaterialCommunityIcons name="history" size={23} color={colors.ai} />
             </Pressable>} />
-          {!draftId && !manualType && (!data || journey) ? <View accessibilityLabel={`Step ${medaaJourneyStages.indexOf(stage) + 1} of 7`} style={styles.progress}>
+          {!draftId && (!data || journey) ? <View accessibilityLabel={`Step ${medaaJourneyStages.indexOf(stage) + 1} of 7`} style={styles.progress}>
             {medaaJourneyStages.map((item, index) => <View key={item} style={[styles.progressSegment, index <= medaaJourneyStages.indexOf(stage) && styles.progressActive]} />)}
           </View> : null}
         </View>
@@ -191,7 +187,7 @@ export default function AiCoachScreen() {
           {conversationId && conversation.isPending ? <ActivityIndicator color={colors.ai} /> : null}
           {!configured && status.data ? <View style={styles.connectionNotice}>
             <MaterialCommunityIcons name="information-outline" size={18} color={colors.ai} />
-            <Text style={[styles.helper, styles.flex]}>AI suggestions are not connected yet. You can still build and save your plan manually.</Text>
+            <Text style={[styles.helper, styles.flex]}>AI suggestions are not connected yet. Your saved plans and drafts remain available to review.</Text>
           </View> : null}
           {notice ? <SurfaceCard style={styles.failure}>
             <Text accessibilityLiveRegion="polite" style={styles.error}>{notice}</Text>
@@ -207,13 +203,9 @@ export default function AiCoachScreen() {
           {locked ? <View style={styles.saving}><ActivityIndicator color={colors.ai} size="small" />
             <Text style={styles.helper}>{generate.isPending || pending ? "Preparing suggestions… Your journey is saved." : "Saving your progress…"}</Text>
           </View> : null}
-          {journey?.longTermGoal && (draftId || manualType) ? <MedaaLongTermBadge journey={journey} /> : null}
-          {latestReply && replyMatchesStep && !manualType ? <SurfaceCard><Text style={styles.messageRole}>MEDAA AI</Text><Text style={styles.message}>{latestReply.text}</Text></SurfaceCard> : null}
-          {manualType && data ? <MedaaManualForm key={manualType} type={manualType} initialCategory={journey?.category ?? "Focus"} disabled={locked}
-            onCancel={() => setManualType(null)} onSave={async (content: MedaaDraftContent, requestId: string) => {
-              const result = await run(() => addManual.mutateAsync({ conversationId: data.id, requestId, content }));
-              if (result) openDraft(requestId);
-            }} /> : selectedDraft && data ? <>
+          {journey?.longTermGoal && draftId ? <MedaaLongTermBadge journey={journey} /> : null}
+          {latestReply && replyMatchesStep ? <SurfaceCard><Text style={styles.messageRole}>MEDAA AI</Text><Text style={styles.message}>{latestReply.text}</Text></SurfaceCard> : null}
+          {selectedDraft && data ? <>
             <MedaaDraftCard key={`${selectedDraft.id}:${selectedDraft.version}:${selectedDraft.status}`} conversationId={data.id} timeZone={data.timeZone}
               draft={selectedDraft} disabled={locked} initialEditing={!selectedDraft.review && selectedDraft.status === "draft"}
               onConversation={receive} onClose={closeDraft} aiDisabled={aiDisabled}
@@ -231,9 +223,8 @@ export default function AiCoachScreen() {
             onHorizon={(years) => void chooseHorizon(years)}
             onLongTerm={(longTermGoal: string, category: GoalCategory) => { if (data) void run(() => defineLongTerm.mutateAsync({ conversationId: data.id, longTermGoal, category, expectedRevision: data.revision })); }}
             onChooseGoals={(draftIds, continueToGoals = true) => { if (data) void run(() => chooseGoals.mutateAsync({ conversationId: data.id, draftIds, continueToGoals, expectedRevision: data.revision })); }}
-            onNavigate={goTo} onGenerate={(action, regenerate) => void requestAi(action, regenerate)} onOpenDraft={openDraft}
-            onManual={(type) => { setError(null); setManualType(type); }} /> : null}
-          {journey?.longTermGoal && !draftId && !manualType && stage !== "plan" && stage !== "next" ? <PrimaryButton label="View saved plan" variant="outline" color={colors.ai}
+            onNavigate={goTo} onGenerate={(action, regenerate) => void requestAi(action, regenerate)} onOpenDraft={openDraft} /> : null}
+          {journey?.longTermGoal && !draftId && stage !== "plan" && stage !== "next" ? <PrimaryButton label="View saved plan" variant="outline" color={colors.ai}
             disabled={locked} onPress={() => goTo("plan")} /> : null}
           <Text style={styles.disclaimer}>AI suggests. You decide. No RDM is locked until you review and tap Set.</Text>
         </ScrollView>
