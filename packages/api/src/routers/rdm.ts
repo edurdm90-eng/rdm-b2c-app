@@ -20,6 +20,7 @@ import { z } from "zod";
 
 import { protectedProcedure, router } from "../index";
 import { savedLeaderboard } from "../services/leaderboard";
+import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitment-input";
 import {
   awardSplitIsValid,
   badgeCatalog,
@@ -2261,23 +2262,7 @@ export const rdmRouter = router({
         return serializeHabit(habit);
       }),
     create: protectedProcedure
-      .input(z.object({
-        title: z.string().trim().min(2).max(80),
-        category: z.enum(habitCategories),
-        icon: z.string().min(1).default("target"),
-        cadence: z.string().trim().min(2).max(40),
-        target: z.string().trim().min(2).max(120),
-        pledge: z.string().trim().min(8).max(500),
-        creationId: z.string().uuid(),
-        rdmPledgePerDay: z.number().int().min(1).max(100_000),
-        rdmPledgeWeekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7)
-          .refine((days) => new Set(days).size === days.length, "Choose each weekday once")
-          .default([1, 2, 3, 4, 5, 6, 7]),
-        rdmPledgeStartDayKey: dayKeySchema,
-        rdmPledgeEndDayKey: dayKeySchema,
-        timeZone: timeZoneSchema,
-        source: z.enum(habitSources),
-      }))
+      .input(habitCreateInputSchema)
       .mutation(async ({ ctx, input }) => {
         const existingHabit = await Habit.findOne({
           userId: ctx.session.user.id,
@@ -2668,16 +2653,7 @@ export const rdmRouter = router({
         note: input.note,
       })),
     create: protectedProcedure
-      .input(z.object({
-        creationId: z.string().uuid(),
-        title: z.string().trim().min(3).max(80),
-        category: z.enum(goalCategories),
-        target: z.string().trim().min(2).max(120),
-        durationDays: z.number().int().min(1).max(3_650),
-        startDayKey: dayKeySchema,
-        timeZone: timeZoneSchema,
-        pledgeAmount: z.number().int().min(1).max(100_000),
-      }))
+      .input(goalCreateInputSchema)
       .mutation(async ({ ctx, input }) => {
         const window = goalDurationWindow(input.startDayKey, input.durationDays);
         const currentDayKey = dayKeyForTimeZone(new Date(), input.timeZone);

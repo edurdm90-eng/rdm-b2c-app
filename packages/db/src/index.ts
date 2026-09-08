@@ -15,6 +15,7 @@ const client = mongoose.connection.getClient().db(databaseName);
 
 export { client, databaseName };
 export { goodDeedCatalog, goodDeedIds } from "./good-deeds";
+export { MedaaConversation, MedaaUsage, type MedaaConversationRecord } from "./models/medaa.model";
 export {
   GameSession,
   Goal,

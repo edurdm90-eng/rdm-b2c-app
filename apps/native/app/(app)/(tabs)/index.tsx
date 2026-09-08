@@ -97,8 +97,8 @@ export default function HomeScreen() {
         <SurfaceCard onPress={() => router.push("/(app)/ai-coach")} style={styles.pathCard}>
           <IconBubble name="creation-outline" color={colors.ai} backgroundColor={colors.aiTint} />
           <Text style={styles.pathTitle}>AI-Guided</Text>
-          <Text style={styles.pathCopy}>Discuss your challenge with the RDM coach.</Text>
-          <Text style={[styles.pathGo, { color: colors.ai }]}>Preview →</Text>
+          <Text style={styles.pathCopy}>Shape your next habit or goal with Medaa Ai.</Text>
+          <Text style={[styles.pathGo, { color: colors.ai }]}>Chat →</Text>
         </SurfaceCard>
       </View>
 
