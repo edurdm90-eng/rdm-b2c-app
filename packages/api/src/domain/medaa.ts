@@ -62,6 +62,7 @@ export type MedaaReview = {
 
 export type MedaaDraft = {
   id: string;
+  origin: "ai" | "manual";
   content: MedaaDraftContent;
   version: number;
   status: "draft" | "setting" | "created";
@@ -76,6 +77,47 @@ export type MedaaMessage = {
   createdAt: string;
 };
 
+export const medaaJourneyStages = ["horizon", "long-term", "short-term", "goals", "habits", "plan", "next"] as const;
+export type MedaaJourneyStage = typeof medaaJourneyStages[number];
+
+export const medaaAiActionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("suggest-goals") }).strict(),
+  z.object({ kind: z.literal("suggest-habits") }).strict(),
+  z.object({ kind: z.literal("refine"), draftId: z.string().uuid(),
+    direction: z.enum(["simpler", "more-specific", "less-time"]) }).strict(),
+]);
+export type MedaaAiAction = z.infer<typeof medaaAiActionSchema>;
+
+export type MedaaJourney = {
+  horizonYears: 1 | 2 | 3 | null;
+  longTermGoal: string;
+  category: typeof goalCategories[number] | null;
+  stage: MedaaJourneyStage;
+  selectedGoalIds: string[];
+  goalSuggestionIds: string[];
+  habitSuggestionIds: string[];
+  goalSuggestionsReady: boolean;
+  habitSuggestionsReady: boolean;
+  generations: number;
+};
+
+export type MedaaAiRequest = { requestId: string; action: MedaaAiAction; regenerate: boolean };
+
+export const medaaLongTermGoalSchema = z.string().trim().min(12, "Describe a meaningful long-term outcome (at least 12 characters).")
+  .max(300).refine((value) => !/sk-[A-Za-z0-9_-]{20,}/u.test(value), "Do not include API keys.")
+  .refine((value) => !/^(?:(?:hey|hi|hello)[,!. ]*)?(?:(?:i(?:'m| am)?|im)\s+)?(?:feeling\s+)?(?:bored?|lonely|sad|happy)[.! ]*$/iu.test(value),
+    "Describe what you want to achieve, such as building a skill or improving your fitness.");
+
+export const MEDAA_JOURNEY_GENERATION_LIMIT = 12;
+export const MEDAA_PLAN_ITEM_LIMIT = 3;
+
+export const medaaGoalExamples = [
+  { title: "Build a sustainable business", category: "Money" },
+  { title: "Develop a consistent fitness routine", category: "Health" },
+  { title: "Become confident in a new professional skill", category: "Focus" },
+  { title: "Build a stronger connection with my family", category: "Family" },
+] as const;
+
 export type MedaaConversation = {
   id: string;
   title: string;
@@ -85,6 +127,9 @@ export type MedaaConversation = {
   pendingRequestId: string | null;
   failedRequestId: string | null;
   failureMessage: string | null;
+  journey: MedaaJourney | null;
+  lastRequest: MedaaAiRequest | null;
+  revision: number;
 };
 
 export type MedaaGenerationContext = {
@@ -92,6 +137,8 @@ export type MedaaGenerationContext = {
   drafts: MedaaDraft[];
   todayDayKey: string;
   timeZone: string;
+  journey?: { horizonYears: 1 | 2 | 3; longTermGoal: string; category: typeof goalCategories[number] };
+  action?: MedaaAiAction;
 };
 
 /** External model boundary. Production never substitutes fixture responses. */

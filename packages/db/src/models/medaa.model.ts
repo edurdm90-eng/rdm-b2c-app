@@ -11,6 +11,7 @@ export interface MedaaConversationRecord {
   messages: Array<{ id: string; role: "user" | "assistant"; text: string; createdAt: Date }>;
   drafts: Array<{
     id: string;
+    origin: "ai" | "manual";
     content: { type: "habit" | "goal"; title: string; category: string; target: string;
       pledge: string | null; weekdays: number[]; durationDays: number | null };
     version: number;
@@ -24,6 +25,23 @@ export interface MedaaConversationRecord {
   leaseExpiresAt: Date | null;
   failedRequestId: string | null;
   failureMessage: string | null;
+  journey: {
+    horizonYears: 1 | 2 | 3 | null;
+    longTermGoal: string;
+    category: string | null;
+    stage: "horizon" | "long-term" | "short-term" | "goals" | "habits" | "plan" | "next";
+    selectedGoalIds: string[];
+    goalSuggestionIds: string[];
+    habitSuggestionIds: string[];
+    goalSuggestionsReady: boolean;
+    habitSuggestionsReady: boolean;
+    generations: number;
+  } | null;
+  lastRequest: {
+    requestId: string;
+    action: { kind: "suggest-goals" | "suggest-habits" | "refine"; draftId?: string; direction?: string };
+    regenerate: boolean;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +68,7 @@ const reviewSchema = new Schema({
 
 const draftSchema = new Schema({
   id: { type: String, required: true },
+  origin: { type: String, enum: ["ai", "manual"], default: "ai" },
   content: { type: contentSchema, required: true },
   version: { type: Number, required: true, default: 0 },
   status: { type: String, enum: ["draft", "setting", "created"], required: true, default: "draft" },
@@ -62,6 +81,29 @@ const messageSchema = new Schema({
   role: { type: String, enum: ["user", "assistant"], required: true },
   text: { type: String, required: true },
   createdAt: { type: Date, required: true },
+}, { _id: false });
+
+const journeySchema = new Schema({
+  horizonYears: { type: Number, enum: [1, 2, 3], default: null },
+  longTermGoal: { type: String, default: "" },
+  category: { type: String, default: null },
+  stage: { type: String, enum: ["horizon", "long-term", "short-term", "goals", "habits", "plan", "next"], default: "horizon" },
+  selectedGoalIds: { type: [String], default: [] },
+  goalSuggestionIds: { type: [String], default: [] },
+  habitSuggestionIds: { type: [String], default: [] },
+  goalSuggestionsReady: { type: Boolean, default: false },
+  habitSuggestionsReady: { type: Boolean, default: false },
+  generations: { type: Number, default: 0 },
+}, { _id: false });
+
+const requestSchema = new Schema({
+  requestId: { type: String, required: true },
+  action: { type: new Schema({
+    kind: { type: String, enum: ["suggest-goals", "suggest-habits", "refine"], required: true },
+    draftId: String,
+    direction: String,
+  }, { _id: false }), required: true },
+  regenerate: { type: Boolean, default: false },
 }, { _id: false });
 
 const conversationSchema = new Schema<MedaaConversationRecord>({
@@ -77,6 +119,9 @@ const conversationSchema = new Schema<MedaaConversationRecord>({
   leaseExpiresAt: { type: Date, default: null },
   failedRequestId: { type: String, default: null },
   failureMessage: { type: String, default: null },
+  // Null preserves pre-journey chat history without silently changing its meaning.
+  journey: { type: journeySchema, default: null },
+  lastRequest: { type: requestSchema, default: null },
 }, { timestamps: true, collection: "medaaconversations" });
 
 conversationSchema.index({ userId: 1, creationId: 1 }, { unique: true });

@@ -18,16 +18,19 @@ const weekdays = [
   { value: 7, label: "Sun" },
 ];
 
-export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, onConversation, onRefine }: {
+export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, initialEditing = false, aiDisabled = false, onConversation, onRefine, onClose }: {
   conversationId: string;
   timeZone: string;
   draft: MedaaDraft;
   disabled: boolean;
+  initialEditing?: boolean;
+  aiDisabled?: boolean;
   onConversation: (conversation: MedaaConversation) => void;
-  onRefine: () => void;
+  onRefine?: (direction: "simpler" | "more-specific" | "less-time") => void;
+  onClose?: () => void;
 }) {
   const today = dayKeyForTimeZone(new Date(), timeZone);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialEditing);
   const [content, setContent] = useState<MedaaDraftContent>(draft.content);
   const [startDayKey, setStartDayKey] = useState(draft.review?.startDayKey ?? today);
   const [endDayKey, setEndDayKey] = useState(draft.review?.endDayKey
@@ -35,10 +38,12 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, onCo
   // An AI suggestion must never choose how much of the user's currency to spend.
   const [pledge, setPledge] = useState(draft.review ? String(draft.review.pledgeAmount) : "");
   const [error, setError] = useState<string | null>(null);
+  const [confirmElapsedDates, setConfirmElapsedDates] = useState(false);
   const submitting = useRef(false);
   const isHabit = content.type === "habit";
   const isCreated = draft.status === "created";
   const setting = draft.status === "setting";
+  const hasElapsedDates = setting && Boolean(draft.review && draft.review.startDayKey < today);
   const review = editing ? null : draft.review;
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions(undefined, {
     enabled: !isCreated && Boolean(editing || review),
@@ -50,6 +55,10 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, onCo
   const set = useMutation(trpc.medaa.set.mutationOptions());
   const busy = prepare.isPending || set.isPending;
   const locked = disabled || busy || setting;
+  const hasUnsavedChanges = JSON.stringify(content) !== JSON.stringify(draft.content)
+    || startDayKey !== (draft.review?.startDayKey ?? today)
+    || endDayKey !== (draft.review?.endDayKey ?? (draft.content.durationDays ? goalDurationWindow(today, draft.content.durationDays)?.endDayKey : "") ?? "")
+    || pledge !== (draft.review ? String(draft.review.pledgeAmount) : "");
 
   function updateContent(update: Partial<MedaaDraftContent>) {
     setContent((current) => ({ ...current, ...update }));
@@ -100,7 +109,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, onCo
     submitting.current = true;
     setError(null);
     try {
-      const result = await set.mutateAsync({ conversationId, draftId: draft.id, reviewId: draft.review.id });
+      const result = await set.mutateAsync({ conversationId, draftId: draft.id, reviewId: draft.review.id, confirmElapsedDates });
       onConversation(result);
       await queryClient.invalidateQueries({ queryKey: trpc.rdm.pathKey() });
     } catch (failure) {
@@ -124,16 +133,31 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, onCo
       <View style={styles.heading}>
         <MaterialCommunityIcons name={isCreated ? "check-circle-outline" : isHabit ? "repeat" : "flag-outline"}
           color={isCreated ? colors.growth : colors.ai} size={23} />
-        <Text style={[styles.kind, isCreated && styles.createdLabel]}>{isCreated ? "CREATED" : review ? "REVIEW BEFORE SET" : "SUGGESTED"} {isHabit ? "HABIT" : "GOAL"}</Text>
+        <Text style={[styles.kind, isCreated && styles.createdLabel]}>{isCreated ? "CREATED" : review ? "REVIEW BEFORE SET" : draft.origin === "manual" ? "YOUR DRAFT" : "AI-SUGGESTED"} {isHabit ? "HABIT" : "GOAL"}</Text>
       </View>
       <Text style={styles.title}>{draft.content.title}</Text>
       <Text style={styles.target}>{draft.content.target}</Text>
       <Text style={styles.meta}>{draft.content.category}{draft.content.durationDays ? ` · ${draft.content.durationDays}-day suggestion` : ""}</Text>
+      {onRefine && draft.status === "draft" ? <View style={styles.actions}>
+        <Text style={styles.helper}>Use Medaa Ai to refine this {isHabit ? "habit" : "goal"}:</Text>
+        <View style={styles.chips}>
+          {([{ direction: "simpler", label: "Make simpler" }, { direction: "more-specific", label: "More specific" }, { direction: "less-time", label: "Less time" }] as const).map((item) => (
+            <Pressable key={item.direction} accessibilityRole="button" accessibilityLabel={item.label}
+              accessibilityState={{ disabled: locked || aiDisabled || hasUnsavedChanges }}
+              disabled={locked || aiDisabled || hasUnsavedChanges} onPress={() => onRefine(item.direction)}
+              style={[styles.refineButton, (locked || aiDisabled || hasUnsavedChanges) && styles.disabled]}>
+              <Text style={styles.refineLabel}>{item.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {hasUnsavedChanges ? <Text style={styles.helper}>Review your changes or cancel edits before asking AI to refine the saved suggestion.</Text> : null}
+      </View> : null}
 
       {isCreated ? (
         <>
           <Text style={styles.helper}>Saved to your {isHabit ? "Habits" : "Goals"}. Continue with your usual tracking and reflection.</Text>
           <PrimaryButton label={`Open ${isHabit ? "habit" : "goal"}`} color={colors.growth} icon="arrow-right" disabled={!draft.entityId} onPress={openCreated} />
+          {onClose ? <PrimaryButton label="Back to journey" color={colors.ai} variant="outline" onPress={onClose} /> : null}
         </>
       ) : editing ? (
         <View style={styles.editor}>
@@ -176,6 +200,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, onCo
           <TextInput accessibilityLabel={isHabit ? "Daily RDM pledge" : "Goal RDM pledge"} value={pledge}
             placeholder="Enter your own amount" placeholderTextColor={colors.inkSoft} editable={!locked}
             keyboardType="number-pad" maxLength={6} onChangeText={setPledge} style={styles.input} />
+          <Text style={styles.helper}>{isHabit ? "Minimum 1 RDM per scheduled day." : "This is one whole-goal pledge, not a daily charge."}</Text>
           <Text style={styles.helper}>The server will calculate your exact Base Purse commitment before you confirm. No RDM is locked by reviewing.</Text>
           <PrimaryButton label="Review commitment" icon="clipboard-check-outline" color={colors.ai}
             loading={prepare.isPending} disabled={locked} onPress={() => void prepareReview()} />
@@ -187,6 +212,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, onCo
               setPledge(draft.review ? String(draft.review.pledgeAmount) : "");
               setError(null);
               setEditing(false);
+              if (!draft.review) onClose?.();
             }} />
         </View>
       ) : review ? (
@@ -208,8 +234,21 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, onCo
           <Text style={styles.helper}>{setting
             ? "This exact commitment has been submitted. Retry to confirm the result safely; it cannot be edited while creation is being resolved."
             : "Tapping Set creates this commitment and locks the amount above. Existing tracking, reflection, and RDM rules apply."}</Text>
+          {hasElapsedDates ? <>
+            <Text style={styles.error}>{isHabit
+              ? "The original start date has passed. Recovery keeps the same dates and pledge; any missed scheduled days settle to Remorse."
+              : review.endDayKey <= today
+                ? "The original deadline has passed. Recovering this commitment can lock the original pledge and immediately settle it to Remorse."
+                : "The original start date has passed. Recovery keeps the same deadline and pledge; it does not start a new goal period."}</Text>
+            <Pressable accessibilityRole="checkbox" accessibilityLabel="Confirm recovery with the original dates and RDM pledge"
+              accessibilityState={{ checked: confirmElapsedDates }} disabled={disabled || busy}
+              onPress={() => setConfirmElapsedDates(!confirmElapsedDates)} style={styles.heading}>
+              <MaterialCommunityIcons name={confirmElapsedDates ? "checkbox-marked" : "checkbox-blank-outline"} size={24} color={colors.ai} />
+              <Text style={[styles.helper, { flex: 1 }]}>I confirm the original dates, RDM pledge, and any missed-day settlement.</Text>
+            </Pressable>
+          </> : null}
           <PrimaryButton label={`${setting ? "Retry Set" : "Set"} ${isHabit ? "Habit" : "Goal"}`} icon="check" color={colors.ai}
-            loading={set.isPending} disabled={disabled || busy || (!setting && (!canAfford || wallet.isPending))}
+            loading={set.isPending} disabled={disabled || busy || (hasElapsedDates && !confirmElapsedDates) || (!setting && (!canAfford || wallet.isPending))}
             onPress={() => void setCommitment()} />
           {!setting ? <PrimaryButton label="Edit details" variant="outline" color={colors.ai} disabled={disabled || busy}
             onPress={() => { setError(null); setEditing(true); }} /> : null}
@@ -218,7 +257,6 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, onCo
         <View style={styles.actions}>
           <PrimaryButton label={`Review ${isHabit ? "habit" : "goal"}`} icon="pencil-outline" color={colors.ai}
             disabled={disabled} onPress={() => setEditing(true)} />
-          <PrimaryButton label="Refine with Medaa" variant="outline" color={colors.ai} disabled={disabled} onPress={onRefine} />
         </View>
       )}
       {error ? (
@@ -286,4 +324,7 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, fontFamily: fonts.body, fontSize: 13, lineHeight: 20 },
   dateField: { gap: 8 },
   dateButton: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.line, padding: 13, borderRadius: radii.small, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  refineButton: { paddingHorizontal: 11, paddingVertical: 10, borderWidth: 1, borderColor: colors.ai, borderRadius: radii.pill, backgroundColor: colors.aiTint },
+  refineLabel: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.ai },
+  disabled: { opacity: 0.4 },
 });

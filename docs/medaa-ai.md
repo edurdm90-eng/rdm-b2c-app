@@ -1,6 +1,16 @@
 # Medaa Ai
 
-Medaa Ai lives inside **AI-Guided** in the native app. It helps refine an intention, suggests an editable habit or goal, and hands off to the existing commitment system. Chatting, accepting a suggestion, and reviewing a card do not spend RDM. Only the explicit **Set Habit** or **Set Goal** action can create and fund the confirmed item. Existing reflection, progress, tree-care, Reward, and Remorse rules remain unchanged.
+Medaa Ai is a structured journey inside **AI-Guided**, not an open-ended chatbot. It follows the reference's horizon → long-term ambition → short-term goals → supporting habits → saved plan flow. Existing daily reflection, progress, tree-care, Reward, and Remorse rules remain unchanged.
+
+## Guided journey
+
+1. Choose a **1-, 2-, or 3-year** horizon and define a meaningful long-term ambition with a supported category. These first two steps and local examples make **no OpenAI calls**. The long-term ambition is unfunded planning context, not another RDM commitment.
+2. Tap **Get AI help** for three measurable **90–180-day** short-term goal options, then select at most **two** initially. Existing suggestions are reused when reopening the step; only an explicit regeneration asks for another batch.
+3. **Add Goal** opens an editable review form. Fixed refinement buttons can make a draft simpler, more specific, or less time-consuming; there is no free-text chat/refinement prompt.
+4. Explicitly request supporting habits, review their proposed cadence, and use **Add Habit** to confirm one. Suggestions support the ambition and relevant selected/created goals.
+5. View the actual created items together, then add more manually or skip. The plan permits at most **three goals and three habits per journey**, not an account-wide limit. Legacy chats remain readable but cannot send new messages or be submitted as model context.
+
+Only the explicit **Set Habit** or **Set Goal** action creates and funds a confirmed item. The user chooses at least **1 RDM**: a goal locks its whole confirmed pledge; a habit locks its daily pledge multiplied by the scheduled dates. Dates are **start-inclusive and end-exclusive**. The backend calculates exact dates, affordability, and totals before confirmation. Selecting a suggestion, saving a planning direction, and reviewing a card do not spend RDM. No automatic renewals are created.
 
 ## Server configuration
 
@@ -12,22 +22,27 @@ OPENAI_MODEL=gpt-5-mini
 MEDAA_DAILY_REQUEST_LIMIT=30
 ```
 
-Never put the key in an `EXPO_PUBLIC_`/`VITE_` variable, the mobile bundle, Git, or chat. `apps/server/.env.example` contains configuration names only. An absent key does not prevent the rest of the app from starting; Medaa Ai reports that it is not configured instead of substituting mock answers.
+Never put the key in an `EXPO_PUBLIC_`/`VITE_` variable, the mobile bundle, Git, or chat. `apps/server/.env.example` contains configuration names only. With no key, the app still starts and manual journey steps remain usable; AI actions report unavailability rather than producing mock answers.
 
 The default uses the documented older `gpt-5-mini` API model, not an assumed `5.3 mini` alias. Change `OPENAI_MODEL` only to a model your project can access that supports Responses, strict structured outputs, and minimal reasoning. There is no silent model fallback. See [GPT-5 mini](https://developers.openai.com/api/docs/models/gpt-5-mini) and [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
 
-## Persistence and safeguards
+## Persistence, cost, and privacy
 
-- Conversations, draft versions, reviews, and created-item links live in the application's MongoDB database, `rdm-business`. Reloading the app resumes saved work.
-- Authenticated users can access only their own conversations. Server validation controls categories, dates, schedules, confirmed RDM amounts, affordability, and creation.
-- Retries use persisted request and creation identifiers. Model-generated text is never proof of creation or permission to debit a purse.
-- Requests are limited per account per UTC day (30 by default). Each provider call has a 30-second timeout, minimal reasoning, and a 3,000-token output ceiling including reasoning. No automatic provider retry or paid tool call is made.
-- The complete saved conversation (at most 100 messages of 2,000 characters each) and up to 30 draft summaries, plus supported app rules/date/timezone, are sent to OpenAI. Initial intentions and constraints are not silently truncated. Oversized input is rejected. Wallet amounts, journals, reflections, authentication details, and other users' records are not included. Anything the user writes into chat is necessarily included in that conversation context.
-- Requests use `store: false`; this is not a promise of zero retention by OpenAI. Consult the project's applicable provider data controls. The app stores its own conversation history.
-- Refusals, malformed/incomplete outputs, unexpected tool calls, network failures, and provider errors leave drafts intact and return sanitized messages. API keys, raw provider responses, and conversation bodies are not logged by the adapter.
+- Journey state, draft versions, reviews, requests, and created-item links persist in MongoDB database `rdm-business`. Reloading resumes saved progress; users access only their own records. Server validation controls categories, dates, schedules, confirmed RDM amounts, affordability, and creation.
+- AI runs only after an explicit suggestion, regeneration, or fixed refinement action. The server allows **12 generations per journey** and **30 requests per account per UTC day** by default. Reopening a saved batch does not generate it again.
+- Each provider call has a **30-second timeout**, minimal reasoning, and a **3,000-token output ceiling** including reasoning. There is no automatic provider retry or paid tool call.
+- OpenAI receives only the bounded ambition (12–300 characters), selected horizon/category, fixed action, up to **30 relevant draft summaries**, and app date/timezone/rules. It receives **no chat history, wallet/RDM values, journals, reflections, authentication details, or other users' records**. User-entered ambition and draft content are necessarily included; do not enter secrets there.
+- The adapter rejects missing structured actions, non-empty chat history, oversized context, invalid refinement targets, malformed results, wrong suggestion types/counts, and unexpected tool calls. Unsafe/off-topic ambitions produce a brief explanation and no suggestions, not an open conversation.
+- Requests use `store: false`; this is not a promise of zero retention by OpenAI. Consult the project's applicable provider data controls. The app persists its own journey records.
+- Retries use saved request/creation identifiers. Model text never proves creation or authorizes spending. Errors preserve drafts and return sanitized messages; raw provider bodies, secrets, and input content are not logged by the adapter.
+- If a submitted Set attempt is interrupted across a date rollover, recovery requires the same frozen review and a new acknowledgement of the original dates and any missed-day settlement. A stored, exact-match approval is required; arbitrary past-dated new commitments remain rejected. Recovery never shifts the schedule or creates a new pledge identifier.
+
+## Reference adaptations
+
+The Add screens include date and RDM confirmation missing from the visual reference. Existing supported app categories are used instead of introducing a new Career category. The reference's reminder-time control is omitted because the app does not yet implement reminder delivery; no nonfunctional notification control is shown. Goal pledges still settle on the goal outcome, while habits settle each scheduled day after action and reflection.
 
 ## Verification
 
 Run `pnpm check-types`, `pnpm test`, and `pnpm --filter server test:integration` from the repository root for the existing repository checks. Existing database integration tests use an isolated local MongoDB. Medaa-specific automated provider and persistence tests have not yet been added; their test boundary is awaiting confirmation. Proposed tests will replace only the external model/HTTP boundary; production never returns fixture suggestions.
 
-Automated persistence tests do not establish real-model answer quality or account/model access. After adding a key, manually verify a vague request, a specific habit, goal refinement, insufficient Base RDM, repeated Set taps, navigation/reload, and a connection interruption. Live OpenAI calls incur provider usage; no live paid call was made during the keyless implementation.
+After adding the key, manually verify: no AI call during horizon/ambition entry, fixed suggestions and refinements, unsafe/off-topic ambition handling, cached suggestions, generation limits, insufficient Base RDM, repeated Set taps, plan limits, resume/back navigation, and connection interruption. Type checks or deterministic fixtures cannot establish live model quality or account access. Live OpenAI calls incur usage; no paid request was made during keyless implementation.

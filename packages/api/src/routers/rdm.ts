@@ -20,6 +20,7 @@ import { z } from "zod";
 
 import { protectedProcedure, router } from "../index";
 import { savedLeaderboard } from "../services/leaderboard";
+import { hasMedaaCommitmentApproval } from "../services/medaa-commitment-approval";
 import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitment-input";
 import {
   awardSplitIsValid,
@@ -2288,7 +2289,8 @@ export const rdmRouter = router({
             message: "Choose at least one scheduled day in a commitment window of 1–365 calendar days.",
           });
         }
-        if (input.rdmPledgeStartDayKey < currentDayKey) {
+        if (input.rdmPledgeStartDayKey < currentDayKey
+          && !(await hasMedaaCommitmentApproval(ctx.session.user.id, { type: "habit", input }))) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "The habit start date cannot be in the past.",
@@ -2660,7 +2662,8 @@ export const rdmRouter = router({
         if (!window) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a valid goal duration." });
         }
-        if (input.startDayKey < currentDayKey) {
+        if (input.startDayKey < currentDayKey
+          && !(await hasMedaaCommitmentApproval(ctx.session.user.id, { type: "goal", input }))) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "The goal start date cannot be in the past.",
