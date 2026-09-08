@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import { goalCategories, habitCategories, isValidTimeZone } from "./rdm";
 
+function containsApiKey(value: string) {
+  return /sk-[A-Za-z0-9_-]{20,}/u.test(value);
+}
+
 export const medaaDraftContentSchema = z.object({
   type: z.enum(["habit", "goal"]),
   title: z.string().trim().min(3).max(80),
@@ -11,6 +15,9 @@ export const medaaDraftContentSchema = z.object({
   weekdays: z.array(z.number().int().min(1).max(7)).max(7),
   durationDays: z.number().int().min(1).max(3_650).nullable(),
 }).strict().superRefine((draft, ctx) => {
+  if ([draft.title, draft.target, draft.pledge ?? ""].some(containsApiKey)) {
+    ctx.addIssue({ code: "custom", message: "Do not include API keys in your plan." });
+  }
   if (new Set(draft.weekdays).size !== draft.weekdays.length) {
     ctx.addIssue({ code: "custom", message: "Choose each weekday once", path: ["weekdays"] });
   }
@@ -88,6 +95,28 @@ export const medaaAiActionSchema = z.discriminatedUnion("kind", [
 ]);
 export type MedaaAiAction = z.infer<typeof medaaAiActionSchema>;
 
+/** One semantic contract for the transport adapter and the authenticated API. */
+export function medaaActionResponseSchema(action: MedaaAiAction, drafts: ReadonlyArray<Pick<MedaaDraft, "id" | "content" | "status">>) {
+  return medaaResponseSchema.superRefine((result, ctx) => {
+    if (result.suggestions.length === 0) return;
+    const invalid = () => ctx.addIssue({ code: "custom", message: "Suggestions do not match the requested journey action." });
+    if (action.kind === "refine") {
+      const original = drafts.find((draft) => draft.id === action.draftId);
+      const suggestion = result.suggestions[0];
+      if (result.suggestions.length !== 1 || original?.status !== "draft"
+        || suggestion?.replaceDraftId !== action.draftId || suggestion.content.type !== original.content.type) invalid();
+      return;
+    }
+    const type = action.kind === "suggest-goals" ? "goal" : "habit";
+    const titles = result.suggestions.map((suggestion) => suggestion.content.title.toLocaleLowerCase());
+    if (result.suggestions.length !== 3 || new Set(titles).size !== titles.length
+      || result.suggestions.some(({ replaceDraftId, content }) => replaceDraftId !== null || content.type !== type
+        || content.durationDays === null
+        || (type === "goal" && (content.durationDays < 90 || content.durationDays > 180 || content.weekdays.length !== 0 || content.pledge !== null))
+        || (type === "habit" && (content.weekdays.length === 0 || content.pledge === null)))) invalid();
+  });
+}
+
 export type MedaaJourney = {
   horizonYears: 1 | 2 | 3 | null;
   longTermGoal: string;
@@ -104,7 +133,7 @@ export type MedaaJourney = {
 export type MedaaAiRequest = { requestId: string; action: MedaaAiAction; regenerate: boolean };
 
 export const medaaLongTermGoalSchema = z.string().trim().min(12, "Describe a meaningful long-term outcome (at least 12 characters).")
-  .max(300).refine((value) => !/sk-[A-Za-z0-9_-]{20,}/u.test(value), "Do not include API keys.")
+  .max(300).refine((value) => !containsApiKey(value), "Do not include API keys.")
   .refine((value) => !/^(?:(?:hey|hi|hello)[,!. ]*)?(?:(?:i(?:'m| am)?|im)\s+)?(?:feeling\s+)?(?:bored?|lonely|sad|happy)[.! ]*$/iu.test(value),
     "Describe what you want to achieve, such as building a skill or improving your fitness.");
 

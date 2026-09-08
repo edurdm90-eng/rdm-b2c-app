@@ -3,13 +3,13 @@ import { z } from "zod";
 
 import {
   medaaAiActionSchema,
+  medaaActionResponseSchema,
   medaaDraftContentSchema,
   medaaLongTermGoalSchema,
   medaaResponseSchema,
   medaaTimeZoneSchema,
   type MedaaGenerationContext,
   type MedaaProvider,
-  type MedaaResponse,
 } from "../domain/medaa";
 import { goalCategories } from "../domain/rdm";
 import { medaaInstructions } from "./medaa-prompt";
@@ -160,43 +160,6 @@ function requestInput(snapshot: z.infer<typeof structuredContextSchema>) {
   ];
 }
 
-function validateActionResult(result: MedaaResponse, snapshot: z.infer<typeof structuredContextSchema>) {
-  // A valid empty result is the bounded response to an unsafe/off-topic ambition.
-  if (result.suggestions.length === 0) return result;
-  if (snapshot.action.kind === "refine") {
-    const draftId = snapshot.action.draftId;
-    const original = snapshot.drafts.find((draft) => draft.id === draftId);
-    const suggestion = result.suggestions[0];
-    if (
-      result.suggestions.length !== 1
-      || suggestion?.replaceDraftId !== draftId
-      || suggestion.content.type !== original?.content.type
-    ) {
-      throw new MedaaProviderError("invalid_response");
-    }
-  } else {
-    const expectedType = snapshot.action.kind === "suggest-goals" ? "goal" : "habit";
-    if (result.suggestions.length !== 3 || result.suggestions.some((suggestion) => (
-      suggestion.replaceDraftId !== null
-      || suggestion.content.type !== expectedType
-      || suggestion.content.durationDays === null
-      || (expectedType === "goal" && (
-        suggestion.content.durationDays < 90
-        || suggestion.content.durationDays > 180
-        || suggestion.content.weekdays.length !== 0
-        || suggestion.content.pledge !== null
-      ))
-      || (expectedType === "habit" && (
-        suggestion.content.weekdays.length === 0
-        || suggestion.content.pledge === null
-      ))
-    ))) {
-      throw new MedaaProviderError("invalid_response");
-    }
-  }
-  return result;
-}
-
 export const medaaProvider: MedaaProvider = {
   configured() {
     return Boolean(env.OPENAI_API_KEY);
@@ -233,7 +196,10 @@ export const medaaProvider: MedaaProvider = {
       }
       const body = await response.text();
       if (body.length > maximumResponseCharacters) throw new MedaaProviderError("invalid_response");
-      return validateActionResult(parseResponse(JSON.parse(body)), snapshot);
+      const result = medaaActionResponseSchema(snapshot.action, snapshot.drafts)
+        .safeParse(parseResponse(JSON.parse(body)));
+      if (!result.success) throw new MedaaProviderError("invalid_response");
+      return result.data;
     } catch (error) {
       if (error instanceof MedaaProviderError) throw error;
       if (controller.signal.aborted) throw new MedaaProviderError("timeout");

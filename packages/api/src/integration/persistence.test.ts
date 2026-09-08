@@ -9,6 +9,7 @@ import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { verifySavedLeaderboard } from "./leaderboard-assertions";
 import { verifyCareRecovery } from "./care-recovery-assertions";
+import { medaaRegressionCases } from "./medaa-journey-assertions";
 
 let mongo: ChildProcess | undefined;
 let temporaryDirectory: string;
@@ -48,11 +49,13 @@ before(async () => {
   process.env.BETTER_AUTH_URL = "http://127.0.0.1:43991";
   process.env.CORS_ORIGIN = "http://127.0.0.1:43992";
   process.env.NODE_ENV = "test";
+  process.env.OPENAI_API_KEY = "";
+  process.env.MEDAA_DAILY_REQUEST_LIMIT = "30";
   db = await import("@rdm-b2c/db");
   ({ appRouter } = await import("../routers/index"));
   ({ auth } = await import("@rdm-b2c/auth"));
   await Promise.all([db.RdmProfile, db.Habit, db.Goal, db.TreeCareActivity, db.GratitudeEntry,
-    db.GoodDeedEntry, db.GoalGroup, db.GameSession, db.Referral].map((model) => model.init()));
+    db.GoodDeedEntry, db.GoalGroup, db.GameSession, db.Referral, db.MedaaConversation, db.MedaaUsage].map((model) => model.init()));
 }, { timeout: 30_000 });
 
 after(async () => {
@@ -75,6 +78,10 @@ function caller(userId: string) {
 
 const today = () => new Date().toISOString().slice(0, 10);
 const dayAfter = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+
+for (const regression of medaaRegressionCases) {
+  test(regression.name, async () => regression.run({ db, caller }));
+}
 
 test("leaderboards use persistent accounts, real XP, and actual social relationships", async () => {
   await verifySavedLeaderboard({ db, auth, appRouter });

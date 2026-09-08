@@ -43,6 +43,10 @@ The Add screens include date and RDM confirmation missing from the visual refere
 
 ## Verification
 
-Run `pnpm check-types`, `pnpm test`, and `pnpm --filter server test:integration` from the repository root for the existing repository checks. Existing database integration tests use an isolated local MongoDB. Medaa-specific automated provider and persistence tests have not yet been added; their test boundary is awaiting confirmation. Proposed tests will replace only the external model/HTTP boundary; production never returns fixture suggestions.
+Run `pnpm check-types`, `pnpm test`, and `pnpm --filter server test:integration` from the repository root. Database integration tests use an isolated local MongoDB. Provider regressions run with `pnpm --filter server exec tsx --test tests/medaa-provider.test.ts` (also included in `pnpm test`): they exercise the real adapter and replace only external HTTP using a fake credential, not the prompt/parser/business-rule implementation. They cover compact fixed-action inputs, secret preflight, invalid outputs, refinements, sanitized errors, timeout, and missing-key behavior. Production never returns fixture suggestions.
+
+Set `RDM_TEST_MONGOD` to your local `mongod` executable if it is not on PATH. The database fixture uses the real API and wallet logic, an injected model boundary, and no OpenAI credential. Medaa persistence cases cover initial/extra goal limits, saved suggestions and refinements, rejected requests, daily admission, 1 RDM/day and exclusive end dates, insufficient funds, repeated/concurrent Set, and confirmed recovery across date rollover.
+
+The verified implementation passed **72 unit/provider tests**, **29 integration tests**, workspace type checks, production builds, and Expo exports for Android, iOS, and web. See [the implementation review](medaa-journey-review.md) for scope and remaining live checks.
 
 After adding the key, manually verify: no AI call during horizon/ambition entry, fixed suggestions and refinements, unsafe/off-topic ambition handling, cached suggestions, generation limits, insufficient Base RDM, repeated Set taps, plan limits, resume/back navigation, and connection interruption. Type checks or deterministic fixtures cannot establish live model quality or account access. Live OpenAI calls incur usage; no paid request was made during keyless implementation.

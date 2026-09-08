@@ -172,6 +172,7 @@ function HabitsStep({ data, journey, disabled, aiDisabled, attemptsRemaining, on
 
 function PlanStep({ data, journey, disabled, onOpenDraft, onNavigate }: Props & { data: MedaaConversation; journey: MedaaJourney }) {
   const created = data.drafts.filter((draft) => draft.status === "created");
+  const initialGoalsCreated = journey.selectedGoalIds.length > 0 && journey.selectedGoalIds.every((id) => created.some((draft) => draft.id === id));
   const saved = data.drafts.filter((draft) => draft.status !== "created" && (draft.review || journey.selectedGoalIds.includes(draft.id) || draft.content.type === "habit"));
   return <View style={styles.stack}>
     <Text style={styles.heading}>Your plan, together.</Text>
@@ -184,8 +185,8 @@ function PlanStep({ data, journey, disabled, onOpenDraft, onNavigate }: Props & 
       {saved.map((draft) => <DraftRow key={draft.id} draft={draft} disabled={disabled} onOpen={() => onOpenDraft(draft.id)} />)}
     </View> : null}
     <Text style={styles.helper}>Only created items above are active commitments. Their usual reflection, progress, tree, and RDM rules apply.</Text>
-    <PrimaryButton label="Looks good — what’s next?" color={colors.ai} disabled={disabled} onPress={() => onNavigate("next")} />
-    {!created.length ? <PrimaryButton label="Continue building my goals" color={colors.ai} variant="outline" disabled={disabled} onPress={() => onNavigate(journey.selectedGoalIds.length ? "goals" : "short-term")} /> : null}
+    <PrimaryButton label="Looks good — what’s next?" color={colors.ai} disabled={disabled || !initialGoalsCreated} onPress={() => onNavigate("next")} />
+    {!initialGoalsCreated ? <PrimaryButton label="Continue building my goals" color={colors.ai} variant="outline" disabled={disabled} onPress={() => onNavigate(journey.selectedGoalIds.length ? "goals" : "short-term")} /> : null}
   </View>;
 }
 
