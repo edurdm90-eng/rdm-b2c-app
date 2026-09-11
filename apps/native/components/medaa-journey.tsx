@@ -116,7 +116,7 @@ function LongTermStep({ journey, data, disabled, onLongTerm }: Props & { journey
   </View>;
 }
 
-function ShortTermStep({ data, journey, disabled, aiDisabled, attemptsRemaining, onGenerate, onChooseGoals }: Props & { data: MedaaConversation; journey: MedaaJourney }) {
+function ShortTermStep({ data, journey, disabled, aiDisabled, attemptsRemaining, onGenerate, onChooseGoals, onOpenDraft }: Props & { data: MedaaConversation; journey: MedaaJourney }) {
   const selected = journey.selectedGoalIds;
   const shownIds = new Set([...journey.goalSuggestionIds, ...journey.selectedGoalIds]);
   const suggestions = data.drafts.filter((draft) => draft.content.type === "goal" && shownIds.has(draft.id));
@@ -130,14 +130,24 @@ function ShortTermStep({ data, journey, disabled, aiDisabled, attemptsRemaining,
     {suggestions.map((draft) => {
       const checked = selected.includes(draft.id);
       const fixed = draft.status !== "draft";
-      return <Pressable key={draft.id} accessibilityRole="checkbox" accessibilityLabel={draft.content.title}
-        accessibilityState={{ checked, disabled: disabled || fixed || (!checked && selected.length >= selectionLimit) }}
-        disabled={disabled || fixed || (!checked && selected.length >= selectionLimit)} onPress={() => onChooseGoals(checked ? selected.filter((id) => id !== draft.id) : [...selected, draft.id], false)}
-        style={[styles.suggestion, checked && styles.selectedSuggestion]}>
-        <MaterialCommunityIcons name={checked ? "checkbox-marked" : "checkbox-blank-outline"} size={25} color={checked ? colors.ai : colors.inkSoft} />
-        <View style={styles.flex}><Text style={styles.itemTitle}>{draft.content.title}</Text><Text style={styles.helper}>{draft.content.target}</Text>
-          <Text style={styles.small}>{needsShorterReview(draft) ? "Saved earlier · needs shorter review · " : draft.origin === "manual" ? "Your draft · " : "AI suggestion · "}{draft.content.durationDays ? `${draft.content.durationDays} days` : "Choose duration when adding"}{draft.status === "created" ? " · Added" : ""}</Text></View>
-      </Pressable>;
+      return <View key={draft.id} style={styles.suggestionGroup}>
+        <Pressable accessibilityRole="checkbox" accessibilityLabel={draft.content.title}
+          accessibilityState={{ checked, disabled: disabled || fixed || (!checked && selected.length >= selectionLimit) }}
+          disabled={disabled || fixed || (!checked && selected.length >= selectionLimit)} onPress={() => onChooseGoals(checked ? selected.filter((id) => id !== draft.id) : [...selected, draft.id], false)}
+          style={[styles.suggestion, checked && styles.selectedSuggestion]}>
+          <MaterialCommunityIcons name={checked ? "checkbox-marked" : "checkbox-blank-outline"} size={25} color={checked ? colors.ai : colors.inkSoft} />
+          <View style={styles.flex}><Text style={styles.itemTitle}>{draft.content.title}</Text><Text style={styles.helper}>{draft.content.target}</Text>
+            <Text style={styles.small}>{needsShorterReview(draft) ? "Saved earlier · needs shorter review · " : draft.origin === "manual" ? "Your draft · " : "AI suggestion · "}{draft.content.durationDays ? `${draft.content.durationDays} days` : "Choose duration when adding"}{draft.status === "created" ? " · Added" : ""}</Text></View>
+        </Pressable>
+        {checked && draft.status === "draft" ? <>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Review goal: ${draft.content.title}`}
+            accessibilityState={{ disabled }} disabled={disabled} onPress={() => onOpenDraft(draft.id)}
+            style={[styles.addButton, disabled && styles.disabled]}>
+            <Text style={styles.addText}>Review goal · target, dates & RDM</Text>
+          </Pressable>
+          <Text style={styles.small}>You can edit this saved goal even when the selected plan exceeds your budget. Reviewing does not spend RDM or request AI.</Text>
+        </> : null}
+      </View>;
     })}
     {journey.goalSuggestionsReady && suggestions.some(needsShorterReview) ? <Text style={styles.helper}>Earlier suggestions stay saved. Use “Show me other suggestions” for a new batch, or open a chosen draft to shorten its target and dates before Set.</Text> : null}
     {journey.goalSuggestionsReady ? <PrimaryButton label="Show me other suggestions" icon="refresh" color={colors.ai} variant="outline" disabled={aiDisabled}
@@ -244,6 +254,7 @@ const styles = StyleSheet.create({
   tag: { fontFamily: fonts.mono, fontSize: 10, color: colors.ai, letterSpacing: 0.7 }, longTermTitle: { fontFamily: fonts.display, fontSize: 18, lineHeight: 25, color: colors.ink, marginVertical: 4 },
   counterRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }, counter: { fontFamily: fonts.mono, fontSize: 11, color: colors.ai, paddingVertical: 7, paddingHorizontal: 11, borderRadius: radii.pill, backgroundColor: colors.aiTint },
   suggestion: { padding: 15, borderRadius: radii.medium, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, flexDirection: "row", alignItems: "center", gap: 12 }, selectedSuggestion: { borderColor: colors.ai },
+  suggestionGroup: { gap: 8 },
   itemTitle: { fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 21, color: colors.ink }, draftRow: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
   itemIcon: { width: 35, height: 35, borderRadius: 11, alignItems: "center", justifyContent: "center" }, addButton: { borderWidth: 1, borderColor: colors.growth, borderRadius: radii.pill, paddingHorizontal: 10, paddingVertical: 10, backgroundColor: colors.growthTint },
   addText: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.growth }, addedButton: { borderColor: colors.line, backgroundColor: colors.panelRaised }, addedText: { color: colors.inkSoft },

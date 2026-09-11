@@ -51,16 +51,12 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
     || Boolean(draft.review && commitmentDays(draft.review.startDayKey, draft.review.endDayKey) > MEDAA_MAX_COMMITMENT_DAYS));
   const hasElapsedDates = setting && Boolean(draft.review && draft.review.startDayKey < today);
   const review = editing ? null : draft.review;
-  const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions(undefined, {
-    enabled: !isCreated && Boolean(editing || review),
-  }));
-  const availableBase = wallet.data?.wallet.base;
   const numericDailyPledge = Number(pledge);
   const validDailyPledge = Number.isInteger(numericDailyPledge) && numericDailyPledge >= 1 && numericDailyPledge <= 100_000;
   const budget = useQuery(trpc.medaa.budget.queryOptions({ conversationId, excludeDraftId: draft.id,
     dailyPledgeRdm: validDailyPledge ? numericDailyPledge : 1 }, { enabled: !isCreated && !archivedHabit }));
-  const canAfford = review && availableBase !== undefined && budget.data
-    ? availableBase >= review.totalPledge && budget.data.remainingBaseRdm >= review.totalPledge : false;
+  const availableBase = budget.data?.baseRdm;
+  const canAfford = review && budget.data ? budget.data.remainingBaseRdm >= review.totalPledge : false;
   const dailyReview = !isHabit && review?.fundingMode === "daily";
   const projectedTotal = validDailyPledge && Number.isInteger(duration) && duration > 0 ? numericDailyPledge * duration : null;
 
@@ -139,7 +135,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Creation could not be confirmed. Retry the same reviewed commitment.");
       await reloadConversation();
-      await wallet.refetch();
+      await budget.refetch();
     } finally {
       submitting.current = false;
     }
@@ -286,7 +282,6 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
           {availableBase !== undefined && canAfford ? <Text style={styles.helper}>{formatRdm(availableBase - review.totalPledge)} RDM remains in Base after this goal.{budget.data ? ` ${formatRdm(budget.data.remainingBaseRdm - review.totalPledge)} RDM remains after all selected goals.` : ""}</Text> : null}
           {availableBase !== undefined && budget.data && !canAfford && !setting ? <Text style={styles.error}>This selected plan exceeds your Base RDM. Your draft is saved; edit the pledge, choose a smaller milestone, or return when your balance is sufficient.</Text> : null}
           {dailyReview ? <Text style={styles.helper}>Each day’s reflection moves that day’s pledge to Reward. A missed day moves its allocation to Remorse. These amounts come from the total locked now; there is no second charge.</Text> : null}
-          {wallet.error ? <PrimaryButton label="Retry balance check" color={colors.ai} variant="outline" onPress={() => void wallet.refetch()} /> : null}
           {budget.error ? <PrimaryButton label="Retry plan budget check" color={colors.ai} variant="outline" onPress={() => void budget.refetch()} /> : null}
           <Text style={styles.helper}>{setting
             ? "This exact commitment has been submitted. Retry to confirm the result safely; it cannot be edited while creation is being resolved."
@@ -306,7 +301,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
             </Pressable>
           </> : null}
           <PrimaryButton label={setting && isHabit ? "Recover original commitment" : `${setting ? "Retry Set" : "Set"} Goal`} icon="check" color={colors.ai}
-            loading={set.isPending} disabled={disabled || busy || needsShorterCommitment || needsDailyReview || (hasElapsedDates && !confirmElapsedDates) || (!setting && (!canAfford || wallet.isPending))}
+            loading={set.isPending} disabled={disabled || busy || needsShorterCommitment || needsDailyReview || (hasElapsedDates && !confirmElapsedDates) || (!setting && (!canAfford || budget.isPending || Boolean(budget.error)))}
             onPress={() => void setCommitment()} />
           {!setting ? <PrimaryButton label={needsDailyReview ? "Confirm new daily terms" : "Edit details"} variant="outline" color={colors.ai} disabled={disabled || busy}
             onPress={() => {
