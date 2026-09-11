@@ -1,57 +1,65 @@
-# Habit action, reflection and history — design QA
+# Goals — design QA
 
 ## Findings and comparison history
 
 No actionable P0/P1/P2 findings remain in the verified scope.
 
-1. **Resolved P2 — Nested web focus outline.** Action and reflection textareas initially displayed a second rectangular browser outline inside the rounded field (`action-initial.png`, `action-fixed.png`, `reflection-fixed.png`). The web-only input outline is now transparent and zero-width; the containing field supplies a visible cyan focus border. A fresh bundle load and comparison confirmed one clean focus boundary in `action-final.png` and `reflection-final.png`.
-2. **Resolved P2 — Completion card clipped above the footer.** In `completed.png`, the bottom of the next-reflection card was clipped at the reference viewport. Reduced result-only gaps from 12 to 10 and bottom padding to 8. `completed-fixed.png` shows the complete card and both persistent actions.
-3. **Resolved P1 — Final-day result selection.** The API deactivates a fully settled commitment immediately. The new presentation helper gives today's persisted completed/missed outcome precedence over inactive/finished state. UI checks show 1 of 1 completed with zero locked RDM, or 0 of 1 and one missed settlement; ten focused state tests cover these boundaries.
-4. **Resolved P2 — Short-screen confirmation reachability.** The missed-day sheet uses a bounded, scrollable body with bottom safe-area padding. At 740 × 360, both actions were visible and cancellation worked (`missed-sheet-short.png`). Transient resize/slide-animation captures were excluded from judgment.
+1. **Resolved P2 — Add-goal summary clipped above the footer.** `create-top.png` showed the Base-after-pledge row partly hidden. Reduced form-only spacing and summary padding. `create-fixed.png`, compared again with the source at 376 × 846, shows the complete summary and explicit lock action.
+2. **Resolved P2 — Goal overview density.** `overview.png` placed the remaining-allocation card behind an unnecessary Back footer and pushed early closure below the reference viewport. Removed that redundant footer when no daily/final action is available, kept header Back, moved progress editing beside the roadmap heading, and tightened step/section gaps. `overview-fixed.png` shows the ledger, recent reflection, remaining allocation, schedule and early-close control together. Longer content remains scrollable.
+3. **Resolved P2 — Modal keyboard and accessibility review.** Added keyboard avoidance inside the native Modal, retained its bounded ScrollView and safe-area padding, and made the native progress slider an explicit accessible adjustable element. Web confirmation cancellation was reachable at 740 × 360 (`end-sheet-short.png`). Physical keyboard/screen-reader verification remains a device-testing gap.
+4. **Resolved correctness/navigation findings.** Bind unsaved reflection text to its original saved-zone day; reject stale submission/confirmation snapshots; apply navigation interception only to an actually available reflection view. The recent-reflection shortcut now expands and scrolls to its saved day even when early closure adds more than seven later entries (`reflections-history.png`). Legacy completion copy describes its whole-goal settlement correctly.
 
-The React/backend review also led to fresh day/stage checks before submission and preservation of cached content and unsaved drafts when background refresh fails. Final independent review found no further actionable correctness issues.
+The final independent React/backend review found no additional concrete regressions after these fixes.
 
-## Evidence and normalization
+## Source, state and normalization
 
-- Source: `docs/design/focused-habit-detail/reference.png`, unchanged user image, 1617 × 971 pixels. Four app panels are approximately 366 × 824; board labels and surrounding canvas are not app content.
-- Implementation: existing Expo native app, `http://localhost:8081/habits`, opening the existing habit detail route. Primary captures: 366 × 824 CSS/pixels at devicePixelRatio 1. Responsive checks: 320 × 740 and 740 × 360, density 1.
-- Evidence folder: `docs/design/focused-habit-detail/`. Final comparisons use `action-final.png`, `reflection-final.png`, `completed-fixed.png`, `history.png`, and `missed-sheet.png`. Supporting captures include `insights.png`, `final-day.png`, `missed-result.png`, `completed-320.png`, and `missed-sheet-short.png`.
-- The original board and actual capture were displayed together in each full-view comparison. Header/stepper, fields/counters, allocation/metrics, history rows, and confirmation controls were legible at 1:1, so separate region crops were unnecessary.
-- Captures use real persisted records in an isolated local API/MongoDB account. Names, streaks, dates, counts, and history length differ from illustrative reference data; no fabricated past entries or hardcoded production values were added.
+- Source visual truth: `docs/design/focused-goals/reference.png`, unchanged user board, 1617 × 971 pixels. Each goal panel is approximately 376 × 846; board labels and surrounding canvas are excluded from app content.
+- Implementation: existing Expo native app at `http://localhost:8081/goals`, using the existing goal creation/detail routes.
+- Primary captures: 376 × 846 CSS pixels and image pixels, devicePixelRatio 1. Responsive checks: 320 × 740 and 740 × 360, density 1.
+- Final comparison evidence: `goals-final.png`, `create-fixed.png`, `reflection.png`, `overview-fixed.png`. Source and actual image were displayed together in each full-view comparison, including post-fix comparisons.
+- Supporting evidence: `completion-confirmation.png`, `end-confirmation.png`, `reflections-history.png`, `completed-320.png`, `end-sheet-short.png`. All paths are under `docs/design/focused-goals/`.
+- The four panels' headings, fields, counters, progress, ledger and actions were readable at 1:1. Additional cropped region comparisons were unnecessary.
+- Data came from real persistent records in an isolated local API/MongoDB account. Names, dates, counts and outcomes differ from the illustrative board. No production mock records or fabricated historical progress were added.
 
 ## Required fidelity surfaces
 
-- **Typography:** existing bundled Inter with regular, medium and bold weights; 19-pixel habit heading, 21-pixel question, 22-pixel result title, 15-pixel input text and compact supporting labels. Wrapping and hierarchy follow the reference; its exact font asset is unavailable.
-- **Spacing/layout:** compact two-row header, four-step indicator, separated action/reflection content, rounded allocation cards, fixed bottom actions, and a bottom confirmation sheet. Result spacing was re-compared after the clipping fix. At 320 pixels, content scrolls while Back/history remain reachable; document width stays 320.
-- **Colors:** existing Focused Routine charcoal tokens, green success/actions, cyan information/focus, gold allocations and coral missed states. The reflection allocation uses the same gold emphasis as the completion allocation, an intentional consistency choice.
-- **Assets/icons:** installed MaterialCommunityIcons and each habit's saved icon. No raster illustrations are required by these panels; no generated artwork, screenshot-based UI, decorative SVG or emoji replacements were introduced. Individual icon stroke differences from the raster are accepted library substitutions.
-- **Copy/content:** actionable labels and daily-result hierarchy match the reference. Action notes retain the existing API's 240-character maximum (not the illustrated 500); reflections allow 500. “Next reflection” follows actual scheduled weekdays. Saved action/history are read-only because the backend has no action-edit endpoint. Legacy missed allocations avoid claiming an exact deduction when only available Base RDM can move.
+- **Typography:** reused bundled Inter regular/medium/bold; 31px list title, 22px route headings, 18px card titles and reflection prompt, 13–15px body/input text, 11–12px supporting labels. Longer real titles wrap without clipping. The source's exact font asset is unavailable.
+- **Spacing/layout:** charcoal full-screen panels, compact segmented tabs, outlined cards, gold progress tracks, date fields and pledge controls. Creation/reflection retain fixed financial actions; overview uses header Back and a contextual footer only when an action is available. Mobile navigation retains the existing horizontal tab behavior and safe areas, including Japanese Wisdom.
+- **Colors/tokens:** reused the existing Focused Routine charcoal, muted text, green primary, gold allocation, cyan link and coral destructive tokens. The established green is softer than the raster reference; this is an intentional consistency choice across the redesigned app.
+- **Assets/icons:** installed MaterialCommunityIcons, no new dependency or generated art. Standard icon stroke differences are accepted library substitutions. No decorative images, custom SVG drawings, emoji substitutions or screenshot-based interface rendering were introduced.
+- **Copy/content:** real categories remain Focus, Health, Money, Family and Sustainability. Target text retains the API's 120-character limit, not the illustrated 200. Optional target progress is saved separately from daily reflection because the API actions are distinct. The slider supports 0–99%; explicit final completion sets 100%. Roadmap steps use stored strings only: no invented per-step dates or completion badges. Manual goals without steps explain that state. Missed/ended goals are labeled separately from successful completions.
 
 ## Interaction and persistence verification
 
-- Empty action/reflection validation, action save, saved-action disclosure, reflection completion, History/Insights, saved-entry expansion, and return-to-Habits navigation exercised.
-- Drafts survived opening and closing History. Completed records survived reloading. Future commitments exposed no daily mutation controls.
-- Miss cancellation changed neither history nor balances. Confirmation recorded exactly one missed day, displayed the Remorse result, and removed further daily settlement controls.
-- Isolated API assertions passed: Base remained 456 after the already-funded commitments; Reward increased from 4 to 6 through two separate 1 RDM reflections; Remorse increased from 0 to 1. Each action had exactly one ledger entry, with the established negative-amount/incoming convention retained for Remorse.
-- A 20-day commitment retained 19 RDM after its first reflection. One-day completed and missed commitments each retained zero, one history entry, and the correct outcome despite deactivation. Upcoming commitment retained 2 RDM and no history.
-- Japanese Wisdom remained accessible with canonical non-restrictive wording and disabled bonuses. Its existing habit check-in, reflection and history semantics are preserved.
-- Browser error logs: none during verification.
+- Exercised required-field validation, category selection, start/end-exclusive dates, 1 RDM minimum, daily-pledge stepper, live total/Base-after preview, insufficient funding and over-90-day blocking.
+- Created a one-day, 2 RDM goal through the UI; one unique goal and one Base debit persisted.
+- Saved 50% target progress: Reward and remaining pledge were unchanged. Reflection text survived “Not today” and reopening.
+- Completed that day's reflection: 2 RDM moved to Reward, remaining pledge became zero, target progress stayed 50%. Explicit final completion changed status/progress to completed/100% with no extra payout.
+- A 20-day goal retained its saved 60% target progress and roadmap. Its first reflection moved 1 RDM to Reward and left 19 RDM locked. Reload preserved the result.
+- Canceling early closure left purse totals unchanged. Confirming moved exactly 19 remaining allocations to Remorse, retained the previous Reward and target progress, and closed the goal.
+- Read-only API assertions verified unique funding/reflection ledger entries, exactly 19 early-close entries, unique dates, final statuses and exact purse totals: Base 434, Reward 9, Remorse 20, Peer 0. Baseline before this Goals QA was Base 456, Reward 6, Remorse 1.
+- Saved reflection and target/outcome histories are expandable/read-only. The recent-reflection shortcut reaches the original reflected day after future allocations are forfeited.
+- Active/Completed navigation, Medaa Ai entry and Japanese Wisdom tab were exercised. No AI generation request was made; the isolated preview intentionally has no provider key. Existing secrets/environment files were untouched.
+- At 320px, titles/funding wrap, content scrolls, and document width remains 320px. Short confirmation content scrolls and cancellation remains reachable.
+- Refreshed browser error log: none.
 
 ## Regression checks and gaps
 
-- `pnpm test`: 88 passed, including ten new habit presentation tests.
-- Native and workspace TypeScript checks, `pnpm build`, and `git diff --check`: passed.
-- Expo iOS and Android production bundles exported successfully.
-- UI verification was browser-driven native-web coverage, not a new automated device test suite. Physical keyboards, native hardware Back/gestures, screen readers, large accessibility text and device system insets were not physically tested.
-- Previous Habits list/browser/form QA is archived at `docs/design/focused-habits/design-qa.md`.
+- `pnpm test`: 96 passed, including eight new goal presentation/submission-day tests.
+- `pnpm check-types`, `pnpm build`, final native TypeScript check and `git diff --check`: passed.
+- Final Expo iOS and Android production bundles exported successfully.
+- UI coverage was browser-driven native-web testing, not a new automated device suite. Physical iOS/Android keyboard behavior, hardware Back/gestures, VoiceOver/TalkBack, enlarged text and device system insets were not physically tested.
+- API/domain behavior, schema, secrets and Medaa generation were not changed. Existing habit work is preserved.
+- Previous Habit detail QA is archived at `docs/design/focused-habit-detail/design-qa.md`.
 
 ## Implementation checklist
 
-- [x] Four connected screens with persistent data and explicit missed-day confirmation.
-- [x] Reference comparison, visual fixes and post-fix captures.
-- [x] Scheduled/legacy settlement rules and Japanese Wisdom preserved.
-- [x] Final-day, missed-day, upcoming, timezone and custom-weekday regression coverage.
-- [x] Local preview retained; no commit, push, master changes or environment-file edits.
-- [x] Temporary viewport override reset before handoff.
+- [x] Four connected Goals screens with persistent data.
+- [x] Explicit pledge lock, separate reflection/progress actions and guarded early closure.
+- [x] Reference comparisons, visual corrections and post-fix captures.
+- [x] Timezone/day-boundary tests and exact local settlement assertions.
+- [x] Native bundles, typechecks, build and React review.
+- [x] Remain on v2; no commit, push, master modification or environment-file edits.
+- [x] Preview retained and temporary viewport reset before handoff.
 
 final result: passed
