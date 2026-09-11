@@ -6,6 +6,9 @@ export const env = createEnv({
   client: {
     EXPO_PUBLIC_SERVER_URL: z.url(),
   },
-  runtimeEnv: process.env,
+  // Expo production bundles inline direct EXPO_PUBLIC_* property reads only.
+  runtimeEnv: {
+    EXPO_PUBLIC_SERVER_URL: process.env.EXPO_PUBLIC_SERVER_URL,
+  },
   emptyStringAsUndefined: true,
 });

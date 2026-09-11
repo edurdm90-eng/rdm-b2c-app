@@ -1,194 +1,122 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import type { GoodDeedId } from "@rdm-b2c/api/domain/rdm";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useIsFocused } from "expo-router";
+import { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import {
-  AppScreen,
-  ErrorState,
-  LoadingState,
-  PageHeader,
-  PositiveActionDialog,
-  PrimaryButton,
-  SurfaceCard,
-} from "@/components/rdm-ui";
-import { colors, fonts } from "@/lib/theme";
+import { FocusedButton, focusedColors as palette } from "@/components/focused-ui";
+import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { TreeActionDialog } from "@/components/tree-action-dialog";
+import { formatTreeDay, TreePage } from "@/components/tree-ui";
+import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
 
-type Notice = {
-  message: string;
-  tone: "error" | "info" | "success";
-};
-
 export default function GoodDeedsScreen() {
-  const timeZone = getDeviceTimeZone();
+  const [timeZone] = useState(getDeviceTimeZone);
+  const focused = useIsFocused();
   const [selected, setSelected] = useState<Set<GoodDeedId>>(() => new Set());
-  const [reward, setReward] = useState(0);
-  const [rewardMessage, setRewardMessage] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const goodDeeds = useQuery(trpc.rdm.goodDeeds.today.queryOptions({ timeZone }));
-  const submitGoodDeeds = useMutation(
-    trpc.rdm.goodDeeds.submit.mutationOptions({
-      onSuccess: async (result) => {
-        setSelected(new Set());
-        setReward(result.reward);
-        setRewardMessage(result.rewardMessage);
-        setDialogOpen(result.reward > 0);
-        setNotice({
-          message: result.reward > 0
-            ? `${result.completedCount} good deed${result.completedCount === 1 ? "" : "s"} saved for today.`
-            : "Those good deeds were already saved today.",
-          tone: result.reward > 0 ? "success" : "info",
-        });
-        await queryClient.invalidateQueries();
-      },
-      onError: (error) => setNotice({ message: error.message, tone: "error" }),
-    }),
-  );
-
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{ reward: number; completedCount: number; message: string } | null>(null);
+  const submitting = useRef(false);
+  const goodDeeds = useQuery({ ...trpc.rdm.goodDeeds.today.queryOptions({ timeZone }), enabled: focused, refetchInterval: focused ? 30_000 : false, refetchIntervalInBackground: false });
+  const submitGoodDeeds = useMutation(trpc.rdm.goodDeeds.submit.mutationOptions({
+    onSuccess: (result) => {
+      setSelected(new Set());
+      setSelectedDayKey(null);
+      setConfirmation({ reward: result.reward, completedCount: result.completedCount,
+        message: result.profile.tree.pledgedAt ? "Your good deeds added sunlight to your tree." : "Your good deeds are saved. Plant your tree to start recording its growth." });
+      void queryClient.invalidateQueries();
+    },
+    onError: (failure) => { setError(failure.message); void goodDeeds.refetch(); },
+    onSettled: () => { submitting.current = false; },
+  }));
+  const busy = submitGoodDeeds.isPending;
   if (goodDeeds.isLoading) return <LoadingState label="Opening your good deeds register…" />;
-  if (goodDeeds.error || !goodDeeds.data) {
-    return (
-      <ErrorState
-        message={goodDeeds.error?.message ?? "Your good deeds register is unavailable."}
-        onRetry={() => void goodDeeds.refetch()}
-      />
-    );
-  }
+  if (!goodDeeds.data) return <ErrorState message={goodDeeds.error?.message ?? "Your good deeds register is unavailable."} onRetry={() => void goodDeeds.refetch()} />;
+  const data = goodDeeds.data;
+  const dayChanged = selectedDayKey !== null && selectedDayKey !== data.dayKey;
+  const selectedDeeds = dayChanged ? [] : data.deeds.filter((deed) => !deed.completed && selected.has(deed.id));
+  const selectedReward = selectedDeeds.reduce((sum, deed) => sum + deed.reward, 0);
+  const completedCount = data.deeds.filter((deed) => deed.completed).length;
 
   function toggleDeed(deedId: GoodDeedId, completed: boolean) {
-    if (completed || submitGoodDeeds.isPending) return;
-    setNotice(null);
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(deedId)) next.delete(deedId);
-      else next.add(deedId);
-      return next;
-    });
+    if (completed || busy || submitting.current || dayChanged) return;
+    setError(null);
+    const next = new Set(selected);
+    if (next.has(deedId)) next.delete(deedId); else next.add(deedId);
+    setSelected(next);
+    setSelectedDayKey(next.size ? data.dayKey : null);
   }
 
   function submit() {
-    if (selected.size === 0) return;
-    setNotice(null);
-    submitGoodDeeds.mutate({ deedIds: Array.from(selected), timeZone });
+    if (busy || submitting.current || dayChanged || selectedDeeds.length === 0) return;
+    setError(null);
+    submitting.current = true;
+    submitGoodDeeds.mutate({ deedIds: selectedDeeds.map((deed) => deed.id), timeZone: data.timeZone, expectedDayKey: selectedDayKey ?? data.dayKey });
   }
 
-  function closeDialog() {
-    setDialogOpen(false);
-    router.replace("/(app)/tree");
+  function backToTree() {
+    if (busy || submitting.current) return;
+    setConfirmation(null);
+    router.dismissTo("/(app)/tree");
   }
 
   return (
     <>
-      <AppScreen contentStyle={styles.content}>
-        <PageHeader
-          back
-          subtitle="MARK OFF WHAT YOU DID TODAY"
-          title="Good Deeds Register"
-        />
-
-        <SurfaceCard style={styles.registerCard}>
-          {goodDeeds.data.deeds.map((deed, index) => {
-            const deedId = deed.id as GoodDeedId;
-            const checked = deed.completed || selected.has(deedId);
-            return (
-              <Pressable
-                accessibilityLabel={`${deed.title}, ${deed.reward} RDM`}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked, disabled: deed.completed }}
-                disabled={deed.completed || submitGoodDeeds.isPending}
-                key={deed.id}
-                onPress={() => toggleDeed(deedId, deed.completed)}
-                style={({ pressed }) => [
-                  styles.deedRow,
-                  index < goodDeeds.data.deeds.length - 1 && styles.deedDivider,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-                  {checked ? (
-                    <MaterialCommunityIcons color={colors.ink} name="check" size={15} />
-                  ) : null}
-                </View>
-                <Text style={styles.deedTitle}>{deed.title}</Text>
-                <Text style={styles.deedReward}>+{deed.reward}</Text>
-              </Pressable>
-            );
+      <TreePage title="Good Deeds Register" busy={busy} footer={<View style={styles.footer}>
+        {error ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
+        <View accessibilityLiveRegion="polite" style={styles.selectionSummary}><Text style={styles.selectedCount}>{selectedDeeds.length} selected</Text><Text style={styles.selectedReward}>{formatRdm(selectedReward)} RDM</Text></View>
+        <FocusedButton disabled={selectedDeeds.length === 0 || dayChanged} label="Submit today’s good deeds" loading={busy} onPress={submit} />
+      </View>}>
+        <View style={styles.hero}>
+          <MaterialCommunityIcons name="white-balance-sunny" color={palette.gold} size={63} />
+          <View style={styles.heroCopy}><Text accessibilityRole="header" style={styles.title}>A little kindness goes a long way.</Text><Text style={styles.date}>Today · {formatTreeDay(data.dayKey, true)}</Text></View>
+        </View>
+        <Text style={styles.intro}>These actions reward kindness in your community. Each deed can be recorded once per day.</Text>
+        {dayChanged ? <View style={styles.dayNotice}><Text style={styles.intro}>The care day changed. Review today’s list before submitting; your earlier selections have not been submitted.</Text><Pressable accessibilityRole="button" disabled={busy} onPress={() => { setSelected(new Set()); setSelectedDayKey(null); setError(null); }} style={styles.reviewDay}><Text style={styles.link}>Review today’s deeds</Text></Pressable></View> : null}
+        <View style={styles.deeds}>
+          {data.deeds.map((deed) => {
+            const checked = deed.completed || (!dayChanged && selected.has(deed.id));
+            const disabled = deed.completed || busy || dayChanged;
+            return <Pressable key={deed.id} accessibilityRole="checkbox" accessibilityLabel={`${deed.title}, ${deed.reward} RDM${deed.completed ? ", already recorded today" : ""}`} accessibilityState={{ checked, disabled }} aria-checked={checked} disabled={disabled} onPress={() => toggleDeed(deed.id, deed.completed)} style={({ pressed }) => [styles.deed, pressed && styles.pressed]}>
+              <MaterialCommunityIcons name={checked ? "checkbox-marked" : "checkbox-blank-outline"} color={checked ? palette.green : palette.muted} size={28} />
+              <View style={styles.deedCopy}><Text style={styles.deedTitle}>{deed.title}</Text>{deed.completed ? <Text style={styles.completed}>Recorded today</Text> : null}</View>
+              <Text style={styles.deedReward}>{formatRdm(deed.reward)} RDM</Text>
+            </Pressable>;
           })}
-        </SurfaceCard>
-
-        {notice ? (
-          <Text
-            accessibilityRole="alert"
-            style={[styles.notice, noticeToneStyles[notice.tone]]}
-          >
-            {notice.message}
-          </Text>
-        ) : null}
-
-        <PrimaryButton
-          color={colors.gold}
-          disabled={selected.size === 0}
-          label="Submit today's good deeds"
-          loading={submitGoodDeeds.isPending}
-          onPress={submit}
-          style={styles.submitButton}
-        />
-      </AppScreen>
-
-      <PositiveActionDialog
-        message={rewardMessage}
-        onConfirm={closeDialog}
-        reward={reward}
-        visible={dialogOpen}
-      />
+        </View>
+        {completedCount > 0 ? <Text style={styles.savedSummary}>{completedCount} recorded today · {formatRdm(data.earnedToday)} RDM earned</Text> : null}
+        <Text style={styles.timeZone}>Care time zone: {data.timeZone}. Only newly recorded deeds are included in the selected total.</Text>
+      </TreePage>
+      <TreeActionDialog visible={confirmation !== null} kind="sunlight" reward={confirmation?.reward ?? 0} title={confirmation?.completedCount ? "Good deeds saved" : "Already recorded"} message={confirmation?.message ?? ""} busy={busy} onDone={() => setConfirmation(null)} onBackToTree={backToTree} />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { gap: 14 },
-  registerCard: { paddingHorizontal: 14, paddingVertical: 2 },
-  deedRow: {
-    minHeight: 50,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 11,
-    paddingVertical: 10,
-  },
-  deedDivider: { borderBottomWidth: 1, borderBottomColor: colors.line },
-  checkbox: {
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: colors.line,
-  },
-  checkboxChecked: { backgroundColor: colors.growth, borderColor: colors.growth },
-  deedTitle: {
-    flex: 1,
-    color: colors.ink,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  deedReward: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 10.5 },
-  submitButton: { marginTop: 10 },
-  notice: { fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 16 },
-  noticeError: { color: colors.coral },
-  noticeInfo: { color: colors.inkSoft },
-  noticeSuccess: { color: colors.growth },
-  pressed: { opacity: 0.72 },
+  hero: { flexDirection: "row", alignItems: "center", gap: 18, paddingBottom: 7 },
+  heroCopy: { flex: 1, gap: 8 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 23, lineHeight: 30 },
+  date: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
+  intro: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20 },
+  deeds: { gap: 7 },
+  deed: { minHeight: 61, paddingHorizontal: 12, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel },
+  deedCopy: { flex: 1, minWidth: 0, gap: 4 },
+  deedTitle: { color: palette.text, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  deedReward: { color: palette.gold, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
+  completed: { color: palette.green, fontFamily: fonts.body, fontSize: 10, lineHeight: 15 },
+  footer: { gap: 16 },
+  selectionSummary: { minHeight: 54, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel },
+  selectedCount: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
+  selectedReward: { color: palette.gold, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22 },
+  savedSummary: { color: palette.green, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
+  timeZone: { color: palette.muted, fontFamily: fonts.body, fontSize: 10, lineHeight: 16 },
+  error: { color: palette.coral, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
+  dayNotice: { padding: 12, gap: 3, borderWidth: 1, borderColor: palette.line, borderRadius: 8 },
+  reviewDay: { minHeight: 44, justifyContent: "center" },
+  link: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 12 },
+  pressed: { opacity: 0.75 },
 });
-
-const noticeToneStyles = {
-  error: styles.noticeError,
-  info: styles.noticeInfo,
-  success: styles.noticeSuccess,
-} as const;

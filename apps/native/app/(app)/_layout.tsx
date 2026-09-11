@@ -23,6 +23,8 @@ export default function ProtectedLayout() {
       <Stack.Screen name="goal/new" />
       <Stack.Screen name="goal/[id]" />
       <Stack.Screen name="tree" />
+      <Stack.Screen name="fertilizer" />
+      <Stack.Screen name="tree-history" />
       <Stack.Screen name="streak-missed" />
       <Stack.Screen name="good-deeds" />
       <Stack.Screen name="thank-you" />
