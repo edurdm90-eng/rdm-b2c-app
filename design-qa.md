@@ -1,43 +1,61 @@
-# Focused Routine design QA
+# Habits redesign — design QA
 
 ## Evidence and normalization
 
-- Source visual truth: `docs/design/focused-routine/reference.png`, copied unchanged from the user's supplied clipboard image (1619 × 971 pixels).
-- Source mobile panels: approximately 366 × 829 pixels each; their surrounding board is not app content.
-- Implementation: existing Expo native application at `http://localhost:8081`, against an isolated local MongoDB and API, never the live database. Main comparison viewport 366 × 829 CSS pixels, devicePixelRatio 1; captures are 366 × 829. Narrow checks use 320 × 740, also density 1.
-- Captures: `docs/design/focused-routine/login.png`, `signup-final.png`, `home-final.png`, `wallet-expanded.png`, `wallet-collapsed.png`, plus narrow captures and the initial signup state.
-- Full-view comparisons emitted the original reference and each browser capture together in one comparison input. Scroll-position-mismatched captures were rejected and Home was recaptured at the top.
-- Focused review covered signup heading/inputs, wallet rows/chevrons, Home ring/CTA, and auth footer. Separate crop comparisons were unnecessary: these controls and their text remained legible at the source and capture resolutions.
-- Reference names, tree age, balances, and next actions are illustrative. Verification used an account created through the real signup UI and persisted commitments in an isolated database. The extra Wisdom access, More menu, horizontal seven-tab navigation, donation cards, and variable activity length are intentional deviations.
+- Source visual truth: `docs/design/focused-habits/reference.png`, unchanged copy of the user's 1617 × 971 image. Four app panels are approximately 380 × 812; board titles and surrounding canvas are not app UI.
+- Implementation: existing Expo native app at `http://localhost:8081/habits`. Main viewport and captures: 380 × 812 CSS/pixels, devicePixelRatio 1. Narrow verification: 320 × 740, density 1. A preliminary desktop-sized capture was excluded from phone-fidelity judgment.
+- Captures in `docs/design/focused-habits/`: `habits.png`, `framework.png`, `details.png`, `schedule.png` (before fixes), `schedule-fixed.png`, `schedule-320-fixed.png`.
+- Each full-view comparison displayed the original board and the actual browser capture together in one tool input. Focused inspection covered header/type scale, row dots, category selection, form fields, date controls, and pledge/CTA region. Separate crops were unnecessary because these regions were legible at 1:1 capture size.
+- Reference titles, balances, categories, and streaks are illustrative. Implementation uses the existing API catalog and persistent account data, not screenshot fixtures. Verification used an isolated local API/MongoDB; no production database or OpenAI key was used.
+- Existing seven-tab navigation (including Japanese Wisdom) is retained. Scrollable extra catalog rows, saved time zone, 500-character pledge limit, real-category names, and read-only calendar records are intentional adaptations.
 
-## Comparison history
+## Comparison history and resolved findings
 
-1. **P2 — Signup density:** the initial 366-pixel screen wrapped the heading and pushed the footer offscreen (`signup-initial.png`). Signup-only padding, title metrics, and form spacing were adjusted. `signup-final.png` confirms the single-line heading and visible footer at the same viewport; the 320-pixel layout remains scrollable.
-2. **P2 — Nested web focus outline:** removed the browser's inner input outline only on web; retained the containing field's blue focus border.
-3. **P2 — Progress-ring compatibility:** the library's animated wrapper forwarded a non-boolean `collapsable` attribute into SVG. The unwrapped, typed, static library component removes the warning. The zero-progress stroke is neutral; populated progress remains dynamic.
-4. **P2 — Disclosure accessibility:** native accessibility state did not emit web expanded/selected attributes. Explicit ARIA attributes now accompany native props. Browser state confirms Recent activity expands/collapses and the selected tab is announced.
+1. **P1 — Web date changed visually without recalculation.** In `schedule.png`, the end input displays October 1 but summary remains five days. The web field now validates and deduplicates both native input and React change events. Reverification produced 14 weekday-only reflections or 20 daily reflections for September 11–October 1; Back/Continue retained the date. `schedule-fixed.png` shows the corrected 20 RDM total.
+2. **P2 — Schedule note below the fold.** At 380 × 812 the settlement note was clipped in the initial view. Reduced schedule-specific gaps, summary gaps, and header/card padding. The revised capture shows the complete Reward/Remorse note above the persistent final CTA.
+3. **P2 — Narrow date text clipped.** At 320 pixels, paired inputs truncated the year. Date columns now wrap when 150-pixel minimum widths cannot fit. `schedule-320-fixed.png` shows complete stacked dates; the remaining form scrolls without horizontal overflow.
+4. **P2 — Web selected-state semantics.** Native accessibility state alone was absent from browser accessibility output. Added explicit checked/selected/pressed ARIA states alongside native props. Browser snapshots now announce Today/All, calendar selection, template selection, and repeat/day choices.
+5. **P1 — Weekday preset regression found in code review.** Preserved the old Deep Work weekday-only default despite its catalog cadence label being Daily. Browser verification confirmed Monday–Friday and the correct 14-day total. No backend scheduling rules changed.
 
 ## Required fidelity surfaces
 
-- **Typography:** bundled Inter regular/semibold/bold; strong sans-serif titles, subdued labels, compact purse rows. Signup heading wrapping fixed. The exact font file used by the raster reference is unknown; Inter is the existing app's closest available family.
-- **Spacing/layout:** 22-pixel content gutters (28 on sign-in), 10-pixel control radii, compact separated rows, roughly 128-pixel ring. Phone-width forms stay inside the viewport; longer histories and additional Wisdom/donation content scroll above the persistent tab bar.
-- **Colors:** scoped charcoal surfaces, green actions/Base, gold Reward, coral Remorse, purple Peer, cyan links. Other app screens retain their existing theme for later redesign.
-- **Assets:** existing icon library, genuine transparent generated sprout PNG, no screenshot embedded as UI or hand-drawn decorative SVG. Minor P3: footer linework differs from the reference and is softer at phone scale.
-- **Copy/content:** reference auth copy and airdrop wording retained. Counts, date, titles, tree day, balances, and transactions come from the API. No false external charity payment claim.
+- **Typography:** existing bundled Inter regular/semibold/bold, strong 32-pixel Habits title, 23-pixel navigation headings, compact form/body labels. The raster's exact font file is unknown; the existing Inter family is a close match. Dynamic titles wrap rather than disappear.
+- **Spacing/layout:** 20–22-pixel gutters, separated compact list rows, rounded selected templates, two distinct form steps, anchored form/browser CTAs, and existing safe areas. Smaller phones use scrollable content and stacked dates; the final button stays reachable.
+- **Colors/tokens:** shared Focused Routine charcoal surfaces, muted secondary text, green selection/actions, cyan category icons, gold streak indicators, and coral validation. Other screens retain their existing design.
+- **Assets/icons:** genuine installed MaterialCommunityIcons, using each stored template/habit icon. The reference contains standard UI icons; no generated art, screenshot-as-UI, fabricated illustrations, or custom decorative SVG was needed.
+- **Copy/content:** reference hierarchy and creation labels retained. Catalog heading is “Habit frameworks,” avoiding false personalized recommendations. End-exclusive dates, saved time zone, minimum 1 RDM, Base before/after, and settlement consequences are explicit.
 
-## Interaction and regression evidence
+## Interaction and persistence checks
 
-- Signup input validation, password visibility, Back/mode toggle, signup, sign-out confirmation, and subsequent sign-in exercised.
-- A real new account received its existing 500 Base RDM airdrop. Isolated commitment funding and real reflections produced Home 2/4, then a goal reflection through the UI produced 3/4 and exactly +1 Reward (Base unchanged).
-- Home's primary action opened the existing goal detail; Back returned to updated Home. Japanese Wisdom and More/account access remained available.
-- Wallet purse disclosures and Recent activity open/close verified, including web expanded state. Donation controls remain intentionally disabled pending the unanswered policy decision.
-- Existing 78 domain/provider tests and 59 isolated integration tests passed. `pnpm check-types` and `pnpm build` passed. No live OpenAI requests were made.
-- Browser console checked. The introduced SVG warning was fixed; existing shadow-style deprecation warning remains unrelated. Temporary preview restart/network errors were resolved before functional checks.
-- Physical iOS/Android keyboard, system navigation, and device safe-area verification remain unperformed; existing safe-area handling is retained. No new automated mobile test suite was added while seam confirmation is pending.
+- Today/All habits, calendar selection, persisted streak/progress dots, Create buttons, category filtering, template selection and prefilling, Create my own, Back and Continue exercised.
+- Empty custom form gives visible validation; category selection works. Both editable daily RDM and plus/minus controls update totals. Unaffordable pledges disable creation with a shortfall message.
+- September 11–October 1: 20 daily days or 14 weekdays, end excluded. Details/Back preserved dates and daily amount. Deep Work retains its weekday preset.
+- A custom Evening reading habit was created through the UI in the isolated account: two days × 1 RDM. Base changed from 482 to 480 only on final creation. The existing detail route opened successfully.
+- Existing action and reflection UI then settled one day: Reward 3 → 4, remaining locked 2 → 1, streak 0 → 1. The record appeared in All habits and the wallet ledger contained one −2 Base lock and one +1 Reward entry.
+- Future calendar rows opened a read-only schedule dialog; Open habit returns to the current action/history flow, not a backdated reflection form.
+- Japanese Wisdom tab and Hara Hachi Bu setup remained accessible with canonical terms, daily schedule, and separate explicit confirmation. Bonus payouts remain disabled.
+- Stable creation ID, synchronous in-flight guard, shared schedule validator, and existing authenticated creation API are retained. No persistence service or schema changes.
+- Browser console checked after verification: no errors. Existing shadow and pointerEvents deprecation warnings remain.
 
-## Findings and completion gate
+## Regression checks and residual gaps
 
-- **P1 / pending product decision:** the two requested donation actions cannot debit yet. Approve internal RDM contribution recording versus external payout integration before implementing settlement and its regression coverage.
-- The four visual redesigns have no remaining actionable P0/P1/P2 visual mismatch in the checked native-web states. Do not hand off the overall request as finished while donation behavior remains pending.
+- `pnpm test`: 78 passed.
+- `pnpm check-types` and `pnpm build`: passed.
+- Native TypeScript and `git diff --check` rechecked after final changes.
+- Expo iOS and Android production bundles exported successfully.
+- Physical-device keyboard, date-picker interaction, hardware Back/gestures, and system safe-area behavior were not exercised. Native picker code was reviewed and bundled; native safe-area handling is retained.
+- Verification was browser-driven UI coverage, not a new automated mobile test suite.
+- Previous Home/auth/wallet QA is archived at `docs/design/focused-routine/design-qa.md`; its unrelated pending donation policy is unchanged and outside this Habits request.
 
-final result: blocked
+## Findings and checklist
+
+No actionable P0/P1/P2 findings remain in the verified redesign scope. Expected deviations are documented above.
+
+- [x] Preserve real habits/catalog/pledges and Japanese Wisdom.
+- [x] Match the four-screen hierarchy and navigation.
+- [x] Recompare after date, density, and responsive fixes.
+- [x] Check persistent creation and reflection settlement.
+- [x] Leave the local preview open; reset temporary viewport override.
+- [x] Remain on v2, without commit, push, or master changes.
+
+final result: passed

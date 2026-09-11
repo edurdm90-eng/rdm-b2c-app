@@ -1,54 +1,155 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-
-import { AppScreen, ErrorState, IconBubble, LoadingState, PageHeader, Pill, PrimaryButton, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
-import { colors, fonts } from "@/lib/theme";
-import { trpc } from "@/utils/trpc";
 import { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+
+import { FocusedButton, FocusedScreen, focusedColors } from "@/components/focused-ui";
+import { fonts } from "@/lib/theme";
+import { trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+
+function categoryColor(category: string) {
+  if (category === "Focus") return focusedColors.link;
+  if (category === "Money") return focusedColors.gold;
+  if (category === "Sustainability") return focusedColors.purple;
+  return focusedColors.green;
+}
 
 export default function FrameworkScreen() {
   const templates = useQuery(trpc.rdm.templates.queryOptions());
   const [category, setCategory] = useState("All");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const visibleTemplates = (templates.data?.templates ?? []).filter((template) => category === "All" || template.category === category);
+  const selectedTemplate = visibleTemplates.find((template) => template.id === selectedTemplateId) ?? visibleTemplates[0];
 
-  if (templates.isLoading) return <LoadingState label="Loading habit frameworks…" />;
-  if (templates.error || !templates.data) return <ErrorState message={templates.error?.message ?? "Frameworks are unavailable."} onRetry={() => void templates.refetch()} />;
-
-  const visibleTemplates = category === "All" ? templates.data.templates : templates.data.templates.filter((template) => template.category === category);
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(app)/(tabs)/habits");
+  };
 
   return (
-    <AppScreen>
-      <PageHeader back title="Framework Path" subtitle="Pledge → Act → Reflect → Reward" />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-        {["All", ...templates.data.categories].map((item) => (
-          <Pill key={item} active={category === item} label={item} onPress={() => setCategory(item)} />
-        ))}
-      </ScrollView>
-      <View style={styles.list}>
-        {visibleTemplates.map((template) => (
-          <SurfaceCard key={template.id} onPress={() => router.push({ pathname: "/(app)/habit/new", params: { template: template.id } })} style={styles.templateCard}>
-            <IconBubble name={template.icon as IconName} color={template.category === "Money" ? colors.gold : template.category === "Sustainability" ? colors.plum : colors.growth} />
-            <View style={styles.templateCopy}>
-              <Text style={styles.templateTitle}>{template.title}</Text>
-              <Text style={rdmStyles.muted}>{template.subtitle}</Text>
-            </View>
-            <View style={styles.plusButton}><MaterialCommunityIcons name="plus" size={20} color={colors.growth} /></View>
-          </SurfaceCard>
-        ))}
+    <FocusedScreen scroll={false} bottomSafe contentStyle={styles.screenContent}>
+      <View style={styles.header}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={goBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+          <MaterialCommunityIcons name="arrow-left" size={28} color={focusedColors.text} />
+        </Pressable>
+        <Text accessibilityRole="header" style={styles.title}>Find your next habit</Text>
       </View>
-      <PrimaryButton label="Build a custom habit" icon="plus" onPress={() => router.push({ pathname: "/(app)/habit/new", params: { template: "custom" } })} />
-    </AppScreen>
+
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <Text style={styles.subtitle}>A small action you can repeat.</Text>
+
+        {templates.isLoading ? (
+          <View style={styles.status}>
+            <ActivityIndicator color={focusedColors.green} />
+            <Text style={styles.statusText}>Loading habit frameworks…</Text>
+          </View>
+        ) : templates.error || !templates.data ? (
+          <View style={styles.status}>
+            <Text accessibilityRole="alert" style={styles.statusText}>{templates.error?.message ?? "Frameworks are unavailable."}</Text>
+            <FocusedButton label="Try again" onPress={() => void templates.refetch()} loading={templates.isFetching} style={styles.retryButton} />
+          </View>
+        ) : (
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
+              {["All", ...templates.data.categories].map((item) => (
+                <Pressable
+                  key={item}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: category === item }}
+                  aria-pressed={category === item}
+                  onPress={() => { setCategory(item); setSelectedTemplateId(null); }}
+                  style={({ pressed }) => [styles.category, category === item && styles.activeCategory, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.categoryLabel, category === item && styles.activeCategoryLabel]}>{item}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <Text accessibilityRole="header" style={styles.sectionTitle}>Habit frameworks</Text>
+            <View style={styles.list}>
+              {visibleTemplates.map((template) => {
+                const selected = selectedTemplate?.id === template.id;
+                return (
+                  <Pressable
+                    key={template.id}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${template.title}, ${template.category}, ${template.subtitle}`}
+                    accessibilityState={{ checked: selected }}
+                    aria-checked={selected}
+                    onPress={() => setSelectedTemplateId(template.id)}
+                    style={({ pressed }) => [styles.templateCard, selected && styles.selectedCard, pressed && styles.pressed]}
+                  >
+                    <MaterialCommunityIcons name={template.icon as IconName} size={42} color={categoryColor(template.category)} />
+                    <View style={styles.templateCopy}>
+                      <Text style={styles.templateTitle}>{template.title}</Text>
+                      <Text style={styles.templateCategory}>{template.category}</Text>
+                      <Text style={styles.templateSubtitle}>{template.subtitle}</Text>
+                    </View>
+                    {selected ? (
+                      <View style={styles.check}>
+                        <MaterialCommunityIcons name="check" size={21} color={focusedColors.onGreen} />
+                      </View>
+                    ) : <MaterialCommunityIcons name="chevron-right" size={24} color={focusedColors.muted} />}
+                  </Pressable>
+                );
+              })}
+              {visibleTemplates.length === 0 && <Text style={styles.statusText}>No frameworks in this category yet. You can still create your own habit.</Text>}
+            </View>
+          </>
+        )}
+      </ScrollView>
+
+      <View style={styles.actions}>
+        <FocusedButton
+          label="Use this habit"
+          accessibilityLabel={selectedTemplate ? `Use ${selectedTemplate.title}` : "Use this habit"}
+          disabled={!selectedTemplate || Boolean(templates.error)}
+          onPress={() => {
+            if (selectedTemplate) router.push({ pathname: "/(app)/habit/new", params: { template: selectedTemplate.id } });
+          }}
+        />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: "/(app)/habit/new", params: { template: "custom" } })}
+          style={({ pressed }) => [styles.customButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.customLabel}>Create my own</Text>
+        </Pressable>
+      </View>
+    </FocusedScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  tabs: { gap: 8, paddingRight: 18 },
-  list: { gap: 10 },
-  templateCard: { flexDirection: "row", alignItems: "center", gap: 11 },
+  screenContent: { paddingHorizontal: 0, paddingTop: 20, paddingBottom: 0 },
+  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingBottom: 12 },
+  backButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  title: { flex: 1, color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 23, lineHeight: 30 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 22, paddingTop: 8, paddingBottom: 24 },
+  subtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 16, lineHeight: 24, marginBottom: 20 },
+  categories: { gap: 8, paddingBottom: 4 },
+  category: { minHeight: 44, paddingHorizontal: 22, borderRadius: 24, borderWidth: 1, borderColor: focusedColors.line, backgroundColor: focusedColors.panel, alignItems: "center", justifyContent: "center" },
+  activeCategory: { borderColor: focusedColors.link, backgroundColor: "#243A4B" },
+  categoryLabel: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
+  activeCategoryLabel: { color: focusedColors.text },
+  sectionTitle: { color: focusedColors.text, fontFamily: fonts.bodyMedium, fontSize: 17, lineHeight: 24, marginTop: 27, marginBottom: 12 },
+  list: { gap: 12 },
+  templateCard: { flexDirection: "row", alignItems: "center", gap: 16, minHeight: 112, paddingVertical: 17, paddingHorizontal: 14, borderBottomWidth: 1, borderColor: focusedColors.line },
+  selectedCard: { borderWidth: 1.5, borderColor: focusedColors.green, borderRadius: 12, backgroundColor: focusedColors.panel },
   templateCopy: { flex: 1, gap: 3 },
-  templateTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
-  plusButton: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: colors.growth, alignItems: "center", justifyContent: "center" },
+  templateTitle: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 23 },
+  templateCategory: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
+  templateSubtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
+  check: { width: 30, height: 30, borderRadius: 15, backgroundColor: focusedColors.green, alignItems: "center", justifyContent: "center" },
+  actions: { gap: 12, paddingHorizontal: 22, paddingTop: 12, paddingBottom: 24, backgroundColor: focusedColors.background },
+  customButton: { minHeight: 54, borderWidth: 1, borderColor: focusedColors.line, borderRadius: 10, backgroundColor: focusedColors.panel, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
+  customLabel: { color: focusedColors.muted, fontFamily: fonts.bodyMedium, fontSize: 15, lineHeight: 22 },
+  status: { alignItems: "center", gap: 18, paddingVertical: 32 },
+  statusText: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
+  retryButton: { alignSelf: "stretch" },
+  pressed: { opacity: 0.8 },
 });

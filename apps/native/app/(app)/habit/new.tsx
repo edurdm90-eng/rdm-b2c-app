@@ -1,4 +1,4 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   dayKeyForTimeZone,
   habitCategories,
@@ -10,172 +10,155 @@ import { haraHachiBu } from "@rdm-b2c/api/domain/wisdom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { usePreventRemove } from "expo-router/react-navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { ActionDialog, AppScreen, ErrorState, PageHeader, Pill, PrimaryButton, SectionLabel, SurfaceCard } from "@/components/rdm-ui";
-import { colors, fonts, formatRdm, radii } from "@/lib/theme";
+import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
+import { HabitDateField } from "@/components/habit-date-field";
+import { ActionDialog } from "@/components/rdm-ui";
+import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { goBackToJapaneseWisdom } from "@/lib/wisdom-navigation";
 import { queryClient, trpc } from "@/utils/trpc";
 
-function dayKeyToDate(dayKey: string) {
-  return new Date(`${dayKey}T12:00:00`);
-}
-
-function dateToDayKey(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+const categoryIcons: Record<HabitCategory, IconName> = {
+  Focus: "book-open-variant-outline",
+  Health: "leaf",
+  Money: "wallet-outline",
+  Sustainability: "sprout-outline",
+};
+const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function addDays(dayKey: string, days: number) {
-  const date = new Date(`${dayKey}T00:00:00.000Z`);
+  const date = new Date(dayKey + "T00:00:00.000Z");
   if (Number.isNaN(date.getTime())) return dayKey;
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
-function DateField({
-  label,
-  value,
-  minimumDayKey,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  minimumDayKey: string;
-  onChange: (dayKey: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  if (Platform.OS === "web") {
-    return (
-      <TextInput
-        accessibilityLabel={label}
-        autoCapitalize="none"
-        maxLength={10}
-        onChangeText={onChange}
-        placeholder="YYYY-MM-DD"
-        placeholderTextColor={colors.inkSoft}
-        style={styles.input}
-        value={value}
-      />
-    );
-  }
-
+function InfoNote({ children, card = false }: { children: React.ReactNode; card?: boolean }) {
   return (
-    <>
-      <Pressable
-        accessibilityLabel={label}
-        accessibilityRole="button"
-        onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.dateButton, pressed && styles.dateButtonPressed]}
-      >
-        <Text style={styles.dateValue}>
-          {dayKeyToDate(value).toLocaleDateString(undefined, {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-        </Text>
-        <Text style={styles.dateAction}>Choose date</Text>
-      </Pressable>
-      {open ? (
-        <View style={styles.datePickerWrap}>
-          <DateTimePicker
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            minimumDate={dayKeyToDate(minimumDayKey)}
-            mode="date"
-            onChange={(event, selectedDate) => {
-              if (Platform.OS === "android") setOpen(false);
-              if (event.type === "set" && selectedDate) onChange(dateToDayKey(selectedDate));
-            }}
-            value={dayKeyToDate(value)}
-          />
-          {Platform.OS === "ios" ? (
-            <PrimaryButton label="Done" onPress={() => setOpen(false)} variant="outline" />
-          ) : null}
-        </View>
-      ) : null}
-    </>
+    <View style={[styles.note, card && styles.noteCard]}>
+      <MaterialCommunityIcons name="information-outline" size={24} color={palette.muted} />
+      <Text style={styles.noteText}>{children}</Text>
+    </View>
   );
 }
 
 export default function NewHabitScreen() {
-  const [timeZone] = useState(getDeviceTimeZone);
-  const [creationId] = useState(() => Crypto.randomUUID());
   const params = useLocalSearchParams<{ template?: string; wisdomPracticeId?: string }>();
   const wisdomPractice = params.wisdomPracticeId === haraHachiBu.id ? haraHachiBu : null;
   const template = useMemo(() => habitTemplates.find((item) => item.id === params.template), [params.template]);
+  const [timeZone] = useState(getDeviceTimeZone);
+  const [creationId] = useState(() => Crypto.randomUUID());
   const todayDayKey = dayKeyForTimeZone(new Date(), timeZone);
+  const [step, setStep] = useState<1 | 2>(1);
+  const [createdHabitId, setCreatedHabitId] = useState<string | null>(null);
   const [title, setTitle] = useState(wisdomPractice?.title ?? template?.title ?? "");
   const [category, setCategory] = useState<HabitCategory>(wisdomPractice?.category ?? template?.category ?? "Focus");
-  const [cadence, setCadence] = useState<"Daily" | "Weekdays" | "Custom weekly">(
-    wisdomPractice ? "Daily" : template?.id === "deep-work" ? "Weekdays"
-      : template && template.cadence !== "Daily" ? "Custom weekly" : "Daily",
-  );
-  const [customWeekdays, setCustomWeekdays] = useState<number[]>([]);
-  const weekdays = useMemo(() => wisdomPractice ? [...wisdomPractice.weekdays] : cadence === "Daily" ? [1, 2, 3, 4, 5, 6, 7]
-    : cadence === "Weekdays" ? [1, 2, 3, 4, 5] : customWeekdays, [cadence, customWeekdays, wisdomPractice]);
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const [target, setTarget] = useState(wisdomPractice?.target ?? template?.target ?? "");
   const [pledge, setPledge] = useState(wisdomPractice?.pledge ?? template?.pledge ?? "");
-  const [rdmPledgePerDay, setRdmPledgePerDay] = useState(wisdomPractice ? "1" : "10");
+  const [chooseDays, setChooseDays] = useState(!wisdomPractice && Boolean(template && (template.id === "deep-work" || template.cadence !== "Daily")));
+  const [customWeekdays, setCustomWeekdays] = useState<number[]>(template?.id === "deep-work" ? [1, 2, 3, 4, 5] : []);
+  const weekdays = useMemo(() => wisdomPractice ? [...wisdomPractice.weekdays]
+    : chooseDays ? customWeekdays : [1, 2, 3, 4, 5, 6, 7], [chooseDays, customWeekdays, wisdomPractice]);
+  const [dailyRdm, setDailyRdm] = useState("1");
   const [startDayKey, setStartDayKey] = useState(todayDayKey);
   const [endDayKey, setEndDayKey] = useState(() => addDays(todayDayKey, 5));
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const submissionInFlight = useRef(false);
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions());
-  const numericDailyPledge = Number(rdmPledgePerDay);
-  const pledgeSchedule = useMemo(
-    () => habitPledgeSchedule({
-      startDayKey,
-      endDayKey,
-      dailyPledge: numericDailyPledge,
-      weekdays,
-    }),
-    [endDayKey, numericDailyPledge, startDayKey, weekdays],
-  );
-  const availableBase = wallet.data?.wallet.base ?? 0;
-  const canAfford = Boolean(pledgeSchedule && pledgeSchedule.totalPledge <= availableBase);
+  const numericDailyPledge = Number(dailyRdm);
+  const pledgeSchedule = useMemo(() => habitPledgeSchedule({
+    startDayKey, endDayKey, dailyPledge: numericDailyPledge, weekdays,
+  }), [endDayKey, numericDailyPledge, startDayKey, weekdays]);
+  const availableBase = wallet.data?.wallet.base;
+  const canAfford = Boolean(pledgeSchedule && availableBase !== undefined && pledgeSchedule.totalPledge <= availableBase);
+  const cadence = weekdays.length === 7 ? "Daily" : weekdays.join(",") === "1,2,3,4,5" ? "Weekdays" : "Custom weekly";
+  const icon = (wisdomPractice?.icon ?? template?.icon ?? categoryIcons[category]) as IconName;
+
   const createHabit = useMutation(trpc.rdm.habits.create.mutationOptions({
     onSuccess: async (habit) => {
       await queryClient.invalidateQueries();
-      router.replace({ pathname: "/(app)/habit/[id]", params: { id: habit.id } });
+      setCreatedHabitId(habit.id);
     },
     onError: (mutationError) => setError(mutationError.message),
+    onSettled: () => { submissionInFlight.current = false; },
   }));
+  const busy = createHabit.isPending || Boolean(createdHabitId);
+
+  function showDetails() {
+    setError(null);
+    setConfirmOpen(false);
+    setStep(1);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }
+
+  // Back from schedule edits the same draft. Release the guard before navigating
+  // after a successful create so that it cannot intercept the success route.
+  usePreventRemove(!createdHabitId && (step === 2 || busy), () => {
+    if (!busy) showDetails();
+  });
+  useEffect(() => {
+    if (createdHabitId) router.replace({ pathname: "/(app)/habit/[id]", params: { id: createdHabitId } });
+  }, [createdHabitId]);
+
+  function goBack() {
+    if (busy) return;
+    if (step === 2) { showDetails(); return; }
+    if (wisdomPractice) { goBackToJapaneseWisdom(); return; }
+    if (router.canGoBack()) router.back();
+    else router.replace("/(app)/(tabs)/habits");
+  }
+
+  function detailsAreValid() {
+    if (title.trim().length < 2 || target.trim().length < 2 || pledge.trim().length < 8) {
+      setError("Give the habit a name, a measurable target, and a clear pledge of at least 8 characters.");
+      return false;
+    }
+    if (weekdays.length === 0) {
+      setError("Choose at least one day to repeat your habit.");
+      return false;
+    }
+    return true;
+  }
+
+  function continueToSchedule() {
+    setError(null);
+    if (!detailsAreValid()) return;
+    setCategoryOpen(false);
+    setStep(2);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }
 
   function submit(confirmed = false) {
-    if (createHabit.isPending) return;
+    if (busy || submissionInFlight.current) return;
     setError(null);
-    if (title.trim().length < 2 || target.trim().length < 2 || pledge.trim().length < 8) {
-      setError("Give the habit a name, a measurable target, and a clear pledge.");
+    if (!detailsAreValid()) return;
+    if (!pledgeSchedule || numericDailyPledge > 100000) {
+      setError("Choose at least one scheduled day within 365 calendar days and 1–100,000 RDM per day.");
       return;
     }
-    if (!pledgeSchedule || pledgeSchedule.dayCount > 365) {
-      setError("Choose your weekdays, an RDM amount, and at least one scheduled date within 365 calendar days.");
+    if (startDayKey < todayDayKey) { setError("The habit start date cannot be in the past."); return; }
+    if (pledgeSchedule.totalPledge > 100000) { setError("The total pledge must be 100,000 RDM or less."); return; }
+    if (availableBase === undefined || wallet.error) {
+      setError("Your Base balance could not be checked. Retry before creating your habit.");
       return;
     }
-    if (startDayKey < todayDayKey) {
-      setError("The habit start date cannot be in the past.");
-      return;
-    }
-    if (pledgeSchedule.totalPledge > availableBase) {
-      setError(`You need ${formatRdm(pledgeSchedule.totalPledge)} RDM in your Base Purse.`);
-      return;
-    }
-    if (wisdomPractice && !confirmed) {
-      setConfirmOpen(true);
-      return;
-    }
+    if (!canAfford) { setError("You need " + formatRdm(pledgeSchedule.totalPledge) + " RDM in your Base Purse."); return; }
+    if (wisdomPractice && !confirmed) { setConfirmOpen(true); return; }
     setConfirmOpen(false);
+    submissionInFlight.current = true;
     createHabit.mutate({
       title: title.trim(),
       creationId,
       category,
-      cadence: cadence.trim(),
+      cadence,
       target: target.trim(),
       pledge: pledge.trim(),
       rdmPledgePerDay: numericDailyPledge,
@@ -183,151 +166,224 @@ export default function NewHabitScreen() {
       rdmPledgeStartDayKey: startDayKey,
       rdmPledgeEndDayKey: endDayKey,
       timeZone,
-      icon: wisdomPractice?.icon ?? template?.icon ?? "target",
+      icon,
       source: wisdomPractice || template ? "template" : "custom",
       ...(wisdomPractice ? { wisdomPracticeId: wisdomPractice.id } : {}),
     });
   }
 
-  if (wallet.error) {
-    return <ErrorState message={wallet.error.message} onRetry={() => void wallet.refetch()} />;
-  }
-
   return (
-    <AppScreen>
-      <PageHeader
-        back
-        onBack={wisdomPractice ? goBackToJapaneseWisdom : undefined}
-        title={wisdomPractice?.title ?? (template ? "Shape this habit" : "Build your habit")}
-        subtitle={wisdomPractice ? "Japanese Wisdom · daily practice" : template ? `Starting from ${template.title}` : "Your framework, your words"}
-      />
-      {wisdomPractice ? (
-        <SurfaceCard style={styles.practiceSummary}>
-          <Text style={styles.promiseTitle}>A mindful moment, every day</Text>
-          <Text style={styles.promiseCopy}>{wisdomPractice.description}</Text>
-          <Text style={styles.promiseCopy}>{wisdomPractice.target}</Text>
-          <Text style={styles.promiseCopy}>“{wisdomPractice.pledge}”</Text>
-          <Text style={styles.promiseCopy}>An honest reflection counts even if the practice was difficult. No food quantity, calorie, or weight target. Follow your individual nutritional needs and professional guidance.</Text>
-          <Text style={styles.promiseCopy}>Bonus payouts are not enabled for this commitment.</Text>
-        </SurfaceCard>
-      ) : (
-        <>
-          <SectionLabel>Habit name</SectionLabel>
-          <TextInput accessibilityLabel="Habit name" onChangeText={setTitle} placeholder="e.g. Read before bed" placeholderTextColor={colors.inkSoft} style={styles.input} value={title} />
-          <SectionLabel>Category</SectionLabel>
-          <View style={styles.pills}>{habitCategories.map((item) => <Pill key={item} active={category === item} label={item} onPress={() => setCategory(item)} />)}</View>
-          <SectionLabel>Cadence</SectionLabel>
-          <View style={styles.pills}>
-            {(["Daily", "Weekdays", "Custom weekly"] as const).map((item) => (
-              <Pill key={item} active={cadence === item} label={item} onPress={() => setCadence(item)} />
-            ))}
-          </View>
-          {cadence === "Custom weekly" ? (
-            <View style={styles.pills}>
-              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label, index) => (
-                <Pill key={label} active={customWeekdays.includes(index + 1)} label={label} onPress={() => {
-                  const day = index + 1;
-                  setCustomWeekdays((current) => current.includes(day)
-                    ? current.filter((item) => item !== day) : [...current, day].sort());
-                }} />
-              ))}
-            </View>
-          ) : null}
-          <Text style={styles.scheduleHint}>Only selected days are charged. Rest days keep your streak and carry no penalty.</Text>
-          <SectionLabel>Measurable target</SectionLabel>
-          <TextInput accessibilityLabel="Target" onChangeText={setTarget} placeholder="What counts as done?" placeholderTextColor={colors.inkSoft} style={styles.input} value={target} />
-          <SectionLabel>Your pledge</SectionLabel>
-          <TextInput accessibilityLabel="Pledge" multiline onChangeText={setPledge} placeholder="I pledge to…" placeholderTextColor={colors.inkSoft} style={[styles.input, styles.multiline]} textAlignVertical="top" value={pledge} />
-          <View style={styles.promiseNote}><Text style={styles.promiseTitle}>Keep it fair</Text><Text style={styles.promiseCopy}>A good pledge is specific enough to check and small enough to repeat on a difficult day.</Text></View>
-        </>
-      )}
-      <SectionLabel>RDM pledge per day</SectionLabel>
-      <TextInput
-        accessibilityLabel="RDM pledge per day"
-        keyboardType="number-pad"
-        maxLength={6}
-        onChangeText={setRdmPledgePerDay}
-        placeholder={wisdomPractice ? "1" : "10"}
-        placeholderTextColor={colors.inkSoft}
-        style={styles.input}
-        value={rdmPledgePerDay}
-      />
-      <SectionLabel>Start date</SectionLabel>
-      <DateField
-        label="Habit start date"
-        minimumDayKey={todayDayKey}
-        onChange={(dayKey) => {
-          setStartDayKey(dayKey);
-          if (endDayKey <= dayKey) setEndDayKey(addDays(dayKey, 5));
-        }}
-        value={startDayKey}
-      />
-      <SectionLabel>End date</SectionLabel>
-      <DateField
-        label="Habit end date"
-        minimumDayKey={addDays(startDayKey, 1)}
-        onChange={setEndDayKey}
-        value={endDayKey}
-      />
-      <Text style={styles.endDateHint}>The end date is the finish boundary and is not charged.</Text>
-      {wisdomPractice ? <Text style={styles.scheduleHint}>Every day is a commitment day. Saved time zone: {timeZone}.</Text> : null}
-      <SurfaceCard style={styles.rdmSummary}>
-        <View style={styles.rdmSummaryRow}>
-          <View>
-            <Text style={styles.rdmSummaryLabel}>Base Purse</Text>
-            <Text style={styles.rdmSummaryValue}>{formatRdm(availableBase)} RDM available</Text>
-          </View>
-          <View style={styles.rdmSummaryRight}>
-            <Text style={styles.rdmSummaryLabel}>{wisdomPractice ? "Lock on confirmation" : "Locked now"}</Text>
-            <Text style={[styles.rdmSummaryValue, !canAfford && styles.rdmSummaryError]}>
-              {pledgeSchedule ? `${formatRdm(pledgeSchedule.totalPledge)} RDM` : "—"}
-            </Text>
-          </View>
+    <FocusedScreen scroll={false} bottomSafe contentStyle={styles.screen}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <View style={styles.header}>
+          <Pressable accessibilityLabel={step === 2 ? "Back to habit details" : "Back"} accessibilityRole="button" disabled={busy} onPress={goBack} style={styles.back}>
+            <MaterialCommunityIcons name="arrow-left" size={28} color={palette.muted} />
+          </Pressable>
+          <Text accessibilityRole="header" style={styles.headerTitle}>{step === 1 ? "Create habit" : "Schedule & pledge"}</Text>
         </View>
-        <Text style={styles.rdmSummaryCopy}>
-          {pledgeSchedule
-            ? `${pledgeSchedule.dayCount} scheduled ${pledgeSchedule.dayCount === 1 ? "day" : "days"} × ${formatRdm(numericDailyPledge)} RDM. Each scheduled day moves to Reward when completed or Remorse when missed.`
-            : "Choose weekdays and a valid amount/date window containing at least one scheduled day."}
-        </Text>
-      </SurfaceCard>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <PrimaryButton disabled={wallet.isLoading || !canAfford} label={wisdomPractice ? "Review commitment" : "Lock RDM & create habit"} loading={createHabit.isPending} onPress={() => submit()} />
+        <ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={[styles.content, step === 2 && styles.scheduleContent]} keyboardShouldPersistTaps="handled">
+          <View style={styles.intro}>
+            <Text style={styles.caption}>{step} of 2</Text>
+            <Text accessibilityRole="header" style={styles.title}>{step === 1 ? "Details" : "Set schedule and pledge"}</Text>
+            <Text style={styles.subtitle}>{step === 1 ? "Set up your habit, in your own words." : "Choose when to start and commit your RDM."}</Text>
+          </View>
+          {step === 1 ? (
+            <>
+              {wisdomPractice ? (
+                <View style={styles.practiceCard}>
+                  <Text style={styles.cardTitle}>{wisdomPractice.title}</Text>
+                  <Text style={styles.subtitle}>{wisdomPractice.description}</Text>
+                  <Text style={styles.noteText}>{wisdomPractice.target}</Text>
+                  <Text style={styles.noteText}>{wisdomPractice.pledge}</Text>
+                  <Text style={styles.noteText}>An honest reflection counts even if the practice was difficult. No food quantity, calorie, or weight target. Follow your individual nutritional needs and professional guidance.</Text>
+                  <Text style={styles.noteText}>Bonus payouts are not enabled for this commitment.</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.field}>
+                    <Text style={styles.label}>Habit name</Text>
+                    <TextInput accessibilityLabel="Habit name" editable={!busy} maxLength={80} onChangeText={setTitle} placeholder="e.g. Read before bed" placeholderTextColor={palette.muted} style={styles.input} value={title} />
+                  </View>
+                  <View style={styles.field}>
+                    <Text style={styles.label}>Category</Text>
+                    <Pressable accessibilityLabel={"Category: " + category} accessibilityRole="button" accessibilityState={{ expanded: categoryOpen }} aria-expanded={categoryOpen} onPress={() => setCategoryOpen(!categoryOpen)} style={styles.categoryButton}>
+                      <MaterialCommunityIcons name={categoryIcons[category]} size={27} color={palette.link} />
+                      <Text style={[styles.inputText, styles.flex]}>{category}</Text>
+                      <MaterialCommunityIcons name={categoryOpen ? "chevron-up" : "chevron-down"} size={22} color={palette.muted} />
+                    </Pressable>
+                    {categoryOpen ? (
+                      <View style={styles.categoryMenu}>
+                        {habitCategories.map((item) => (
+                          <Pressable key={item} accessibilityLabel={item} accessibilityRole="radio" accessibilityState={{ checked: category === item }} aria-checked={category === item} onPress={() => { setCategory(item); setCategoryOpen(false); }} style={styles.categoryOption}>
+                            <Text style={styles.inputText}>{item}</Text>
+                            {category === item ? <MaterialCommunityIcons name="check" size={20} color={palette.green} /> : null}
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.field}>
+                    <Text style={styles.label}>Target</Text>
+                    <TextInput accessibilityLabel="Target" maxLength={120} onChangeText={setTarget} placeholder="What counts as done?" placeholderTextColor={palette.muted} style={styles.input} value={target} />
+                  </View>
+                  <View style={styles.field}>
+                    <Text style={styles.label}>My pledge</Text>
+                    <TextInput accessibilityLabel="Pledge" multiline maxLength={500} onChangeText={setPledge} placeholder="I pledge to…" placeholderTextColor={palette.muted} style={[styles.input, styles.multiline]} textAlignVertical="top" value={pledge} />
+                    <Text style={styles.counter}>{pledge.length}/500</Text>
+                  </View>
+                  <View style={styles.field}>
+                    <Text style={styles.label}>Repeat</Text>
+                    <View style={styles.segmented}>
+                      {([{ label: "Daily", custom: false, icon: "calendar-month-outline" }, { label: "Choose days", custom: true, icon: "calendar-blank-outline" }] as const).map((item) => (
+                        <Pressable key={item.label} accessibilityLabel={item.label} accessibilityRole="radio" accessibilityState={{ checked: chooseDays === item.custom }} aria-checked={chooseDays === item.custom} onPress={() => setChooseDays(item.custom)} style={[styles.segment, chooseDays === item.custom && styles.segmentSelected]}>
+                          <MaterialCommunityIcons name={item.icon} size={22} color={palette.muted} />
+                          <Text style={[styles.segmentLabel, chooseDays === item.custom && styles.segmentLabelSelected]}>{item.label}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    {chooseDays ? (
+                      <>
+                        <View style={styles.weekdays}>
+                          {weekdayLabels.map((day, index) => {
+                            const selected = customWeekdays.includes(index + 1);
+                            return <Pressable key={day} accessibilityLabel={day} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} aria-checked={selected} onPress={() => setCustomWeekdays((current) => selected ? current.filter((value) => value !== index + 1) : [...current, index + 1].sort((a, b) => a - b))} style={[styles.weekday, selected && styles.weekdaySelected]}><Text style={[styles.weekdayText, selected && styles.weekdayTextSelected]}>{day}</Text></Pressable>;
+                          })}
+                        </View>
+                        <Text style={styles.caption}>Only selected days are charged. Rest days keep your streak and carry no penalty.</Text>
+                      </>
+                    ) : null}
+                  </View>
+                </>
+              )}
+              <InfoNote>You'll log your action and reflect each scheduled day.</InfoNote>
+            </>
+          ) : (
+            <>
+              <View style={styles.habitSummary}>
+                <MaterialCommunityIcons name={icon} size={35} color={palette.text} />
+                <View style={styles.flex}>
+                  <Text style={styles.cardTitle}>{title}</Text>
+                  <Text style={styles.caption}>{category} · {cadence}</Text>
+                </View>
+              </View>
+              <View style={styles.field}>
+                <View style={styles.dates}>
+                  <View style={styles.dateColumn}>
+                    <Text style={styles.label}>Start date</Text>
+                    <HabitDateField label="Habit start date" minimumDayKey={todayDayKey} disabled={busy} value={startDayKey} onChange={(dayKey) => { setStartDayKey(dayKey); if (dayKey && endDayKey <= dayKey) setEndDayKey(addDays(dayKey, 5)); }} />
+                  </View>
+                  <View style={styles.dateColumn}>
+                    <Text style={styles.label}>End date</Text>
+                    <HabitDateField label="Habit end date" minimumDayKey={addDays(startDayKey, 1)} disabled={busy} value={endDayKey} onChange={setEndDayKey} />
+                  </View>
+                </View>
+                <Text style={styles.caption}>End date not included{pledgeSchedule ? " · " + pledgeSchedule.dayCount + " scheduled reflections" : ""}</Text>
+                <Text style={styles.caption}>Time zone: {timeZone}{chooseDays ? " · " + weekdays.map((day) => weekdayLabels[day - 1]).join(", ") : ""}</Text>
+                {startDayKey && startDayKey < todayDayKey ? <Text style={styles.error}>Choose a start date from today onwards.</Text> : null}
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.label}>RDM per day</Text>
+                <View style={styles.stepper}>
+                  <Pressable accessibilityLabel="Decrease daily RDM" accessibilityRole="button" disabled={busy || numericDailyPledge <= 1} onPress={() => setDailyRdm(String(Math.max(1, numericDailyPledge - 1)))} style={[styles.stepperButton, (busy || numericDailyPledge <= 1) && styles.disabled]}>
+                    <MaterialCommunityIcons name="minus" size={24} color={palette.text} />
+                  </Pressable>
+                  <TextInput accessibilityLabel="RDM pledge per day" editable={!busy} keyboardType="number-pad" maxLength={6} selectTextOnFocus onChangeText={(value) => setDailyRdm(value.replace(/[^0-9]/g, ""))} style={styles.rdmInput} value={dailyRdm} />
+                  <Pressable accessibilityLabel="Increase daily RDM" accessibilityRole="button" disabled={busy || numericDailyPledge >= 100000} onPress={() => setDailyRdm(String(Math.min(100000, numericDailyPledge + 1)))} style={[styles.stepperButton, (busy || numericDailyPledge >= 100000) && styles.disabled]}>
+                    <MaterialCommunityIcons name="plus" size={24} color={palette.text} />
+                  </Pressable>
+                </View>
+                <Text style={styles.caption}>Minimum 1 RDM per scheduled day.</Text>
+              </View>
+              <View style={styles.summary}>
+                <Text style={[styles.label, styles.summaryHeading]}>Pledge summary</Text>
+                <View style={styles.summaryRow}><Text style={styles.subtitle}>{pledgeSchedule ? pledgeSchedule.dayCount + " days × " + formatRdm(numericDailyPledge) + " RDM" : "Scheduled days × daily RDM"}</Text><Text style={styles.amount}>{pledgeSchedule ? formatRdm(pledgeSchedule.totalPledge) + " RDM" : "—"}</Text></View>
+                <View style={styles.summaryRow}><Text style={styles.subtitle}>Total pledge</Text><Text style={styles.amount}>{pledgeSchedule ? formatRdm(pledgeSchedule.totalPledge) + " RDM" : "—"}</Text></View>
+                <View style={styles.divider} />
+                <View style={styles.summaryRow}><Text style={styles.subtitle}>Base available</Text><Text style={styles.amount}>{availableBase !== undefined ? formatRdm(availableBase) + " RDM" : "Checking…"}</Text></View>
+                <View style={styles.summaryRow}><Text style={styles.subtitle}>Base after pledge</Text><Text style={[styles.amount, availableBase !== undefined && pledgeSchedule && !canAfford && styles.error]}>{availableBase !== undefined && pledgeSchedule ? formatRdm(availableBase - pledgeSchedule.totalPledge) + " RDM" : "—"}</Text></View>
+                {wallet.error ? <Pressable accessibilityRole="button" onPress={() => void wallet.refetch()} style={styles.retry}><Text style={styles.error}>Unable to check your balance. Tap to retry.</Text></Pressable>
+                  : availableBase !== undefined && pledgeSchedule && !canAfford ? <Text style={styles.error}>You need {formatRdm(pledgeSchedule.totalPledge - availableBase)} more Base RDM for this pledge. Reduce the daily amount or shorten the schedule.</Text> : null}
+                {!pledgeSchedule || numericDailyPledge > 100000 ? <Text style={styles.error}>Choose valid dates within 365 days, at least one scheduled day, and 1–100,000 RDM per day.</Text> : null}
+                {pledgeSchedule && pledgeSchedule.totalPledge > 100000 ? <Text style={styles.error}>The total pledge must be 100,000 RDM or less.</Text> : null}
+              </View>
+              <InfoNote card>Completed days → Reward.{"\n"}Missed days → Remorse.{wisdomPractice ? "\nBonus payouts are not enabled." : ""}</InfoNote>
+            </>
+          )}
+        </ScrollView>
+        <View style={styles.footer}>
+          {error ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
+          <FocusedButton
+            label={step === 1 ? "Continue to schedule" : wisdomPractice ? "Review commitment" : "Lock " + (pledgeSchedule ? formatRdm(pledgeSchedule.totalPledge) : "—") + " RDM & create habit"}
+            loading={busy}
+            disabled={step === 2 && (wallet.isLoading || Boolean(wallet.error) || !canAfford || startDayKey < todayDayKey || numericDailyPledge > 100000 || (pledgeSchedule?.totalPledge ?? 0) > 100000)}
+            onPress={step === 1 ? continueToSchedule : () => submit()}
+          />
+        </View>
+      </KeyboardAvoidingView>
       {wisdomPractice ? (
         <ActionDialog
           title="Confirm Hara Hachi Bu"
           visible={confirmOpen}
-          message={`${startDayKey} to ${endDayKey} (end excluded), in ${timeZone}. ${pledgeSchedule?.dayCount ?? 0} days × ${formatRdm(numericDailyPledge)} RDM = ${formatRdm(pledgeSchedule?.totalPledge ?? 0)} RDM locked from Base. Each daily check-in and reflection moves its allocation to Reward; a missed day moves it to Remorse. Bonus payouts are not enabled.`}
+          message={startDayKey + " to " + endDayKey + " (end excluded), in " + timeZone + ". " + (pledgeSchedule?.dayCount ?? 0) + " days × " + formatRdm(numericDailyPledge) + " RDM = " + formatRdm(pledgeSchedule?.totalPledge ?? 0) + " RDM locked from Base. Each daily check-in and reflection moves its allocation to Reward; a missed day moves it to Remorse. Bonus payouts are not enabled."}
           confirmLabel="Lock RDM & start"
           loading={createHabit.isPending}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={() => submit(true)}
         />
       ) : null}
-    </AppScreen>
+    </FocusedScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  input: { minHeight: 50, borderRadius: 13, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, color: colors.ink, fontFamily: fonts.body, fontSize: 14, paddingHorizontal: 14 },
-  multiline: { minHeight: 118, paddingTop: 14, lineHeight: 20 },
-  dateButton: { minHeight: 52, borderRadius: 13, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  dateButtonPressed: { opacity: 0.8 },
-  dateValue: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14 },
-  dateAction: { color: colors.growth, fontFamily: fonts.bodyBold, fontSize: 11 },
-  datePickerWrap: { borderRadius: radii.medium, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, overflow: "hidden", padding: 8, gap: 8 },
-  endDateHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, lineHeight: 15, marginTop: -8 },
-  scheduleHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
-  pills: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  promiseNote: { borderRadius: radii.medium, padding: 14, backgroundColor: colors.plumTint, borderWidth: 1, borderColor: "rgba(179,154,232,0.22)", gap: 4 },
-  promiseTitle: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 12 },
-  promiseCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
-  practiceSummary: { gap: 10, backgroundColor: colors.plumTint },
-  rdmSummary: { gap: 10, backgroundColor: colors.growthTint },
-  rdmSummaryRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  rdmSummaryRight: { alignItems: "flex-end" },
-  rdmSummaryLabel: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.6, textTransform: "uppercase" },
-  rdmSummaryValue: { color: colors.growth, fontFamily: fonts.monoBold, fontSize: 13, marginTop: 3 },
-  rdmSummaryError: { color: colors.coral },
-  rdmSummaryCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
-  error: { color: colors.coral, fontFamily: fonts.bodyMedium, fontSize: 12 },
+  screen: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 },
+  flex: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
+  back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  headerTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 23, lineHeight: 30, flex: 1 },
+  content: { paddingHorizontal: 20, paddingBottom: 18, gap: 18 },
+  scheduleContent: { gap: 12 },
+  intro: { gap: 4, marginBottom: 3 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33 },
+  subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
+  caption: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
+  field: { gap: 7 },
+  label: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 18 },
+  input: { minHeight: 45, borderRadius: 8, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, color: palette.text, fontFamily: fonts.body, fontSize: 15, paddingHorizontal: 14, paddingVertical: 10 },
+  inputText: { color: palette.text, fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
+  multiline: { minHeight: 80, lineHeight: 22 },
+  counter: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, textAlign: "right" },
+  categoryButton: { minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14 },
+  categoryMenu: { borderRadius: 8, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, paddingHorizontal: 14 },
+  categoryOption: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  segmented: { flexDirection: "row", borderWidth: 1, borderColor: palette.line, borderRadius: 8, padding: 3, gap: 3 },
+  segment: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, borderRadius: 6 },
+  segmentSelected: { backgroundColor: "#263541" },
+  segmentLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  segmentLabelSelected: { color: palette.text },
+  weekdays: { flexDirection: "row", flexWrap: "wrap", gap: 5, paddingTop: 3 },
+  weekday: { minWidth: 40, minHeight: 44, borderWidth: 1, borderColor: palette.line, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  weekdaySelected: { backgroundColor: palette.green, borderColor: palette.green },
+  weekdayText: { color: palette.muted, fontFamily: fonts.bodyMedium, fontSize: 12 },
+  weekdayTextSelected: { color: palette.onGreen },
+  note: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
+  noteText: { flex: 1, color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 19 },
+  noteCard: { padding: 12, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, borderRadius: 8 },
+  footer: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 10 },
+  practiceCard: { padding: 16, borderWidth: 1, borderColor: palette.line, borderRadius: 8, gap: 12 },
+  cardTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 16, lineHeight: 22 },
+  habitSummary: { minHeight: 66, padding: 14, gap: 18, borderRadius: 8, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, flexDirection: "row", alignItems: "center" },
+  dates: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  dateColumn: { flex: 1, minWidth: 150, gap: 7 },
+  stepper: { flexDirection: "row", alignItems: "center", minHeight: 48, borderWidth: 1, borderColor: palette.line, borderRadius: 8, padding: 3 },
+  stepperButton: { minWidth: 64, minHeight: 44, alignItems: "center", justifyContent: "center", backgroundColor: "#222E38", borderRadius: 5 },
+  rdmInput: { flex: 1, minWidth: 0, textAlign: "center", color: palette.text, fontFamily: fonts.bodyBold, fontSize: 20, paddingVertical: 6 },
+  summary: { borderTopWidth: 1, borderColor: palette.line, paddingTop: 14, gap: 5 },
+  summaryHeading: { marginBottom: 4 },
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  amount: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20 },
+  divider: { borderTopWidth: 1, borderColor: palette.line, marginVertical: 3 },
+  retry: { minHeight: 44, justifyContent: "center" },
+  error: { color: palette.coral, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
+  disabled: { opacity: 0.4 },
 });
