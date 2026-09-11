@@ -1,13 +1,15 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { HARA_HACHI_BU } from "@rdm-b2c/api/domain/wisdom";
+import { haraHachiBu } from "@rdm-b2c/api/domain/wisdom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
-import { ActionDialog, AppScreen, ErrorState, LoadingState, PageHeader, PrimaryButton, ProgressBar, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { ActionDialog, AppScreen, ErrorState, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { WisdomProgress } from "@/components/wisdom-progress";
 import { colors, fonts, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
+import { goBackToJapaneseWisdom } from "@/lib/wisdom-navigation";
 import { queryClient, trpc } from "@/utils/trpc";
 
 const steps = ["pledge", "act", "reflect", "reward"] as const;
@@ -97,7 +99,7 @@ export default function HabitDetailScreen() {
   if (habit.error || !habit.data) return <ErrorState message={habit.error?.message ?? "Habit not found."} onRetry={() => void habit.refetch()} />;
 
   const data = habit.data;
-  const wisdomPractice = data.wisdomPracticeId === HARA_HACHI_BU.id ? HARA_HACHI_BU : null;
+  const wisdomPractice = data.wisdomPracticeId === haraHachiBu.id ? haraHachiBu : null;
   const currentIndex = steps.indexOf(data.stage);
   const scheduledPledge = data.rdmPledge;
   const presentation = habitPresentation({
@@ -111,10 +113,7 @@ export default function HabitDetailScreen() {
     <AppScreen>
       <PageHeader
         back
-        onBack={wisdomPractice ? () => {
-          if (router.canGoBack()) router.back();
-          else router.replace("/(app)/(tabs)/japanese-wisdom");
-        } : undefined}
+        onBack={wisdomPractice ? goBackToJapaneseWisdom : undefined}
         title={data.title}
         subtitle={presentation.subtitle}
         trailing={<View style={styles.streakPill}><MaterialCommunityIcons name="fire" size={17} color={colors.gold} /><Text style={styles.streakText}>{data.streak}</Text></View>}
@@ -162,8 +161,7 @@ export default function HabitDetailScreen() {
       {wisdomPractice && data.wisdom ? (
         <SurfaceCard style={styles.wisdomCard}>
           <SectionLabel>Practice progress</SectionLabel>
-          <ProgressBar color={colors.plum} progress={data.wisdom.totalDays > 0 ? data.wisdom.completedDays / data.wisdom.totalDays : 0} />
-          <Text style={rdmStyles.body}>{data.wisdom.completedDays}/{data.wisdom.totalDays} days completed · {data.wisdom.missedDays} missed · {data.wisdom.unresolvedDays} remaining</Text>
+          <WisdomProgress wisdom={data.wisdom} showRemaining textStyle={rdmStyles.body} />
           <Text style={styles.wisdomStatus}>{data.wisdom.consistencyStatus === "perfect" ? "Perfect consistency—every day reflected."
             : data.wisdom.consistencyStatus === "missed" ? data.wisdom.unresolvedDays > 0
               ? "Your progress is saved. Keep reflecting on the remaining days."

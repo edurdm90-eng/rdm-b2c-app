@@ -1,10 +1,11 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { HARA_HACHI_BU } from "@rdm-b2c/api/domain/wisdom";
+import { haraHachiBu } from "@rdm-b2c/api/domain/wisdom";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 
-import { AppScreen, ErrorState, IconBubble, LoadingState, PageHeader, PrimaryButton, ProgressBar, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { AppScreen, ErrorState, IconBubble, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { WisdomProgress } from "@/components/wisdom-progress";
 import { colors, fonts } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -14,7 +15,7 @@ export default function JapaneseWisdomScreen() {
   if (habits.isLoading) return <LoadingState label="Opening Japanese Wisdom…" />;
   if (habits.error || !habits.data) return <ErrorState message={habits.error?.message ?? "Your practices are unavailable."} onRetry={() => void habits.refetch()} />;
 
-  const commitments = habits.data.filter((habit) => habit.wisdomPracticeId === HARA_HACHI_BU.id);
+  const commitments = habits.data.filter((habit) => habit.wisdomPracticeId === haraHachiBu.id);
   const activeCommitments = commitments.filter((habit) => habit.active && habit.rdmPledge?.status !== "finished");
   const finishedCommitments = commitments.filter((habit) => !habit.active || habit.rdmPledge?.status === "finished");
 
@@ -25,18 +26,18 @@ export default function JapaneseWisdomScreen() {
         <View style={styles.practiceRow}>
           <View style={styles.japaneseIcon}><Text style={styles.japaneseCharacter}>腹</Text></View>
           <View style={styles.copy}>
-            <Text style={styles.practiceTitle}>{HARA_HACHI_BU.title}</Text>
-            <Text style={styles.japaneseName}>{HARA_HACHI_BU.japaneseName}</Text>
+            <Text style={styles.practiceTitle}>{haraHachiBu.title}</Text>
+            <Text style={styles.japaneseName}>{haraHachiBu.japaneseName}</Text>
             <Text style={rdmStyles.muted}>A daily moment of mindful eating</Text>
           </View>
         </View>
-        <Text style={rdmStyles.body}>{HARA_HACHI_BU.description}</Text>
+        <Text style={rdmStyles.body}>{haraHachiBu.description}</Text>
         <Text style={rdmStyles.muted}>Notice your eating experience and write an honest reflection. A difficult day is valid too—there is no food quantity, calorie, or weight target.</Text>
         <PrimaryButton
           color={colors.plum}
           label="Set up Hara Hachi Bu"
           icon="plus"
-          onPress={() => router.push({ pathname: "/(app)/habit/new", params: { wisdomPracticeId: HARA_HACHI_BU.id } })}
+          onPress={() => router.push({ pathname: "/(app)/habit/new", params: { wisdomPracticeId: haraHachiBu.id } })}
         />
       </SurfaceCard>
 
@@ -48,12 +49,12 @@ export default function JapaneseWisdomScreen() {
       </SurfaceCard>
 
       {([
-        { label: "Your commitments", items: activeCommitments },
-        { label: "Practice history", items: finishedCommitments },
-      ]).map(({ label, items }) => (
+        { label: "Your commitments", items: activeCommitments, emptyMessage: "No active commitments yet. Read the practice and choose a manageable window." },
+        { label: "Practice history", items: finishedCommitments, emptyMessage: "Finished commitments and their reflections will appear here." },
+      ]).map(({ label, items, emptyMessage }) => (
         <View key={label} style={styles.section}>
           <SectionLabel>{label}</SectionLabel>
-          {items.length === 0 ? <Text style={rdmStyles.muted}>{label === "Your commitments" ? "No active commitments yet. Read the practice and choose a manageable window." : "Finished commitments and their reflections will appear here."}</Text> : null}
+          {items.length === 0 ? <Text style={rdmStyles.muted}>{emptyMessage}</Text> : null}
           {items.map((habit) => (
             <SurfaceCard key={habit.id} style={styles.commitmentCard} onPress={() => router.push({ pathname: "/(app)/habit/[id]", params: { id: habit.id } })}>
               <View style={styles.commitmentHeading}>
@@ -66,8 +67,7 @@ export default function JapaneseWisdomScreen() {
               {habit.rdmPledge ? <Text style={rdmStyles.muted}>{habit.rdmPledge.startDayKey} → {habit.rdmPledge.endDayKey} (end excluded)</Text> : null}
               {habit.wisdom ? (
                 <>
-                  <ProgressBar color={colors.plum} progress={habit.wisdom.totalDays > 0 ? habit.wisdom.completedDays / habit.wisdom.totalDays : 0} />
-                  <Text style={rdmStyles.muted}>{habit.wisdom.completedDays}/{habit.wisdom.totalDays} days completed · {habit.wisdom.missedDays} missed</Text>
+                  <WisdomProgress wisdom={habit.wisdom} />
                   {habit.wisdom.consistencyStatus === "perfect" ? <Text style={styles.perfect}>Perfect consistency · every day reflected</Text> : null}
                 </>
               ) : null}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mock } from "node:test";
 
-import { HARA_HACHI_BU } from "../domain/wisdom";
+import { haraHachiBu } from "../domain/wisdom";
 import type { AppRouter } from "../routers/index";
 
 type Dependencies = {
@@ -13,16 +13,16 @@ type Dependencies = {
 const dayAfter = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 const wisdomInput = () => ({
   creationId: randomUUID(),
-  wisdomPracticeId: HARA_HACHI_BU.id,
-  title: HARA_HACHI_BU.title,
-  category: HARA_HACHI_BU.category,
-  icon: HARA_HACHI_BU.icon,
-  target: HARA_HACHI_BU.target,
-  pledge: HARA_HACHI_BU.pledge,
-  cadence: HARA_HACHI_BU.cadence,
+  wisdomPracticeId: haraHachiBu.id,
+  title: haraHachiBu.title,
+  category: haraHachiBu.category,
+  icon: haraHachiBu.icon,
+  target: haraHachiBu.target,
+  pledge: haraHachiBu.pledge,
+  cadence: haraHachiBu.cadence,
   source: "template" as const,
   rdmPledgePerDay: 1,
-  rdmPledgeWeekdays: [...HARA_HACHI_BU.weekdays],
+  rdmPledgeWeekdays: [...haraHachiBu.weekdays],
   rdmPledgeStartDayKey: dayAfter(0),
   rdmPledgeEndDayKey: dayAfter(3),
   timeZone: "UTC",

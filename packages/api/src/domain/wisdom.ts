@@ -1,4 +1,4 @@
-export const HARA_HACHI_BU = {
+export const haraHachiBu = {
   id: "hara-hachi-bu",
   title: "Hara Hachi Bu",
   japaneseName: "腹八分目",
@@ -12,7 +12,7 @@ export const HARA_HACHI_BU = {
   reflectionPrompt: "What did you notice about your eating experience today?",
 } as const;
 
-export const WISDOM_DISABLED_BONUS_POLICY = "disabled-v1";
+export const wisdomDisabledBonusPolicy = "disabled-v1";
 
 type WisdomHabitState = {
   practiceId?: string | null;
@@ -27,7 +27,7 @@ type WisdomHabitState = {
 type ConsistencyStatus = "pending_funding" | "upcoming" | "in_progress" | "missed" | "perfect";
 
 type WisdomHabitView = {
-  practiceId: typeof HARA_HACHI_BU.id;
+  practiceId: typeof haraHachiBu.id;
   completedDays: number;
   totalDays: number;
   missedDays: number;
@@ -37,7 +37,7 @@ type WisdomHabitView = {
 };
 
 export function wisdomHabitView(state: WisdomHabitState): WisdomHabitView | null {
-  if (state.practiceId !== HARA_HACHI_BU.id) return null;
+  if (state.practiceId !== haraHachiBu.id) return null;
   const days = [...new Set(state.schedule?.dayKeys ?? [])];
   const completed = new Set(state.completedDayKeys);
   const settled = new Set(state.settledDayKeys);
@@ -50,7 +50,7 @@ export function wisdomHabitView(state: WisdomHabitState): WisdomHabitView | null
     : missedDays > 0 ? "missed" : perfect ? "perfect"
       : days[0] && state.currentDayKey < days[0] ? "upcoming" : "in_progress";
   return {
-    practiceId: HARA_HACHI_BU.id,
+    practiceId: haraHachiBu.id,
     completedDays,
     totalDays: days.length,
     missedDays,

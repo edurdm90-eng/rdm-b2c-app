@@ -6,7 +6,7 @@ import {
   habitTemplates,
   type HabitCategory,
 } from "@rdm-b2c/api/domain/rdm";
-import { HARA_HACHI_BU } from "@rdm-b2c/api/domain/wisdom";
+import { haraHachiBu } from "@rdm-b2c/api/domain/wisdom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { router, useLocalSearchParams } from "expo-router";
@@ -16,6 +16,7 @@ import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import { ActionDialog, AppScreen, ErrorState, PageHeader, Pill, PrimaryButton, SectionLabel, SurfaceCard } from "@/components/rdm-ui";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
+import { goBackToJapaneseWisdom } from "@/lib/wisdom-navigation";
 import { queryClient, trpc } from "@/utils/trpc";
 
 function dayKeyToDate(dayKey: string) {
@@ -106,7 +107,7 @@ export default function NewHabitScreen() {
   const [timeZone] = useState(getDeviceTimeZone);
   const [creationId] = useState(() => Crypto.randomUUID());
   const params = useLocalSearchParams<{ template?: string; wisdomPracticeId?: string }>();
-  const wisdomPractice = params.wisdomPracticeId === HARA_HACHI_BU.id ? HARA_HACHI_BU : null;
+  const wisdomPractice = params.wisdomPracticeId === haraHachiBu.id ? haraHachiBu : null;
   const template = useMemo(() => habitTemplates.find((item) => item.id === params.template), [params.template]);
   const todayDayKey = dayKeyForTimeZone(new Date(), timeZone);
   const [title, setTitle] = useState(wisdomPractice?.title ?? template?.title ?? "");
@@ -196,10 +197,7 @@ export default function NewHabitScreen() {
     <AppScreen>
       <PageHeader
         back
-        onBack={wisdomPractice ? () => {
-          if (router.canGoBack()) router.back();
-          else router.replace("/(app)/(tabs)/japanese-wisdom");
-        } : undefined}
+        onBack={wisdomPractice ? goBackToJapaneseWisdom : undefined}
         title={wisdomPractice?.title ?? (template ? "Shape this habit" : "Build your habit")}
         subtitle={wisdomPractice ? "Japanese Wisdom · daily practice" : template ? `Starting from ${template.title}` : "Your framework, your words"}
       />

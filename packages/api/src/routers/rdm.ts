@@ -24,7 +24,7 @@ import { savedLeaderboard } from "../services/leaderboard";
 import { hasMedaaCommitmentApproval } from "../services/medaa-commitment-approval";
 import { dailyGoalView, reconcileDailyGoal, reflectDailyGoal } from "../services/daily-goals";
 import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitment-input";
-import { wisdomHabitView, WISDOM_DISABLED_BONUS_POLICY } from "../domain/wisdom";
+import { wisdomHabitView, wisdomDisabledBonusPolicy } from "../domain/wisdom";
 import {
   awardSplitIsValid,
   badgeCatalog,
@@ -2365,7 +2365,7 @@ export const rdmRouter = router({
         const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         const habit = new Habit({
           ...input,
-          wisdomBonusPolicyId: input.wisdomPracticeId ? WISDOM_DISABLED_BONUS_POLICY : undefined,
+          wisdomBonusPolicyId: input.wisdomPracticeId ? wisdomDisabledBonusPolicy : undefined,
           cadence: weekdays.length === 7 ? "Daily"
             : weekdays.join(",") === "1,2,3,4,5" ? "Weekdays"
               : weekdays.map((day) => weekdayLabels[day - 1]).join(", "),
