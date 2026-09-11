@@ -1,79 +1,43 @@
-# Design QA — Good Deeds Register
+# Focused Routine design QA
 
-## Evidence
+## Evidence and normalization
 
-- Source visual truth: `/Users/yashdiwan/Documents/rdm-b2c/RDM_Grow_Habits_Wisdom_Family_Update.html`, screen 8.
-- Source screen capture: `/Users/yashdiwan/.codex/visualizations/2026/08/27/rdm-good-deeds-register/00-source-good-deeds-screen-half.png`.
-- Normalized source: `/Users/yashdiwan/.codex/visualizations/2026/08/27/rdm-good-deeds-register/01-source-good-deeds-normalized.jpg`.
-- Selected implementation: `/Users/yashdiwan/.codex/visualizations/2026/08/27/rdm-good-deeds-register/02-implementation-selected-mobile.png`.
-- Reward implementation: `/Users/yashdiwan/.codex/visualizations/2026/08/27/rdm-good-deeds-register/03-good-deeds-reward-popup.png`.
-- Persisted implementation: `/Users/yashdiwan/.codex/visualizations/2026/08/27/rdm-good-deeds-register/04-implementation-persisted-mobile.png`.
-- Source pixels: 169 × 365 from the overview board's half-scale render, normalized proportionally to 390 × 844.
-- Implementation viewport and pixels: 390 × 844 CSS px and 390 × 844 px at device scale factor 1.
-- State: authenticated mobile user with the first two deeds selected; persisted and positive-action states were captured separately.
+- Source visual truth: `docs/design/focused-routine/reference.png`, copied unchanged from the user's supplied clipboard image (1619 × 971 pixels).
+- Source mobile panels: approximately 366 × 829 pixels each; their surrounding board is not app content.
+- Implementation: existing Expo native application at `http://localhost:8081`, against an isolated local MongoDB and API, never the live database. Main comparison viewport 366 × 829 CSS pixels, devicePixelRatio 1; captures are 366 × 829. Narrow checks use 320 × 740, also density 1.
+- Captures: `docs/design/focused-routine/login.png`, `signup-final.png`, `home-final.png`, `wallet-expanded.png`, `wallet-collapsed.png`, plus narrow captures and the initial signup state.
+- Full-view comparisons emitted the original reference and each browser capture together in one comparison input. Scroll-position-mismatched captures were rejected and Home was recaptured at the top.
+- Focused review covered signup heading/inputs, wallet rows/chevrons, Home ring/CTA, and auth footer. Separate crop comparisons were unnecessary: these controls and their text remained legible at the source and capture resolutions.
+- Reference names, tree age, balances, and next actions are illustrative. Verification used an account created through the real signup UI and persisted commitments in an isolated database. The extra Wisdom access, More menu, horizontal seven-tab navigation, donation cards, and variable activity length are intentional deviations.
 
-## Findings
+## Comparison history
 
-No actionable P0, P1, or P2 differences remain.
+1. **P2 — Signup density:** the initial 366-pixel screen wrapped the heading and pushed the footer offscreen (`signup-initial.png`). Signup-only padding, title metrics, and form spacing were adjusted. `signup-final.png` confirms the single-line heading and visible footer at the same viewport; the 320-pixel layout remains scrollable.
+2. **P2 — Nested web focus outline:** removed the browser's inner input outline only on web; retained the containing field's blue focus border.
+3. **P2 — Progress-ring compatibility:** the library's animated wrapper forwarded a non-boolean `collapsable` attribute into SVG. The unwrapped, typed, static library component removes the warning. The zero-progress stroke is neutral; populated progress remains dynamic.
+4. **P2 — Disclosure accessibility:** native accessibility state did not emit web expanded/selected attributes. Explicit ARIA attributes now accompany native props. Browser state confirms Recent activity expands/collapses and the selected tab is announced.
 
-- Fonts and typography: Fraunces, Inter, and JetBrains Mono preserve the source hierarchy, weights, compact reward labels, and wrapping.
-- Spacing and layout rhythm: header, card margins, 50 px deed rows, dividers, checkbox alignment, and the separated gold CTA match the normalized source composition.
-- Colors and tokens: existing app tokens reproduce the dark canvas, charcoal card, low-contrast dividers, green selections, muted subtitle, and gold rewards/CTA.
-- Image quality and assets: screen 8 contains no raster imagery. Standard checkbox and back icons use the installed Material Community Icons set and remain sharp at mobile density.
-- Copy and content: all six labels and reward values match the wireframe exactly. The post-submit message is contextual and server-owned.
-- Accessibility and responsiveness: each row is a labeled checkbox with checked/disabled state, the CTA exposes disabled/loading state, and all text fits at 390 px without clipping. The blue outline in the selected capture is the browser's expected keyboard-focus indicator and is retained intentionally as P3 accessibility behavior.
-- Focused comparison: a separate crop was unnecessary because the complete card and all typography remain readable in the equal-size 390 × 844 comparison.
+## Required fidelity surfaces
 
-## Comparison History
+- **Typography:** bundled Inter regular/semibold/bold; strong sans-serif titles, subdued labels, compact purse rows. Signup heading wrapping fixed. The exact font file used by the raster reference is unknown; Inter is the existing app's closest available family.
+- **Spacing/layout:** 22-pixel content gutters (28 on sign-in), 10-pixel control radii, compact separated rows, roughly 128-pixel ring. Phone-width forms stay inside the viewport; longer histories and additional Wisdom/donation content scroll above the persistent tab bar.
+- **Colors:** scoped charcoal surfaces, green actions/Base, gold Reward, coral Remorse, purple Peer, cyan links. Other app screens retain their existing theme for later redesign.
+- **Assets:** existing icon library, genuine transparent generated sprout PNG, no screenshot embedded as UI or hand-drawn decorative SVG. Minor P3: footer linework differs from the reference and is softer at phone scale.
+- **Copy/content:** reference auth copy and airdrop wording retained. Counts, date, titles, tree day, balances, and transactions come from the API. No false external charity payment claim.
 
-- Pass 1 found two P2 fidelity issues: the CTA sat too close to the card and selected checks used a dark glyph instead of the source's light glyph.
-- Repair: added 10 px of CTA separation and changed the check glyph to the light ink token.
-- Pass 2 compared the normalized source and revised selected implementation in the same input. Geometry, hierarchy, colors, content, wrapping, and control states passed.
+## Interaction and regression evidence
 
-## Functional Verification
+- Signup input validation, password visibility, Back/mode toggle, signup, sign-out confirmation, and subsequent sign-in exercised.
+- A real new account received its existing 500 Base RDM airdrop. Isolated commitment funding and real reflections produced Home 2/4, then a goal reflection through the UI produced 3/4 and exactly +1 Reward (Base unchanged).
+- Home's primary action opened the existing goal detail; Back returned to updated Home. Japanese Wisdom and More/account access remained available.
+- Wallet purse disclosures and Recent activity open/close verified, including web expanded state. Donation controls remain intentionally disabled pending the unanswered policy decision.
+- Existing 78 domain/provider tests and 59 isolated integration tests passed. `pnpm check-types` and `pnpm build` passed. No live OpenAI requests were made.
+- Browser console checked. The introduced SVG warning was fixed; existing shadow-style deprecation warning remains unrelated. Temporary preview restart/network errors were resolved before functional checks.
+- Physical iOS/Android keyboard, system navigation, and device safe-area verification remain unperformed; existing safe-area handling is retained. No new automated mobile test suite was added while seam confirmation is pending.
 
-- Opened the register through **Grow Every Day → Add Sunlight** and toggled deeds on and off.
-- Submitted the first two deeds, received the dynamic `+35 RDM` popup, and confirmed **Nice!** returns to the tree.
-- Verified wallet reward increased by 35 and tree growth changed from 20 to 22 using two persisted sunlight actions.
-- Revisited the register and confirmed completed deeds remain checked and disabled.
-- Confirmed MongoDB `rdm-business.gooddeedentries` stores two daily records, with matching idempotency operations on the profile.
-- Browser console: no errors or warnings.
-- `pnpm test`, `pnpm check-types`, `pnpm build`, and `git diff --check` pass.
+## Findings and completion gate
 
-## Design QA — Streak Missed
+- **P1 / pending product decision:** the two requested donation actions cannot debit yet. Approve internal RDM contribution recording versus external payout integration before implementing settlement and its regression coverage.
+- The four visual redesigns have no remaining actionable P0/P1/P2 visual mismatch in the checked native-web states. Do not hand off the overall request as finished while donation behavior remains pending.
 
-### Evidence
-
-- Source visual truth: `/Users/yashdiwan/Documents/rdm-b2c/RDM_Grow_Habits_Wisdom_Family_Update.html`, screen 9.
-- Normalized source: `/Users/yashdiwan/.codex/visualizations/2026/09/05/rdm-streak-missed/00-source-streak-missed-normalized.jpg`.
-- Implementation: `/Users/yashdiwan/.codex/visualizations/2026/09/05/rdm-streak-missed/05-final-implementation-390x844.png`.
-- Final comparison: `/Users/yashdiwan/.codex/visualizations/2026/09/05/rdm-streak-missed/06-side-by-side-final-verified.jpg`.
-- Viewport and output: 390 × 844 CSS px and 390 × 844 px at device scale factor 1. The source crop was normalized to the same dimensions.
-- State: an authenticated user with a pledged tree, an 18-day streak, and no care record for the prior local calendar day.
-
-### Findings
-
-No actionable P0, P1, or P2 differences remain.
-
-- Layout, type hierarchy, warning treatment, purse flow, and primary CTA match the supplied screen.
-- The CTA copy intentionally says “any care action” to reflect the confirmed flexible-care rule.
-- Material Community Icons provide the warning and transfer icons; no substitute or placeholder assets are used.
-- The screen fits without clipping at 390 px and exposes the warning/error regions to assistive technology.
-
-### Comparison History
-
-- Pass 1 found P2 vertical-rhythm differences: both cards were too short and the CTA block sat too high.
-- Repair: increased the purse and CTA card heights, added section separation, and constrained the supporting copy.
-- Pass 2 compared the normalized wireframe and revised implementation in one image. Geometry, colors, copy, and control hierarchy passed.
-
-### Functional Verification
-
-- Confirmed a prior-day fertilizer, water, or sunlight record prevents the missed-day state; the user is never required to complete all three.
-- Confirmed no care triggers one fixed 10 RDM transfer from Reward to Remorse while total RDM stays unchanged.
-- Confirmed reloading does not repeat the transfer, and **Tend the tree now** acknowledges the notice and returns to the tree.
-- Confirmed a journal save creates a dated water-care record in the `rdm-business` database and increases tree growth.
-- Confirmed a completed habit cannot be cycled repeatedly on the same local day to inflate its streak.
-- Confirmed creating the tree stakes the selected RDM from the available balance, and catch-up reconciliation processes every missed day since the last evaluation exactly once.
-- `pnpm test`, `pnpm check-types`, `pnpm build`, and `git diff --check` pass.
-
-final result: passed
+final result: blocked

@@ -1,12 +1,24 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useState, type ComponentProps, type ReactNode } from "react";
+import {
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type TextInputProps,
+} from "react-native";
 
-import { AppScreen, PrimaryButton } from "@/components/rdm-ui";
+import { FocusedButton, FocusedScreen, focusedColors } from "@/components/focused-ui";
 import { authClient } from "@/lib/auth-client";
 import { postLoginDestination } from "@/lib/auth-return";
-import { colors, fonts, radii } from "@/lib/theme";
+import { fonts } from "@/lib/theme";
 import { queryClient, trpcClient } from "@/utils/trpc";
 
 type Mode = "sign-in" | "sign-up";
@@ -18,9 +30,17 @@ export default function LoginScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  function changeMode(nextMode: Mode) {
+    if (submitting) return;
+    setMode(nextMode);
+    setShowPassword(false);
+    setError(null);
+  }
 
   async function submit() {
     if (submitting) return;
@@ -64,53 +84,226 @@ export default function LoginScreen() {
   }
 
   return (
-    <AppScreen scroll={false} contentStyle={styles.screen}>
+    <FocusedScreen scroll={false} contentStyle={styles.screen} bottomSafe>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard}>
-        <View style={styles.brandMark}>
-          <MaterialCommunityIcons name="sprout" size={42} color={colors.growth} />
-        </View>
-        <Text style={styles.eyebrow}>PLEDGE · ACT · REFLECT · REWARD</Text>
-        <Text style={styles.title}>{mode === "sign-in" ? "Welcome back" : "Start growing"}</Text>
-        <Text style={styles.subtitle}>Small promises become visible progress when you keep showing up.</Text>
-
-        <View style={styles.formCard}>
-          {mode === "sign-up" ? (
-            <>
-              <TextInput accessibilityLabel="Name" autoCapitalize="words" onChangeText={setName} placeholder="Your name" placeholderTextColor={colors.inkSoft} style={styles.input} value={name} />
-              <TextInput accessibilityLabel="Referral code" autoCapitalize="characters" maxLength={6} onChangeText={setInviteCode} placeholder="Referral code (optional)" placeholderTextColor={colors.inkSoft} style={styles.input} value={inviteCode} />
-            </>
-          ) : null}
-          <TextInput accessibilityLabel="Email" autoCapitalize="none" autoComplete="email" keyboardType="email-address" onChangeText={setEmail} placeholder="Email address" placeholderTextColor={colors.inkSoft} style={styles.input} value={email} />
-          <TextInput accessibilityLabel="Password" autoCapitalize="none" autoComplete={mode === "sign-in" ? "current-password" : "new-password"} onChangeText={setPassword} onSubmitEditing={() => void submit()} placeholder="Password" placeholderTextColor={colors.inkSoft} secureTextEntry style={styles.input} value={password} />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <PrimaryButton label={mode === "sign-in" ? "Sign in" : "Create account"} loading={submitting} onPress={() => void submit()} />
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            setMode((current) => (current === "sign-in" ? "sign-up" : "sign-in"));
-            setError(null);
-          }}
-          style={styles.switchMode}
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, mode === "sign-up" && styles.signupScrollContent]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.switchText}>{mode === "sign-in" ? "New to RDM? Create an account" : "Already growing? Sign in"}</Text>
-        </Pressable>
+          <View style={styles.content}>
+            {mode === "sign-in" ? (
+              <View style={styles.brandRow}>
+                <MaterialCommunityIcons name="sprout-outline" size={68} color={focusedColors.green} />
+                <Text style={styles.brandName}>RDM</Text>
+              </View>
+            ) : (
+              <Pressable
+                accessibilityLabel="Back to sign in"
+                accessibilityRole="button"
+                disabled={submitting}
+                onPress={() => changeMode("sign-in")}
+                style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+              >
+                <MaterialCommunityIcons name="arrow-left" size={23} color={focusedColors.muted} />
+                <Text style={styles.backLabel}>Back</Text>
+              </Pressable>
+            )}
+
+            <Text style={[styles.title, mode === "sign-up" && styles.signupTitle]}>
+              {mode === "sign-in" ? "Your next good day starts here." : "Start with one small step."}
+            </Text>
+            <Text style={[styles.subtitle, mode === "sign-up" && styles.signupSubtitle]}>
+              {mode === "sign-in"
+                ? "Sign in to continue your routine."
+                : "Create your account and begin your focused routine."}
+            </Text>
+
+            <View style={[styles.form, mode === "sign-up" && styles.signupForm]}>
+              {mode === "sign-up" ? (
+                <AuthField
+                  label="Full name"
+                  icon="account-outline"
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  editable={!submitting}
+                  onChangeText={setName}
+                  placeholder="Your full name"
+                  value={name}
+                />
+              ) : null}
+              <AuthField
+                label="Email"
+                icon="email-outline"
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect={false}
+                editable={!submitting}
+                keyboardType="email-address"
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                value={email}
+              />
+              <AuthField
+                label="Password"
+                icon="lock-outline"
+                autoCapitalize="none"
+                autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+                autoCorrect={false}
+                editable={!submitting}
+                onChangeText={setPassword}
+                onSubmitEditing={() => void submit()}
+                placeholder={mode === "sign-in" ? "Your password" : "At least 8 characters"}
+                returnKeyType="go"
+                secureTextEntry={!showPassword}
+                value={password}
+                trailing={(
+                  <Pressable
+                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                    accessibilityRole="button"
+                    accessibilityState={{ checked: showPassword }}
+                    onPress={() => setShowPassword((visible) => !visible)}
+                    style={({ pressed }) => [styles.passwordToggle, pressed && styles.pressed]}
+                  >
+                    <MaterialCommunityIcons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={23}
+                      color={focusedColors.muted}
+                    />
+                  </Pressable>
+                )}
+              />
+              {mode === "sign-up" ? (
+                <AuthField
+                  label="Invite code (optional)"
+                  accessibilityLabel="Referral code"
+                  icon="tag-outline"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  editable={!submitting}
+                  maxLength={6}
+                  onChangeText={setInviteCode}
+                  placeholder="Enter invite code"
+                  value={inviteCode}
+                />
+              ) : null}
+            </View>
+
+            {mode === "sign-up" ? (
+              <View style={styles.airdropCard}>
+                <MaterialCommunityIcons name="gift-outline" size={36} color={focusedColors.background} />
+                <View style={styles.airdropCopy}>
+                  <Text style={styles.airdropTitle}>500 RDM welcome airdrop</Text>
+                  <Text style={styles.airdropDescription}>Added to your Base Purse when your account is created.</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {error ? <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+            <FocusedButton
+              label={mode === "sign-in" ? "Sign in" : "Create account"}
+              loading={submitting}
+              onPress={() => void submit()}
+              style={styles.submitButton}
+            />
+
+            <View style={styles.switchRow}>
+              <Text style={styles.switchPrompt}>{mode === "sign-in" ? "New to RDM?" : "Already a member?"}</Text>
+              <Pressable
+                accessibilityRole="button"
+                disabled={submitting}
+                onPress={() => changeMode(mode === "sign-in" ? "sign-up" : "sign-in")}
+                style={({ pressed }) => [styles.switchButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.switchLink}>{mode === "sign-in" ? "Create account" : "Sign in"}</Text>
+              </Pressable>
+            </View>
+
+            {mode === "sign-in" ? (
+              <View style={styles.footer}>
+                <Image
+                  accessible={false}
+                  source={require("@/assets/images/focused-sprout.png")}
+                  resizeMode="contain"
+                  style={styles.sproutImage}
+                />
+                <Text style={styles.footerText}>Small actions. Lasting growth.</Text>
+              </View>
+            ) : null}
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </AppScreen>
+    </FocusedScreen>
+  );
+}
+
+function AuthField({
+  label,
+  icon,
+  trailing,
+  accessibilityLabel = label,
+  ...inputProps
+}: TextInputProps & {
+  label: string;
+  icon: ComponentProps<typeof MaterialCommunityIcons>["name"];
+  trailing?: ReactNode;
+}) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={[styles.inputRow, focused && styles.inputFocused]}>
+        <MaterialCommunityIcons name={icon} size={23} color={focusedColors.muted} />
+        <TextInput
+          {...inputProps}
+          accessibilityLabel={accessibilityLabel}
+          onBlur={() => setFocused(false)}
+          onFocus={() => setFocused(true)}
+          placeholderTextColor={focusedColors.muted}
+          selectionColor={focusedColors.green}
+          style={styles.input}
+        />
+        {trailing}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { justifyContent: "center", paddingBottom: 32 },
-  keyboard: { width: "100%", maxWidth: 420, alignSelf: "center" },
-  brandMark: { width: 76, height: 76, borderRadius: 24, backgroundColor: colors.growthTint, borderWidth: 1, borderColor: "rgba(63, 203, 139, 0.28)", alignItems: "center", justifyContent: "center", marginBottom: 20 },
-  eyebrow: { color: colors.growth, fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.8 },
-  title: { color: colors.ink, fontFamily: fonts.display, fontSize: 34, marginTop: 8 },
-  subtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, marginTop: 8, marginBottom: 24 },
-  formCard: { backgroundColor: colors.panel, borderColor: colors.line, borderWidth: 1, borderRadius: radii.large, padding: 16, gap: 12 },
-  input: { minHeight: 50, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.line, borderRadius: 13, color: colors.ink, fontFamily: fonts.body, fontSize: 15, paddingHorizontal: 14 },
-  error: { color: colors.coral, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 17 },
-  switchMode: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 12 },
-  switchText: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 13 },
+  screen: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 },
+  keyboard: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 36, paddingBottom: 24 },
+  signupScrollContent: { paddingHorizontal: 22 },
+  content: { width: "100%", maxWidth: 420, alignSelf: "center" },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 28 },
+  brandName: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 34 },
+  title: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 34, lineHeight: 42, letterSpacing: -0.7 },
+  signupTitle: { fontSize: 26, lineHeight: 34, letterSpacing: -0.5 },
+  subtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 16, lineHeight: 24, marginTop: 10, marginBottom: 32 },
+  signupSubtitle: { marginBottom: 20 },
+  backButton: { minHeight: 44, flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 14, marginTop: -16, marginBottom: 16 },
+  backLabel: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14 },
+  form: { gap: 24 },
+  signupForm: { gap: 18 },
+  field: { gap: 8 },
+  fieldLabel: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14 },
+  inputRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, paddingLeft: 14, paddingRight: 4, backgroundColor: focusedColors.panel, borderWidth: 1, borderColor: focusedColors.line, borderRadius: 10 },
+  inputFocused: { borderColor: focusedColors.link },
+  input: { flex: 1, minWidth: 0, minHeight: 50, paddingVertical: 12, paddingRight: 10, color: focusedColors.text, fontFamily: fonts.body, fontSize: 15, ...(Platform.OS === "web" ? { outlineWidth: 0 } : {}) },
+  passwordToggle: { width: 44, height: 48, alignItems: "center", justifyContent: "center" },
+  airdropCard: { flexDirection: "row", alignItems: "center", gap: 16, marginTop: 22, paddingHorizontal: 15, paddingVertical: 15, borderRadius: 10, backgroundColor: focusedColors.mint },
+  airdropCopy: { flex: 1, gap: 5 },
+  airdropTitle: { color: focusedColors.background, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 21 },
+  airdropDescription: { color: focusedColors.background, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  error: { color: focusedColors.coral, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19, marginTop: 16 },
+  submitButton: { borderRadius: 10, minHeight: 54, marginTop: 24 },
+  switchRow: { borderTopWidth: 1, borderColor: focusedColors.line, marginTop: 28, paddingTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" },
+  switchPrompt: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14 },
+  switchButton: { minHeight: 44, justifyContent: "center" },
+  switchLink: { color: focusedColors.link, fontFamily: fonts.bodyMedium, fontSize: 14 },
+  footer: { alignItems: "center", marginTop: 26, gap: 12 },
+  sproutImage: { width: "100%", height: 108 },
+  footerText: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  pressed: { opacity: 0.72 },
 });

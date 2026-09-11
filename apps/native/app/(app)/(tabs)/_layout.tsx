@@ -4,16 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { colors, fonts } from "@/lib/theme";
+import { focusedColors } from "@/components/focused-ui";
+import { fonts } from "@/lib/theme";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 const icons: Record<string, IconName> = {
   index: "home-variant-outline",
-  habits: "target",
-  goals: "flag-checkered",
+  habits: "leaf-circle-outline",
+  goals: "bullseye-arrow",
   groups: "account-group-outline",
-  games: "view-grid-outline",
+  games: "gamepad-variant-outline",
   wallet: "wallet-outline",
   "japanese-wisdom": "bowl-mix-outline",
 };
@@ -48,7 +49,7 @@ function AppTabBar({ state, descriptors, navigation }: AppTabBarProps) {
         {state.routes.map((route, index) => {
           const options = descriptors[route.key]?.options;
           const focused = state.index === index;
-          const color = focused ? colors.growth : colors.inkSoft;
+          const color = focused ? focusedColors.green : focusedColors.muted;
           const label = route.name === "japanese-wisdom" ? "Wisdom" : options?.title ?? route.name;
           return (
             <Pressable
@@ -56,6 +57,7 @@ function AppTabBar({ state, descriptors, navigation }: AppTabBarProps) {
               accessibilityLabel={options?.tabBarAccessibilityLabel ?? options?.title ?? label}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
+              aria-selected={focused}
               onPress={() => {
                 const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
                 if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
@@ -63,7 +65,7 @@ function AppTabBar({ state, descriptors, navigation }: AppTabBarProps) {
               onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
               style={({ pressed }) => [styles.item, { width: itemWidth }, pressed && styles.pressed]}
             >
-              <MaterialCommunityIcons name={icons[route.name] ?? "circle-outline"} size={24} color={color} />
+              <MaterialCommunityIcons name={focused && route.name === "index" ? "home-variant" : focused && route.name === "wallet" ? "wallet" : icons[route.name] ?? "circle-outline"} size={24} color={color} />
               <Text style={[styles.label, { color }]}>{label}</Text>
             </Pressable>
           );
@@ -92,11 +94,11 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  bar: { backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6 },
+  bar: { backgroundColor: focusedColors.background, borderTopWidth: 1, borderTopColor: focusedColors.line, paddingTop: 6 },
   items: { alignItems: "center" },
   scroll: { height: 52, flexGrow: 0 },
   item: { minHeight: 52, alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 4 },
   label: { fontFamily: fonts.bodyMedium, fontSize: 9, textAlign: "center" },
-  scrollHint: { fontFamily: fonts.body, fontSize: 10, color: colors.inkSoft, textAlign: "right", paddingHorizontal: 12, paddingBottom: 2 },
+  scrollHint: { fontFamily: fonts.body, fontSize: 10, color: focusedColors.muted, textAlign: "right", paddingHorizontal: 12, paddingBottom: 2 },
   pressed: { opacity: 0.7 },
 });

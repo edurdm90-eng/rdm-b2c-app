@@ -25,6 +25,8 @@ import { hasMedaaCommitmentApproval } from "../services/medaa-commitment-approva
 import { dailyGoalView, reconcileDailyGoal, reflectDailyGoal } from "../services/daily-goals";
 import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitment-input";
 import { wisdomHabitView, wisdomDisabledBonusPolicy } from "../domain/wisdom";
+import { dailyFocus } from "../domain/daily-focus";
+import { walletActivity } from "../domain/wallet-activity";
 import {
   awardSplitIsValid,
   badgeCatalog,
@@ -321,6 +323,7 @@ async function serializeProfile(profile: any) {
       title: String(transaction.title),
       amount: Number(transaction.amount),
       kind: String(transaction.kind),
+      ...walletActivity(String(transaction.kind), Number(transaction.amount)),
       createdAt: new Date(transaction.createdAt).toISOString(),
     })),
   };
@@ -1876,10 +1879,15 @@ export const rdmRouter = router({
       ctx.session.user.id,
       String(currentProfile.treeTimeZone ?? "Asia/Kolkata"),
     );
+    const [focusHabits, focusGoals] = await Promise.all([
+      Habit.find({ userId: ctx.session.user.id, rdmPledgeFundingStatus: { $ne: "pending" } }),
+      Goal.find({ userId: ctx.session.user.id, fundingStatus: "funded" }),
+    ]);
     return {
       user: { name: ctx.session.user.name, email: ctx.session.user.email },
       profile: await serializeProfile(profile),
       habits: habits.map(serializeHabit),
+      today: dailyFocus(focusHabits.map(serializeHabit), focusGoals.map(serializeGoal), new Date()),
       groups: groups.map((group) => serializeGroup(group, ctx.session.user.id)),
       games: gameCatalog,
       serverTime: nowIso(),
