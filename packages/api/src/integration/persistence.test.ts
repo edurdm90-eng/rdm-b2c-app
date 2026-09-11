@@ -12,6 +12,7 @@ import { verifyCareRecovery } from "./care-recovery-assertions";
 import { medaaRegressionCases } from "./medaa-journey-assertions";
 import { signupAirdropCases } from "./signup-airdrop-assertions";
 import { dailyGoalCases } from "./daily-goal-assertions";
+import { wisdomCases } from "./wisdom-assertions";
 
 let mongo: ChildProcess | undefined;
 let temporaryDirectory: string;
@@ -86,6 +87,10 @@ for (const regression of medaaRegressionCases) {
 }
 
 for (const regression of dailyGoalCases) {
+  test(regression.name, async () => regression.run({ db, caller }));
+}
+
+for (const regression of wisdomCases) {
   test(regression.name, async () => regression.run({ db, caller }));
 }
 

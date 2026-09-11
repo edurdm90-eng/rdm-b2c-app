@@ -6,13 +6,14 @@ import {
   habitTemplates,
   type HabitCategory,
 } from "@rdm-b2c/api/domain/rdm";
+import { HARA_HACHI_BU } from "@rdm-b2c/api/domain/wisdom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { AppScreen, ErrorState, PageHeader, Pill, PrimaryButton, SectionLabel, SurfaceCard } from "@/components/rdm-ui";
+import { ActionDialog, AppScreen, ErrorState, PageHeader, Pill, PrimaryButton, SectionLabel, SurfaceCard } from "@/components/rdm-ui";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -102,26 +103,28 @@ function DateField({
 }
 
 export default function NewHabitScreen() {
-  const timeZone = getDeviceTimeZone();
+  const [timeZone] = useState(getDeviceTimeZone);
   const [creationId] = useState(() => Crypto.randomUUID());
-  const params = useLocalSearchParams<{ template?: string }>();
+  const params = useLocalSearchParams<{ template?: string; wisdomPracticeId?: string }>();
+  const wisdomPractice = params.wisdomPracticeId === HARA_HACHI_BU.id ? HARA_HACHI_BU : null;
   const template = useMemo(() => habitTemplates.find((item) => item.id === params.template), [params.template]);
   const todayDayKey = dayKeyForTimeZone(new Date(), timeZone);
-  const [title, setTitle] = useState(template?.title ?? "");
-  const [category, setCategory] = useState<HabitCategory>(template?.category ?? "Focus");
+  const [title, setTitle] = useState(wisdomPractice?.title ?? template?.title ?? "");
+  const [category, setCategory] = useState<HabitCategory>(wisdomPractice?.category ?? template?.category ?? "Focus");
   const [cadence, setCadence] = useState<"Daily" | "Weekdays" | "Custom weekly">(
-    template?.id === "deep-work" ? "Weekdays"
+    wisdomPractice ? "Daily" : template?.id === "deep-work" ? "Weekdays"
       : template && template.cadence !== "Daily" ? "Custom weekly" : "Daily",
   );
   const [customWeekdays, setCustomWeekdays] = useState<number[]>([]);
-  const weekdays = useMemo(() => cadence === "Daily" ? [1, 2, 3, 4, 5, 6, 7]
-    : cadence === "Weekdays" ? [1, 2, 3, 4, 5] : customWeekdays, [cadence, customWeekdays]);
-  const [target, setTarget] = useState(template?.target ?? "");
-  const [pledge, setPledge] = useState(template?.pledge ?? "");
-  const [rdmPledgePerDay, setRdmPledgePerDay] = useState("10");
+  const weekdays = useMemo(() => wisdomPractice ? [...wisdomPractice.weekdays] : cadence === "Daily" ? [1, 2, 3, 4, 5, 6, 7]
+    : cadence === "Weekdays" ? [1, 2, 3, 4, 5] : customWeekdays, [cadence, customWeekdays, wisdomPractice]);
+  const [target, setTarget] = useState(wisdomPractice?.target ?? template?.target ?? "");
+  const [pledge, setPledge] = useState(wisdomPractice?.pledge ?? template?.pledge ?? "");
+  const [rdmPledgePerDay, setRdmPledgePerDay] = useState(wisdomPractice ? "1" : "10");
   const [startDayKey, setStartDayKey] = useState(todayDayKey);
   const [endDayKey, setEndDayKey] = useState(() => addDays(todayDayKey, 5));
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions());
   const numericDailyPledge = Number(rdmPledgePerDay);
   const pledgeSchedule = useMemo(
@@ -143,7 +146,8 @@ export default function NewHabitScreen() {
     onError: (mutationError) => setError(mutationError.message),
   }));
 
-  function submit() {
+  function submit(confirmed = false) {
+    if (createHabit.isPending) return;
     setError(null);
     if (title.trim().length < 2 || target.trim().length < 2 || pledge.trim().length < 8) {
       setError("Give the habit a name, a measurable target, and a clear pledge.");
@@ -161,6 +165,11 @@ export default function NewHabitScreen() {
       setError(`You need ${formatRdm(pledgeSchedule.totalPledge)} RDM in your Base Purse.`);
       return;
     }
+    if (wisdomPractice && !confirmed) {
+      setConfirmOpen(true);
+      return;
+    }
+    setConfirmOpen(false);
     createHabit.mutate({
       title: title.trim(),
       creationId,
@@ -173,8 +182,9 @@ export default function NewHabitScreen() {
       rdmPledgeStartDayKey: startDayKey,
       rdmPledgeEndDayKey: endDayKey,
       timeZone,
-      icon: template?.icon ?? "target",
-      source: template ? "template" : "custom",
+      icon: wisdomPractice?.icon ?? template?.icon ?? "target",
+      source: wisdomPractice || template ? "template" : "custom",
+      ...(wisdomPractice ? { wisdomPracticeId: wisdomPractice.id } : {}),
     });
   }
 
@@ -184,41 +194,62 @@ export default function NewHabitScreen() {
 
   return (
     <AppScreen>
-      <PageHeader back title={template ? "Shape this habit" : "Build your habit"} subtitle={template ? `Starting from ${template.title}` : "Your framework, your words"} />
-      <SectionLabel>Habit name</SectionLabel>
-      <TextInput accessibilityLabel="Habit name" onChangeText={setTitle} placeholder="e.g. Read before bed" placeholderTextColor={colors.inkSoft} style={styles.input} value={title} />
-      <SectionLabel>Category</SectionLabel>
-      <View style={styles.pills}>{habitCategories.map((item) => <Pill key={item} active={category === item} label={item} onPress={() => setCategory(item)} />)}</View>
-      <SectionLabel>Cadence</SectionLabel>
-      <View style={styles.pills}>
-        {(["Daily", "Weekdays", "Custom weekly"] as const).map((item) => (
-          <Pill key={item} active={cadence === item} label={item} onPress={() => setCadence(item)} />
-        ))}
-      </View>
-      {cadence === "Custom weekly" ? (
-        <View style={styles.pills}>
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label, index) => (
-            <Pill key={label} active={customWeekdays.includes(index + 1)} label={label} onPress={() => {
-              const day = index + 1;
-              setCustomWeekdays((current) => current.includes(day)
-                ? current.filter((item) => item !== day) : [...current, day].sort());
-            }} />
-          ))}
-        </View>
-      ) : null}
-      <Text style={styles.scheduleHint}>Only selected days are charged. Rest days keep your streak and carry no penalty.</Text>
-      <SectionLabel>Measurable target</SectionLabel>
-      <TextInput accessibilityLabel="Target" onChangeText={setTarget} placeholder="What counts as done?" placeholderTextColor={colors.inkSoft} style={styles.input} value={target} />
-      <SectionLabel>Your pledge</SectionLabel>
-      <TextInput accessibilityLabel="Pledge" multiline onChangeText={setPledge} placeholder="I pledge to…" placeholderTextColor={colors.inkSoft} style={[styles.input, styles.multiline]} textAlignVertical="top" value={pledge} />
-      <View style={styles.promiseNote}><Text style={styles.promiseTitle}>Keep it fair</Text><Text style={styles.promiseCopy}>A good pledge is specific enough to check and small enough to repeat on a difficult day.</Text></View>
+      <PageHeader
+        back
+        onBack={wisdomPractice ? () => {
+          if (router.canGoBack()) router.back();
+          else router.replace("/(app)/(tabs)/japanese-wisdom");
+        } : undefined}
+        title={wisdomPractice?.title ?? (template ? "Shape this habit" : "Build your habit")}
+        subtitle={wisdomPractice ? "Japanese Wisdom · daily practice" : template ? `Starting from ${template.title}` : "Your framework, your words"}
+      />
+      {wisdomPractice ? (
+        <SurfaceCard style={styles.practiceSummary}>
+          <Text style={styles.promiseTitle}>A mindful moment, every day</Text>
+          <Text style={styles.promiseCopy}>{wisdomPractice.description}</Text>
+          <Text style={styles.promiseCopy}>{wisdomPractice.target}</Text>
+          <Text style={styles.promiseCopy}>“{wisdomPractice.pledge}”</Text>
+          <Text style={styles.promiseCopy}>An honest reflection counts even if the practice was difficult. No food quantity, calorie, or weight target. Follow your individual nutritional needs and professional guidance.</Text>
+          <Text style={styles.promiseCopy}>Bonus payouts are not enabled for this commitment.</Text>
+        </SurfaceCard>
+      ) : (
+        <>
+          <SectionLabel>Habit name</SectionLabel>
+          <TextInput accessibilityLabel="Habit name" onChangeText={setTitle} placeholder="e.g. Read before bed" placeholderTextColor={colors.inkSoft} style={styles.input} value={title} />
+          <SectionLabel>Category</SectionLabel>
+          <View style={styles.pills}>{habitCategories.map((item) => <Pill key={item} active={category === item} label={item} onPress={() => setCategory(item)} />)}</View>
+          <SectionLabel>Cadence</SectionLabel>
+          <View style={styles.pills}>
+            {(["Daily", "Weekdays", "Custom weekly"] as const).map((item) => (
+              <Pill key={item} active={cadence === item} label={item} onPress={() => setCadence(item)} />
+            ))}
+          </View>
+          {cadence === "Custom weekly" ? (
+            <View style={styles.pills}>
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label, index) => (
+                <Pill key={label} active={customWeekdays.includes(index + 1)} label={label} onPress={() => {
+                  const day = index + 1;
+                  setCustomWeekdays((current) => current.includes(day)
+                    ? current.filter((item) => item !== day) : [...current, day].sort());
+                }} />
+              ))}
+            </View>
+          ) : null}
+          <Text style={styles.scheduleHint}>Only selected days are charged. Rest days keep your streak and carry no penalty.</Text>
+          <SectionLabel>Measurable target</SectionLabel>
+          <TextInput accessibilityLabel="Target" onChangeText={setTarget} placeholder="What counts as done?" placeholderTextColor={colors.inkSoft} style={styles.input} value={target} />
+          <SectionLabel>Your pledge</SectionLabel>
+          <TextInput accessibilityLabel="Pledge" multiline onChangeText={setPledge} placeholder="I pledge to…" placeholderTextColor={colors.inkSoft} style={[styles.input, styles.multiline]} textAlignVertical="top" value={pledge} />
+          <View style={styles.promiseNote}><Text style={styles.promiseTitle}>Keep it fair</Text><Text style={styles.promiseCopy}>A good pledge is specific enough to check and small enough to repeat on a difficult day.</Text></View>
+        </>
+      )}
       <SectionLabel>RDM pledge per day</SectionLabel>
       <TextInput
         accessibilityLabel="RDM pledge per day"
         keyboardType="number-pad"
         maxLength={6}
         onChangeText={setRdmPledgePerDay}
-        placeholder="10"
+        placeholder={wisdomPractice ? "1" : "10"}
         placeholderTextColor={colors.inkSoft}
         style={styles.input}
         value={rdmPledgePerDay}
@@ -241,6 +272,7 @@ export default function NewHabitScreen() {
         value={endDayKey}
       />
       <Text style={styles.endDateHint}>The end date is the finish boundary and is not charged.</Text>
+      {wisdomPractice ? <Text style={styles.scheduleHint}>Every day is a commitment day. Saved time zone: {timeZone}.</Text> : null}
       <SurfaceCard style={styles.rdmSummary}>
         <View style={styles.rdmSummaryRow}>
           <View>
@@ -248,7 +280,7 @@ export default function NewHabitScreen() {
             <Text style={styles.rdmSummaryValue}>{formatRdm(availableBase)} RDM available</Text>
           </View>
           <View style={styles.rdmSummaryRight}>
-            <Text style={styles.rdmSummaryLabel}>Locked now</Text>
+            <Text style={styles.rdmSummaryLabel}>{wisdomPractice ? "Lock on confirmation" : "Locked now"}</Text>
             <Text style={[styles.rdmSummaryValue, !canAfford && styles.rdmSummaryError]}>
               {pledgeSchedule ? `${formatRdm(pledgeSchedule.totalPledge)} RDM` : "—"}
             </Text>
@@ -261,7 +293,18 @@ export default function NewHabitScreen() {
         </Text>
       </SurfaceCard>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <PrimaryButton disabled={wallet.isLoading || !canAfford} label="Lock RDM & create habit" loading={createHabit.isPending} onPress={submit} />
+      <PrimaryButton disabled={wallet.isLoading || !canAfford} label={wisdomPractice ? "Review commitment" : "Lock RDM & create habit"} loading={createHabit.isPending} onPress={() => submit()} />
+      {wisdomPractice ? (
+        <ActionDialog
+          title="Confirm Hara Hachi Bu"
+          visible={confirmOpen}
+          message={`${startDayKey} to ${endDayKey} (end excluded), in ${timeZone}. ${pledgeSchedule?.dayCount ?? 0} days × ${formatRdm(numericDailyPledge)} RDM = ${formatRdm(pledgeSchedule?.totalPledge ?? 0)} RDM locked from Base. Each daily check-in and reflection moves its allocation to Reward; a missed day moves it to Remorse. Bonus payouts are not enabled.`}
+          confirmLabel="Lock RDM & start"
+          loading={createHabit.isPending}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={() => submit(true)}
+        />
+      ) : null}
     </AppScreen>
   );
 }
@@ -280,6 +323,7 @@ const styles = StyleSheet.create({
   promiseNote: { borderRadius: radii.medium, padding: 14, backgroundColor: colors.plumTint, borderWidth: 1, borderColor: "rgba(179,154,232,0.22)", gap: 4 },
   promiseTitle: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 12 },
   promiseCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
+  practiceSummary: { gap: 10, backgroundColor: colors.plumTint },
   rdmSummary: { gap: 10, backgroundColor: colors.growthTint },
   rdmSummaryRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   rdmSummaryRight: { alignItems: "flex-end" },

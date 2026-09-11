@@ -1,10 +1,11 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { HARA_HACHI_BU } from "@rdm-b2c/api/domain/wisdom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
-import { ActionDialog, AppScreen, ErrorState, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
+import { ActionDialog, AppScreen, ErrorState, LoadingState, PageHeader, PrimaryButton, ProgressBar, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
 import { colors, fonts, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -96,6 +97,7 @@ export default function HabitDetailScreen() {
   if (habit.error || !habit.data) return <ErrorState message={habit.error?.message ?? "Habit not found."} onRetry={() => void habit.refetch()} />;
 
   const data = habit.data;
+  const wisdomPractice = data.wisdomPracticeId === HARA_HACHI_BU.id ? HARA_HACHI_BU : null;
   const currentIndex = steps.indexOf(data.stage);
   const scheduledPledge = data.rdmPledge;
   const presentation = habitPresentation({
@@ -107,7 +109,16 @@ export default function HabitDetailScreen() {
 
   return (
     <AppScreen>
-      <PageHeader back title={data.title} subtitle={presentation.subtitle} trailing={<View style={styles.streakPill}><MaterialCommunityIcons name="fire" size={17} color={colors.gold} /><Text style={styles.streakText}>{data.streak}</Text></View>} />
+      <PageHeader
+        back
+        onBack={wisdomPractice ? () => {
+          if (router.canGoBack()) router.back();
+          else router.replace("/(app)/(tabs)/japanese-wisdom");
+        } : undefined}
+        title={data.title}
+        subtitle={presentation.subtitle}
+        trailing={<View style={styles.streakPill}><MaterialCommunityIcons name="fire" size={17} color={colors.gold} /><Text style={styles.streakText}>{data.streak}</Text></View>}
+      />
       <View style={styles.timeline}>
         {steps.map((step, index) => {
           const complete = index < currentIndex || (data.stage === "reward" && index === currentIndex);
@@ -145,10 +156,28 @@ export default function HabitDetailScreen() {
         ) : null}
         <Text style={styles.scheduleCopy}>{data.cadence} · {data.target}</Text>
         {scheduledPledge ? <Text style={rdmStyles.muted}>{scheduledPledge.startDayKey} → {scheduledPledge.endDayKey} (end date excluded)</Text> : null}
+        {wisdomPractice && scheduledPledge ? <Text style={rdmStyles.muted}>Saved time zone: {scheduledPledge.timeZone}</Text> : null}
       </SurfaceCard>
 
+      {wisdomPractice && data.wisdom ? (
+        <SurfaceCard style={styles.wisdomCard}>
+          <SectionLabel>Practice progress</SectionLabel>
+          <ProgressBar color={colors.plum} progress={data.wisdom.totalDays > 0 ? data.wisdom.completedDays / data.wisdom.totalDays : 0} />
+          <Text style={rdmStyles.body}>{data.wisdom.completedDays}/{data.wisdom.totalDays} days completed · {data.wisdom.missedDays} missed · {data.wisdom.unresolvedDays} remaining</Text>
+          <Text style={styles.wisdomStatus}>{data.wisdom.consistencyStatus === "perfect" ? "Perfect consistency—every day reflected."
+            : data.wisdom.consistencyStatus === "missed" ? data.wisdom.unresolvedDays > 0
+              ? "Your progress is saved. Keep reflecting on the remaining days."
+              : "All daily allocations are settled. Your completed and missed days are saved below."
+              : data.wisdom.consistencyStatus === "upcoming" ? "Your practice starts on the confirmed date."
+                : data.wisdom.consistencyStatus === "pending_funding" ? "Funding confirmation is pending."
+                  : "Consistency is recorded across the entire confirmed schedule."}</Text>
+          <Text style={rdmStyles.muted}>Bonus payouts are not enabled for this commitment. Your daily pledge allocations are settled only once.</Text>
+        </SurfaceCard>
+      ) : null}
+
       <SurfaceCard>
-        <SectionLabel>Today's act</SectionLabel>
+        <SectionLabel>{wisdomPractice ? "Today's mindful check-in" : "Today's act"}</SectionLabel>
+        {wisdomPractice ? <Text style={styles.wisdomGuidance}>Notice your eating experience without judging it. Difficulties are valid to record; completion does not depend on eating less or changing your weight. Follow your nutritional needs and professional guidance.</Text> : null}
         {presentation.todayState === "upcoming" && scheduledPledge ? (
           <Text style={rdmStyles.muted}>Your first scheduled day is {scheduledPledge.nextDayKey ?? scheduledPledge.startDayKey}. Your RDM is locked, but no daily amount will move before then.</Text>
         ) : presentation.todayState === "rest" ? (
@@ -157,20 +186,21 @@ export default function HabitDetailScreen() {
           <Text style={rdmStyles.muted}>The pledge window is complete. Every scheduled day has been settled.</Text>
         ) : presentation.todayState === "act" ? (
           <>
-            <TextInput accessibilityLabel="Action log" multiline onChangeText={setActionNote} placeholder={`How did ${data.target} go?`} placeholderTextColor={colors.inkSoft} style={styles.input} textAlignVertical="top" value={actionNote} />
-            <PrimaryButton label="Log today's act" loading={logAction.isPending} onPress={() => {
+            <TextInput accessibilityLabel={wisdomPractice ? "Mindful eating check-in" : "Action log"} maxLength={240} multiline onChangeText={setActionNote} placeholder={wisdomPractice ? "Describe a moment you noticed during a meal—even if it was difficult." : `How did ${data.target} go?`} placeholderTextColor={colors.inkSoft} style={styles.input} textAlignVertical="top" value={actionNote} />
+            <PrimaryButton label={wisdomPractice ? "Save today's check-in" : "Log today's act"} loading={logAction.isPending} onPress={() => {
               setError(null);
-              if (actionNote.trim().length < 2) return setError("Add a short note about what you completed.");
+              if (actionNote.trim().length < 2) return setError(wisdomPractice ? "Add a short, honest note about your experience." : "Add a short note about what you completed.");
               logAction.mutate({ id, note: actionNote.trim() });
             }} />
-            <PrimaryButton color={colors.coral} label="I missed this pledge" loading={miss.isPending} variant="outline" onPress={() => setMissOpen(true)} />
+            <PrimaryButton color={colors.coral} label={wisdomPractice ? "Record a missed day" : "I missed this pledge"} loading={miss.isPending} variant="outline" onPress={() => setMissOpen(true)} />
           </>
         ) : <Text style={rdmStyles.muted}>{data.lastAction ?? "Action logged for today."}</Text>}
       </SurfaceCard>
 
       <SurfaceCard>
         <SectionLabel>Reflect</SectionLabel>
-        <TextInput accessibilityLabel="Reflection" editable={data.stage === "reflect"} multiline onChangeText={setReflection} placeholder="What made this easier or harder today?" placeholderTextColor={colors.inkSoft} style={[styles.input, data.stage !== "reflect" && styles.inputDisabled]} textAlignVertical="top" value={reflection} />
+        {wisdomPractice ? <Text style={rdmStyles.body}>{wisdomPractice.reflectionPrompt}</Text> : null}
+        <TextInput accessibilityLabel="Reflection" editable={data.stage === "reflect"} maxLength={500} multiline onChangeText={setReflection} placeholder={wisdomPractice ? "What felt comfortable or difficult? Any honest reflection counts." : "What made this easier or harder today?"} placeholderTextColor={colors.inkSoft} style={[styles.input, data.stage !== "reflect" && styles.inputDisabled]} textAlignVertical="top" value={reflection} />
       </SurfaceCard>
 
       <SurfaceCard>
@@ -186,7 +216,7 @@ export default function HabitDetailScreen() {
 
       {data.history.length > 0 ? (
         <SurfaceCard>
-          <SectionLabel>Habit history</SectionLabel>
+          <SectionLabel>{wisdomPractice ? "Practice & reflection history" : "Habit history"}</SectionLabel>
           {data.history.slice(0, showAllHistory ? undefined : 7).map((entry) => (
             <View key={entry.dayKey} style={styles.historyEntry}>
               <Text style={[styles.historyTitle, { color: entry.outcome === "completed" ? colors.growth : colors.coral }]}>
@@ -205,7 +235,7 @@ export default function HabitDetailScreen() {
         <PrimaryButton color={colors.gold} label={scheduledPledge ? `Complete → move ${scheduledPledge.perDay} RDM to Reward` : "Complete reflection → claim reward"} loading={reflect.isPending} onPress={() => {
           setError(null);
           if (reflection.trim().length < 4) return setError("Write one honest sentence before claiming the reward.");
-          reflect.mutate({ id, reflection: reflection.trim(), timeZone });
+          reflect.mutate({ id, reflection: reflection.trim(), timeZone: scheduledPledge?.timeZone ?? timeZone });
         }} />
       ) : null}
       {data.stage === "reward" && data.lastOutcome ? (
@@ -231,17 +261,19 @@ export default function HabitDetailScreen() {
         </View>
       ) : null}
       <ActionDialog
-        cancelLabel="Keep working"
+        cancelLabel={wisdomPractice ? "Go back" : "Keep working"}
         confirmColor={colors.coral}
-        confirmLabel="Record honestly"
+        confirmLabel={wisdomPractice ? "Record missed day" : "Record honestly"}
         loading={miss.isPending}
-        message={`Your streak resets and ${scheduledPledge?.perDay ?? 10} RDM moves into the Remorse Purse for you to decide on later.`}
+        message={wisdomPractice
+          ? `This records a missed check-in, not a judgement about what you ate. Today's ${scheduledPledge?.perDay ?? 0} RDM allocation moves to Remorse and the streak resets. Earlier completed days keep their rewards.`
+          : `Your streak resets and ${scheduledPledge?.perDay ?? 10} RDM moves into the Remorse Purse for you to decide on later.`}
         onCancel={() => setMissOpen(false)}
         onConfirm={() => {
           setMissOpen(false);
           miss.mutate({ id });
         }}
-        title="Record a missed pledge?"
+        title={wisdomPractice ? "Record a missed day?" : "Record a missed pledge?"}
         visible={missOpen}
       />
     </AppScreen>
@@ -263,6 +295,9 @@ const styles = StyleSheet.create({
   stepLineComplete: { backgroundColor: colors.growth },
   pledge: { color: colors.ink, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 8 },
   scheduleCopy: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 11, marginTop: 12, marginBottom: 4 },
+  wisdomCard: { gap: 12 },
+  wisdomStatus: { color: colors.plum, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
+  wisdomGuidance: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginTop: 8 },
   historyEntry: { gap: 5, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.line },
   historyTitle: { fontFamily: fonts.bodyBold, fontSize: 12 },
   rdmPledgeGrid: { flexDirection: "row", gap: 7, marginTop: 14 },

@@ -24,6 +24,7 @@ import { savedLeaderboard } from "../services/leaderboard";
 import { hasMedaaCommitmentApproval } from "../services/medaa-commitment-approval";
 import { dailyGoalView, reconcileDailyGoal, reflectDailyGoal } from "../services/daily-goals";
 import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitment-input";
+import { wisdomHabitView, WISDOM_DISABLED_BONUS_POLICY } from "../domain/wisdom";
 import {
   awardSplitIsValid,
   badgeCatalog,
@@ -198,6 +199,16 @@ function serializeHabit(habit: any) {
 
   return {
     id: String(habit._id),
+    wisdomPracticeId: habit.wisdomPracticeId ? String(habit.wisdomPracticeId) : null,
+    wisdom: wisdomHabitView({
+      practiceId: habit.wisdomPracticeId,
+      schedule: pledgeSchedule,
+      currentDayKey: todayDayKey,
+      completedDayKeys,
+      settledDayKeys,
+      remainingPledge: Number(habit.rdmPledgeRemaining ?? 0),
+      fundingStatus: String(habit.rdmPledgeFundingStatus ?? ""),
+    }),
     title: String(habit.title),
     category: String(habit.category),
     icon: String(habit.icon),
@@ -2285,7 +2296,37 @@ export const rdmRouter = router({
           userId: ctx.session.user.id,
           rdmPledgeCreationId: input.creationId,
         });
+        const validateWisdomRetry = async (candidate: NonNullable<typeof existingHabit>) => {
+          if (!candidate.wisdomPracticeId && !input.wisdomPracticeId) return;
+          const sameWeekdays = numberArray(candidate.rdmPledgeWeekdays).sort((left, right) => left - right).join(",")
+            === [...input.rdmPledgeWeekdays].sort((left, right) => left - right).join(",");
+          if (candidate.wisdomPracticeId !== input.wisdomPracticeId
+            || candidate.title !== input.title || candidate.category !== input.category
+            || candidate.icon !== input.icon || candidate.cadence !== input.cadence
+            || candidate.target !== input.target || candidate.pledge !== input.pledge
+            || candidate.source !== input.source || candidate.rdmPledgePerDay !== input.rdmPledgePerDay
+            || candidate.rdmPledgeStartDayKey !== input.rdmPledgeStartDayKey
+            || candidate.rdmPledgeEndDayKey !== input.rdmPledgeEndDayKey
+            || candidate.rdmPledgeTimeZone !== input.timeZone || !sameWeekdays) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "This creation attempt already has different practice details. Open a new practice form to change them.",
+            });
+          }
+          if (candidate.rdmPledgeFundingStatus === "pending"
+            && input.rdmPledgeStartDayKey < dayKeyForTimeZone(new Date(), input.timeZone)
+            && !(await RdmProfile.exists({
+              userId: ctx.session.user.id,
+              creditedOperations: `habit-stake:${candidate._id}`,
+            }))) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "This unfunded practice starts in the past. Open a new practice form and confirm new dates.",
+            });
+          }
+        };
         if (existingHabit) {
+          await validateWisdomRetry(existingHabit);
           const fundedHabit = await fundPendingHabit(existingHabit, ctx.session.user.id);
           if (!fundedHabit) {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Your Base Purse cannot fund this habit." });
@@ -2324,6 +2365,7 @@ export const rdmRouter = router({
         const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         const habit = new Habit({
           ...input,
+          wisdomBonusPolicyId: input.wisdomPracticeId ? WISDOM_DISABLED_BONUS_POLICY : undefined,
           cadence: weekdays.length === 7 ? "Daily"
             : weekdays.join(",") === "1,2,3,4,5" ? "Weekdays"
               : weekdays.map((day) => weekdayLabels[day - 1]).join(", "),
@@ -2354,6 +2396,7 @@ export const rdmRouter = router({
             rdmPledgeCreationId: input.creationId,
           });
           if (!concurrentHabit) throw error;
+          await validateWisdomRetry(concurrentHabit);
           savedHabit = concurrentHabit;
         }
         const fundedHabit = await fundPendingHabit(savedHabit, ctx.session.user.id);

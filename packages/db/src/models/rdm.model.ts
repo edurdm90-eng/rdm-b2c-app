@@ -103,6 +103,8 @@ const habitSchema = new Schema(
     cadence: { type: String, required: true },
     target: { type: String, required: true },
     pledge: { type: String, required: true },
+    wisdomPracticeId: { type: String, enum: ["hara-hachi-bu"] },
+    wisdomBonusPolicyId: { type: String, enum: ["disabled-v1"] },
     rdmPledgeCreationId: { type: String },
     rdmPledgePerDay: { type: Number, min: 1 },
     rdmPledgeTotal: { type: Number, min: 1 },

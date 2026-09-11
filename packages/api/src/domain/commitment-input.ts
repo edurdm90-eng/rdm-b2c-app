@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { goalCategories, habitCategories, isValidTimeZone } from "./rdm";
+import { HARA_HACHI_BU } from "./wisdom";
 
 const dayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 const timeZoneSchema = z
@@ -11,6 +12,7 @@ const timeZoneSchema = z
   .refine(isValidTimeZone, "Invalid time zone");
 
 export const habitCreateInputSchema = z.object({
+  wisdomPracticeId: z.literal(HARA_HACHI_BU.id).optional(),
   title: z.string().trim().min(2).max(80),
   category: z.enum(habitCategories),
   icon: z.string().min(1).default("target"),
@@ -26,6 +28,19 @@ export const habitCreateInputSchema = z.object({
   rdmPledgeEndDayKey: dayKeySchema,
   timeZone: timeZoneSchema,
   source: z.enum(["template", "custom"]),
+}).superRefine((input, context) => {
+  if (!input.wisdomPracticeId) return;
+  for (const field of ["title", "category", "icon", "cadence", "target", "pledge"] as const) {
+    if (input[field] !== HARA_HACHI_BU[field]) {
+      context.addIssue({ code: "custom", path: [field], message: "Use the confirmed Hara Hachi Bu practice terms." });
+    }
+  }
+  if (input.source !== "template") {
+    context.addIssue({ code: "custom", path: ["source"], message: "Hara Hachi Bu uses the Japanese Wisdom practice template." });
+  }
+  if (input.rdmPledgeWeekdays.length !== HARA_HACHI_BU.weekdays.length) {
+    context.addIssue({ code: "custom", path: ["rdmPledgeWeekdays"], message: "Hara Hachi Bu requires a daily commitment." });
+  }
 });
 
 export const goalCreateInputSchema = z.object({

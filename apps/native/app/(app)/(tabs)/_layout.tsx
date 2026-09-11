@@ -1,5 +1,7 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Tabs } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors, fonts } from "@/lib/theme";
@@ -13,28 +15,70 @@ const icons: Record<string, IconName> = {
   groups: "account-group-outline",
   games: "view-grid-outline",
   wallet: "wallet-outline",
+  "japanese-wisdom": "bowl-mix-outline",
 };
 
-export default function TabLayout() {
+type AppTabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>>[0];
+
+function AppTabBar({ state, descriptors, navigation }: AppTabBarProps) {
   const insets = useSafeAreaInsets();
-  const tabBarBottomPadding = Math.max(insets.bottom, 10);
+  const scrollView = useRef<ScrollView>(null);
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const itemWidth = Math.max(64, availableWidth / state.routes.length);
+  const overflowing = availableWidth > 0 && itemWidth * state.routes.length > availableWidth;
+
+  useEffect(() => {
+    scrollView.current?.scrollTo({
+      x: Math.max(0, state.index * itemWidth - (availableWidth - itemWidth) / 2),
+      animated: true,
+    });
+  }, [availableWidth, itemWidth, state.index]);
+
+  return (
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10), paddingLeft: insets.left, paddingRight: insets.right }]}>
+      {overflowing ? <Text style={styles.scrollHint}>Swipe for all tabs ↔</Text> : null}
+      <ScrollView
+        horizontal
+        onLayout={(event) => setAvailableWidth(event.nativeEvent.layout.width)}
+        ref={scrollView}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.items}
+        style={styles.scroll}
+      >
+        {state.routes.map((route, index) => {
+          const options = descriptors[route.key]?.options;
+          const focused = state.index === index;
+          const color = focused ? colors.growth : colors.inkSoft;
+          const label = route.name === "japanese-wisdom" ? "Wisdom" : options?.title ?? route.name;
+          return (
+            <Pressable
+              key={route.key}
+              accessibilityLabel={options?.tabBarAccessibilityLabel ?? options?.title ?? label}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: focused }}
+              onPress={() => {
+                const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+                if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+              }}
+              onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
+              style={({ pressed }) => [styles.item, { width: itemWidth }, pressed && styles.pressed]}
+            >
+              <MaterialCommunityIcons name={icons[route.name] ?? "circle-outline"} size={24} color={color} />
+              <Text style={[styles.label, { color }]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+export default function TabLayout() {
 
   return (
     <Tabs
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: colors.growth,
-        tabBarInactiveTintColor: colors.inkSoft,
-        tabBarLabelStyle: { fontFamily: fonts.bodyMedium, fontSize: 9, marginTop: 1 },
-        tabBarStyle: {
-          height: 62 + tabBarBottomPadding,
-          paddingTop: 8,
-          paddingBottom: tabBarBottomPadding,
-          backgroundColor: colors.background,
-          borderTopColor: colors.line,
-        },
-        tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name={icons[route.name] ?? "circle-outline"} size={size} color={color} />,
-      })}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <AppTabBar {...props} />}
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
       <Tabs.Screen name="habits" options={{ title: "Habits" }} />
@@ -42,6 +86,17 @@ export default function TabLayout() {
       <Tabs.Screen name="groups" options={{ title: "Groups" }} />
       <Tabs.Screen name="games" options={{ title: "Games" }} />
       <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />
+      <Tabs.Screen name="japanese-wisdom" options={{ title: "Japanese Wisdom", tabBarAccessibilityLabel: "Japanese Wisdom" }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  bar: { backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6 },
+  items: { alignItems: "center" },
+  scroll: { height: 52, flexGrow: 0 },
+  item: { minHeight: 52, alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 4 },
+  label: { fontFamily: fonts.bodyMedium, fontSize: 9, textAlign: "center" },
+  scrollHint: { fontFamily: fonts.body, fontSize: 10, color: colors.inkSoft, textAlign: "right", paddingHorizontal: 12, paddingBottom: 2 },
+  pressed: { opacity: 0.7 },
+});
