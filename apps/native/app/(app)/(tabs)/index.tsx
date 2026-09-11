@@ -12,9 +12,7 @@ import { fonts, formatRdm } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
-type TodayItem = { id: string; kind: "habit" | "goal"; title: string; icon: string; perDay: number | null; stage: "act" | "reflect" | "progress" };
-
-function openCommitment(item: TodayItem) {
+function openCommitment(item: { id: string; kind: "habit" | "goal" }) {
   router.push({ pathname: item.kind === "habit" ? "/(app)/habit/[id]" : "/(app)/goal/[id]", params: { id: item.id } });
 }
 
