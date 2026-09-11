@@ -314,12 +314,9 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
         requireIdle(stored);
         if (stored.drafts.length >= MAX_DRAFTS) throw new TRPCError({ code: "BAD_REQUEST", message: "This journey has enough drafts. Start another journey for a new plan." });
         const updated = { ...journey };
-          const initialGoalsCreated = journey.selectedGoalIds.length > 0 && journey.selectedGoalIds.every((id) =>
-            stored.drafts.some((draft) => draft.id === id && draft.status === "created"));
-          const limit = ["plan", "next"].includes(journey.stage) && initialGoalsCreated ? MEDAA_PLAN_ITEM_LIMIT : 2;
-          if (journey.selectedGoalIds.length >= limit) throw new TRPCError({ code: "BAD_REQUEST", message: `You can choose up to ${limit} goals at this step.` });
-          updated.selectedGoalIds = [...journey.selectedGoalIds, input.requestId];
-          updated.goalSuggestionIds = [...journey.goalSuggestionIds, input.requestId];
+        if (journey.selectedGoalIds.length >= MEDAA_PLAN_ITEM_LIMIT) throw new TRPCError({ code: "BAD_REQUEST", message: `You can choose up to ${MEDAA_PLAN_ITEM_LIMIT} goals at this step.` });
+        updated.selectedGoalIds = [...journey.selectedGoalIds, input.requestId];
+        updated.goalSuggestionIds = [...journey.goalSuggestionIds, input.requestId];
         const saved = await MedaaConversation.findOneAndUpdate(
           { _id: stored._id, userId, revision: stored.revision },
           { $set: { journey: updated }, $inc: { revision: 1 }, $push: { drafts: {
@@ -480,8 +477,8 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
         if (resultIds.length && input.action.kind !== "refine") {
           const retained = drafts.filter((draft) => draft.content.type === "goal"
             && (draft.origin === "manual" || draft.version > 0 || draft.status !== "draft" || draft.review || currentJourney.selectedGoalIds.includes(draft.id))).map((draft) => draft.id);
-            updatedJourney.goalSuggestionIds = [...new Set([...retained, ...resultIds])];
-            updatedJourney.goalSuggestionsReady = true;
+          updatedJourney.goalSuggestionIds = [...new Set([...retained, ...resultIds])];
+          updatedJourney.goalSuggestionsReady = true;
         }
         const completed = await MedaaConversation.findOneAndUpdate(
           { _id: current._id, userId, leaseToken, revision: current.revision },
