@@ -1,319 +1,421 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { haraHachiBu } from "@rdm-b2c/api/domain/wisdom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { router, useIsFocused, useLocalSearchParams } from "expo-router";
+import { usePreventRemove } from "expo-router/react-navigation";
+import { useEffect, useRef, useState } from "react";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ActionDialog, AppScreen, ErrorState, LoadingState, PageHeader, PrimaryButton, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
-import { WisdomProgress } from "@/components/wisdom-progress";
-import { colors, fonts, radii } from "@/lib/theme";
-import { getDeviceTimeZone } from "@/lib/time-zone";
+import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
+import { HabitHistory } from "@/components/habit-history";
+import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { getHabitDetailPresentation, type HabitDetail } from "@/lib/habit-detail";
+import { fonts, formatRdm } from "@/lib/theme";
 import { goBackToJapaneseWisdom } from "@/lib/wisdom-navigation";
 import { queryClient, trpc } from "@/utils/trpc";
 
-const steps = ["pledge", "act", "reflect", "reward"] as const;
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+const steps = ["Pledge", "Act", "Reflect", "Reward"];
+const weekLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-type ScheduledPledgeSummary = {
-  currentDayKey: string | null;
-  dayCount: number;
-  settledDayKeys: string[];
-  startDayKey: string;
-  scheduledToday: boolean;
-  nextDayKey: string | null;
-  status: "upcoming" | "active" | "finished";
-};
+function formatDay(dayKey: string, short = false) {
+  return new Date(dayKey + "T12:00:00Z").toLocaleDateString("en-IN", {
+    weekday: short ? undefined : "long", day: "numeric", month: short ? "short" : "long",
+    year: short ? undefined : "numeric", timeZone: "UTC",
+  });
+}
 
-function habitPresentation({
-  cadence,
-  scheduledPledge,
-  stage,
-  streak,
-}: {
-  cadence: string;
-  scheduledPledge: ScheduledPledgeSummary | null;
-  stage: (typeof steps)[number];
-  streak: number;
-}) {
-  if (!scheduledPledge) {
-    return {
-      subtitle: `Day ${Math.max(1, streak)} · ${cadence}`,
-      todayState: stage === "act" ? "act" : "other",
-    } as const;
-  }
-  if (scheduledPledge.status === "upcoming") {
-    return {
-      subtitle: `STARTS ${scheduledPledge.nextDayKey ?? scheduledPledge.startDayKey}`,
-      todayState: "upcoming",
-    } as const;
-  }
-  if (scheduledPledge.status === "finished") {
-    return { subtitle: "PLEDGE COMPLETE", todayState: "finished" } as const;
-  }
-  if (!scheduledPledge.scheduledToday) {
-    return {
-      subtitle: scheduledPledge.nextDayKey ? `NEXT ${scheduledPledge.nextDayKey}` : "REST DAY",
-      todayState: "rest",
-    } as const;
-  }
-  const dayNumber = Math.min(
-    scheduledPledge.dayCount,
-    scheduledPledge.settledDayKeys.length
-      + (scheduledPledge.currentDayKey
-        && scheduledPledge.settledDayKeys.includes(scheduledPledge.currentDayKey)
-        ? 0
-        : 1),
+function nextDayCopy(today: string, next: string | null) {
+  if (!next) return "Every scheduled day is settled.";
+  const tomorrow = new Date(today + "T12:00:00Z");
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  return next === tomorrow.toISOString().slice(0, 10)
+    ? "Your next reflection is tomorrow."
+    : "Your next reflection is " + formatDay(next, true) + ".";
+}
+
+function HabitSteps({ stage }: { stage: "act" | "reflect" }) {
+  const current = stage === "act" ? 1 : 2;
+  return (
+    <View accessibilityLabel={"Habit progress: " + steps[current]} style={styles.steps}>
+      {steps.map((label, index) => (
+        <View key={label} style={styles.step}>
+          {index < 3 ? <View style={[styles.stepLine, index < current && styles.stepLineDone]} /> : null}
+          <View style={[styles.stepCircle, index < current && styles.stepDone, index === current && styles.stepCurrent]}>
+            {index < current ? <MaterialCommunityIcons name="check" size={21} color={palette.onGreen} /> : <Text style={[styles.stepNumber, index === current && styles.stepCurrentNumber]}>{index + 1}</Text>}
+          </View>
+          <Text style={[styles.stepLabel, index === current && styles.stepLabelCurrent]}>{label}</Text>
+        </View>
+      ))}
+    </View>
   );
-  return {
-    subtitle: `DAY ${dayNumber} OF ${scheduledPledge.dayCount}`,
-    todayState: stage === "act" ? "act" : "other",
-  } as const;
+}
+
+function AllocationCard({ amount, title, description, reward = false }: { amount?: number; title: string; description: string; reward?: boolean }) {
+  return (
+    <View style={[styles.allocation, reward && styles.rewardAllocation]}>
+      <MaterialCommunityIcons name="database-outline" size={31} color={reward ? palette.gold : palette.link} />
+      <View style={styles.flex}>
+        <Text style={styles.allocationTitle}>{title}</Text>
+        {amount !== undefined ? <Text style={styles.allocationAmount}>{formatRdm(amount)} RDM</Text> : null}
+        <Text style={styles.smallCopy}>{description}</Text>
+      </View>
+    </View>
+  );
+}
+
+function Metric({ icon, label, value, hint, color = palette.muted }: { icon: IconName; label: string; value: string; hint: string; color?: string }) {
+  return (
+    <View style={styles.metric}>
+      <MaterialCommunityIcons name={icon} size={28} color={color} />
+      <View style={styles.flex}>
+        <View style={styles.metricHeading}><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricValue}>{value}</Text></View>
+        <Text style={styles.smallCopy}>{hint}</Text>
+      </View>
+    </View>
+  );
+}
+
+function WeekProgress({ habit, todayDayKey }: { habit: HabitDetail; todayDayKey: string }) {
+  return (
+    <View style={styles.weekSection}>
+      <Text style={styles.label}>This week</Text>
+      <View style={styles.week}>
+        {habit.weekProgress.map((day, index) => {
+          const missed = habit.history.some((entry) => entry.dayKey === day.dayKey && entry.outcome === "missed");
+          return (
+            <View key={day.dayKey} accessibilityLabel={formatDay(day.dayKey) + ": " + (day.completed ? "completed" : missed ? "missed" : "not completed")} style={styles.weekDay}>
+              <Text style={styles.weekLabel}>{weekLabels[index]}</Text>
+              <View style={[styles.weekDate, day.dayKey === todayDayKey && styles.weekToday]}><Text style={[styles.weekNumber, day.dayKey === todayDayKey && styles.weekTodayText]}>{Number(day.dayKey.slice(-2))}</Text></View>
+              <View style={[styles.weekDot, day.completed && styles.weekHit, missed && styles.weekMiss]} />
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
 }
 
 export default function HabitDetailScreen() {
-  const timeZone = getDeviceTimeZone();
   const { id = "" } = useLocalSearchParams<{ id: string }>();
-  const habit = useQuery(trpc.rdm.habits.byId.queryOptions({ id }));
+  const focused = useIsFocused();
+  const habit = useQuery({ ...trpc.rdm.habits.byId.queryOptions({ id }), enabled: focused && Boolean(id), refetchInterval: focused ? 30_000 : false });
   const [actionNote, setActionNote] = useState("");
   const [reflection, setReflection] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [missOpen, setMissOpen] = useState(false);
-  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [actionExpanded, setActionExpanded] = useState(false);
+  const [focusedField, setFocusedField] = useState<"action" | "reflection" | null>(null);
+  const [missDayKey, setMissDayKey] = useState<string | null>(null);
+  const inFlight = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     setActionNote(habit.data?.lastAction ?? "");
     setReflection(habit.data?.reflection ?? "");
   }, [habit.data?.id, habit.data?.lastAction, habit.data?.reflection, habit.data?.rdmPledge?.currentDayKey]);
+  useEffect(() => {
+    setError(null);
+    setActionExpanded(false);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [habit.data?.stage, historyOpen]);
+  useEffect(() => {
+    setHistoryOpen(false);
+    setMissDayKey(null);
+  }, [id]);
 
-  async function refresh() {
+  async function refresh(updated: HabitDetail) {
+    queryClient.setQueryData(trpc.rdm.habits.byId.queryOptions({ id }).queryKey, updated);
     await queryClient.invalidateQueries();
-    await habit.refetch();
   }
-
-  const logAction = useMutation(trpc.rdm.habits.logAction.mutationOptions({ onSuccess: refresh, onError: (mutationError) => setError(mutationError.message) }));
-  const reflect = useMutation(trpc.rdm.habits.reflect.mutationOptions({ onSuccess: refresh, onError: (mutationError) => setError(mutationError.message) }));
-  const miss = useMutation(trpc.rdm.habits.miss.mutationOptions({ onSuccess: refresh, onError: (mutationError) => setError(mutationError.message) }));
-  const startNext = useMutation(trpc.rdm.habits.startNextCycle.mutationOptions({ onSuccess: refresh, onError: (mutationError) => setError(mutationError.message) }));
+  function mutationError(problem: { message: string }) { setError(problem.message); }
+  function settled() { inFlight.current = false; }
+  const logAction = useMutation(trpc.rdm.habits.logAction.mutationOptions({ onSuccess: refresh, onError: mutationError, onSettled: settled }));
+  const reflect = useMutation(trpc.rdm.habits.reflect.mutationOptions({ onSuccess: (result) => refresh(result.habit), onError: mutationError, onSettled: settled }));
+  const miss = useMutation(trpc.rdm.habits.miss.mutationOptions({
+    onSuccess: async (result) => { setMissDayKey(null); setHistoryOpen(false); await refresh(result.habit); },
+    onError: mutationError, onSettled: settled,
+  }));
+  const startNext = useMutation(trpc.rdm.habits.startNextCycle.mutationOptions({ onSuccess: refresh, onError: mutationError, onSettled: settled }));
+  const busy = logAction.isPending || reflect.isPending || miss.isPending || startNext.isPending;
+  usePreventRemove(historyOpen || busy, () => { if (!busy) setHistoryOpen(false); });
 
   if (habit.isLoading) return <LoadingState label="Opening your habit…" />;
-  if (habit.error || !habit.data) return <ErrorState message={habit.error?.message ?? "Habit not found."} onRetry={() => void habit.refetch()} />;
+  if (!habit.data) return <ErrorState message={habit.error?.message ?? "Habit not found."} onRetry={() => void habit.refetch()} />;
 
   const data = habit.data;
-  const wisdomPractice = data.wisdomPracticeId === haraHachiBu.id ? haraHachiBu : null;
-  const currentIndex = steps.indexOf(data.stage);
-  const scheduledPledge = data.rdmPledge;
-  const presentation = habitPresentation({
-    cadence: data.cadence,
-    scheduledPledge,
-    stage: data.stage,
-    streak: data.streak,
-  });
+  const presentation = getHabitDetailPresentation(data);
+  const state = presentation.state;
+  const pledge = data.rdmPledge;
+  const wisdom = data.wisdomPracticeId === haraHachiBu.id;
+  const icon = (data.icon === "book-open" ? "book-open-variant-outline" : data.icon) as IconName;
+  const isAction = state === "act";
+  const isReflection = state === "reflect";
+  const completed = state === "completed";
+  const missed = state === "missed";
+  const resultScreen = completed || missed;
+  const legacyNext = !pledge && data.active && data.stage === "reward" && state === "inactive";
+  const destination = wisdom ? "/(app)/(tabs)/japanese-wisdom" : "/(app)/(tabs)/habits";
+
+  function back() {
+    if (busy) return;
+    if (historyOpen) { setHistoryOpen(false); return; }
+    if (wisdom) { goBackToJapaneseWisdom(); return; }
+    if (router.canGoBack()) router.back();
+    else router.replace("/(app)/(tabs)/habits");
+  }
+  function backToHabits() {
+    if (!busy) router.dismissTo(destination);
+  }
+  function openHistory() {
+    setError(null);
+    setHistoryOpen(true);
+  }
+  function saveAction() {
+    if (busy || inFlight.current || !isAction) return;
+    setError(null);
+    const current = getHabitDetailPresentation(data);
+    if (current.state !== "act" || current.todayDayKey !== presentation.todayDayKey) {
+      setError("The day changed. Refresh today's habit before saving your action.");
+      void habit.refetch();
+      return;
+    }
+    if (actionNote.trim().length < 2) { setError("Add a short, honest note about today's action."); return; }
+    inFlight.current = true;
+    logAction.mutate({ id, note: actionNote.trim() });
+  }
+  function saveReflection() {
+    if (busy || inFlight.current || !isReflection) return;
+    setError(null);
+    const current = getHabitDetailPresentation(data);
+    if (current.state !== "reflect" || current.todayDayKey !== presentation.todayDayKey) {
+      setError("The day changed. Refresh today's habit before saving your reflection.");
+      void habit.refetch();
+      return;
+    }
+    if (reflection.trim().length < 4) { setError("Write a short, honest reflection before completing today."); return; }
+    inFlight.current = true;
+    reflect.mutate({ id, reflection: reflection.trim(), timeZone: pledge?.timeZone ?? "Asia/Kolkata" });
+  }
+  function confirmMiss() {
+    if (busy || inFlight.current) return;
+    const current = getHabitDetailPresentation(data);
+    if (current.state !== "act" || current.todayDayKey !== missDayKey) {
+      setMissDayKey(null);
+      setError("This day's availability changed. Review your current habit before continuing.");
+      void habit.refetch();
+      return;
+    }
+    setError(null);
+    inFlight.current = true;
+    miss.mutate({ id });
+  }
 
   return (
-    <AppScreen>
-      <PageHeader
-        back
-        onBack={wisdomPractice ? goBackToJapaneseWisdom : undefined}
-        title={data.title}
-        subtitle={presentation.subtitle}
-        trailing={<View style={styles.streakPill}><MaterialCommunityIcons name="fire" size={17} color={colors.gold} /><Text style={styles.streakText}>{data.streak}</Text></View>}
-      />
-      <View style={styles.timeline}>
-        {steps.map((step, index) => {
-          const complete = index < currentIndex || (data.stage === "reward" && index === currentIndex);
-          const current = index === currentIndex && !complete;
-          return (
-            <View key={step} style={styles.stepWrap}>
-              <View style={[styles.stepCircle, complete && styles.stepComplete, current && styles.stepCurrent]}>
-                {complete ? <MaterialCommunityIcons name="check" size={16} color={colors.backgroundDeep} /> : <Text style={[styles.stepNumber, current && styles.stepNumberCurrent]}>{index + 1}</Text>}
+    <FocusedScreen scroll={false} bottomSafe contentStyle={styles.screen}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <Pressable accessibilityLabel={historyOpen ? "Back to today's habit" : "Go back"} accessibilityRole="button" disabled={busy} onPress={back} style={styles.iconButton}><MaterialCommunityIcons name="arrow-left" size={28} color={palette.text} /></Pressable>
+            <Text accessibilityRole="header" style={styles.headerTitle}>{data.title}</Text>
+            {!historyOpen ? <Pressable accessibilityLabel="View habit history" accessibilityRole="button" disabled={busy} onPress={openHistory} style={styles.iconButton}><MaterialCommunityIcons name="history" size={23} color={palette.muted} /></Pressable> : null}
+          </View>
+          <View style={styles.headerMeta}><Text style={styles.subtitle}>{data.category} · {data.cadence}</Text><MaterialCommunityIcons name={icon} size={32} color={palette.text} /></View>
+        </View>
+
+        <ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={[styles.content, resultScreen && !historyOpen && styles.resultContent]} keyboardShouldPersistTaps="handled">
+          {historyOpen ? (
+            <HabitHistory habit={data} todayDayKey={presentation.todayDayKey} canOpenToday={isAction || isReflection} canMissToday={isAction && !busy} onOpenToday={() => setHistoryOpen(false)} onMissToday={() => { setError(null); setMissDayKey(presentation.todayDayKey); }} />
+          ) : isAction || isReflection ? (
+            <>
+              <HabitSteps stage={isAction ? "act" : "reflect"} />
+              {isAction ? (
+                <>
+                  <View style={styles.streakRow}>
+                    <MaterialCommunityIcons name="fire" size={35} color={palette.gold} />
+                    <View style={styles.flex}><Text style={styles.metricValue}>{data.streak} day streak</Text><Text style={styles.smallCopy}>{data.streak ? "Keep going. Small steps add up." : "Start with one small step today."}</Text></View>
+                  </View>
+                  <View style={styles.todayRow}><Text style={styles.label}>Today</Text><Text style={styles.dateLabel}>{formatDay(presentation.todayDayKey)}</Text></View>
+                  <View style={styles.field}>
+                    <Text accessibilityRole="header" style={styles.prompt}>{wisdom ? "What did you notice during a meal today?" : "What did you do today?"}</Text>
+                    {wisdom ? <Text style={styles.smallCopy}>An honest check-in counts, even on a difficult day. This is not about eating less, calories, or weight. Follow your nutritional needs and professional guidance.</Text> : null}
+                    <View style={[styles.textArea, focusedField === "action" && styles.focusedTextArea]}>
+                      <TextInput accessibilityLabel={wisdom ? "Mindful eating check-in" : "Action log"} editable={!busy} maxLength={240} multiline onFocus={() => setFocusedField("action")} onBlur={() => setFocusedField(null)} onChangeText={setActionNote} placeholder={wisdom ? "Describe a moment you noticed, without judging it." : "Write a short note about " + data.target.toLowerCase() + "."} placeholderTextColor={palette.muted} style={[styles.input, Platform.OS === "web" && styles.webInput]} textAlignVertical="top" value={actionNote} />
+                      <Text style={styles.counter}>{actionNote.length}/240</Text>
+                    </View>
+                    <Text style={[styles.smallCopy, styles.linkColor]}>A short, honest note is enough.</Text>
+                  </View>
+                  <AllocationCard title={pledge ? formatRdm(pledge.perDay) + " RDM reserved for today" : "Complete your action, then reflect"} description={pledge ? "From your habit pledge." : "Your reward follows a completed reflection."} />
+                </>
+              ) : (
+                <>
+                  <View style={styles.field}>
+                    <Text accessibilityRole="header" style={styles.prompt}>{wisdom ? haraHachiBu.reflectionPrompt : "What made this easier or harder today?"}</Text>
+                    <View style={[styles.textArea, styles.reflectionArea, focusedField === "reflection" && styles.focusedTextArea]}>
+                      <TextInput accessibilityLabel="Reflection" editable={!busy} maxLength={500} multiline onFocus={() => setFocusedField("reflection")} onBlur={() => setFocusedField(null)} onChangeText={setReflection} placeholder={wisdom ? "What felt comfortable or difficult? Any honest reflection counts." : "Notice what helped and what you might try next time."} placeholderTextColor={palette.muted} style={[styles.input, Platform.OS === "web" && styles.webInput]} textAlignVertical="top" value={reflection} />
+                      <Text style={styles.counter}>{reflection.length}/500</Text>
+                    </View>
+                    <Text style={styles.smallCopy}>A short, honest reflection helps you build the habit.</Text>
+                  </View>
+                  <View style={styles.actionReviewSection}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="View your saved action" accessibilityState={{ expanded: actionExpanded }} aria-expanded={actionExpanded} onPress={() => setActionExpanded(!actionExpanded)} style={styles.actionReview}>
+                      <View style={styles.flex}>
+                        <Text style={styles.label}>Your action</Text>
+                        <View style={styles.actionPreview}><MaterialCommunityIcons name={icon} size={32} color={palette.text} /><Text numberOfLines={actionExpanded ? undefined : 2} style={[styles.smallCopy, styles.flex]}>{data.lastAction}</Text></View>
+                        {actionExpanded ? <Text style={styles.smallCopy}>Saved for today. Continue with your reflection below.</Text> : null}
+                      </View>
+                      <MaterialCommunityIcons name={actionExpanded ? "chevron-up" : "chevron-right"} size={22} color={palette.muted} />
+                    </Pressable>
+                  </View>
+                  <AllocationCard reward amount={presentation.rewardAmount} title={pledge ? "Today's pledged RDM → Reward Purse" : "Today's reflection → Reward Purse"} description={pledge ? "From your existing habit pledge." : "Your existing habit reward."} />
+                  {wisdom ? <Text style={styles.smallCopy}>Reflection counts regardless of food quantity or weight. Bonus payouts remain disabled.</Text> : null}
+                </>
+              )}
+            </>
+          ) : resultScreen ? (
+            <>
+              <View style={styles.resultHero}>
+                <MaterialCommunityIcons name={completed ? "check-circle-outline" : "close-circle-outline"} size={88} color={completed ? palette.green : palette.coral} />
+                <Text accessibilityRole="header" style={styles.resultTitle}>{completed ? "You showed up today." : "Today is recorded."}</Text>
+                <Text style={styles.subtitle}>{completed ? data.title : "A missed day is part of the journey."}</Text>
               </View>
-              <Text style={styles.stepLabel}>{step}</Text>
-              {index < steps.length - 1 ? <View style={[styles.stepLine, index < currentIndex && styles.stepLineComplete]} /> : null}
-            </View>
-          );
-        })}
-      </View>
-
-      <SurfaceCard>
-        <SectionLabel>Your pledge</SectionLabel>
-        <Text style={styles.pledge}>“{data.pledge}”</Text>
-        {scheduledPledge ? (
-          <View style={styles.rdmPledgeGrid}>
-            <View style={styles.rdmPledgeCell}>
-              <Text style={styles.rdmPledgeValue}>{scheduledPledge.perDay} RDM</Text>
-              <Text style={styles.rdmPledgeLabel}>Scheduled day</Text>
-            </View>
-            <View style={styles.rdmPledgeCell}>
-              <Text style={styles.rdmPledgeValue}>{scheduledPledge.remaining} RDM</Text>
-              <Text style={styles.rdmPledgeLabel}>Still locked</Text>
-            </View>
-            <View style={styles.rdmPledgeCell}>
-              <Text style={styles.rdmPledgeValue}>{scheduledPledge.settledDayKeys.length}/{scheduledPledge.dayCount}</Text>
-              <Text style={styles.rdmPledgeLabel}>Days settled</Text>
-            </View>
-          </View>
-        ) : null}
-        <Text style={styles.scheduleCopy}>{data.cadence} · {data.target}</Text>
-        {scheduledPledge ? <Text style={rdmStyles.muted}>{scheduledPledge.startDayKey} → {scheduledPledge.endDayKey} (end date excluded)</Text> : null}
-        {wisdomPractice && scheduledPledge ? <Text style={rdmStyles.muted}>Saved time zone: {scheduledPledge.timeZone}</Text> : null}
-      </SurfaceCard>
-
-      {wisdomPractice && data.wisdom ? (
-        <SurfaceCard style={styles.wisdomCard}>
-          <SectionLabel>Practice progress</SectionLabel>
-          <WisdomProgress wisdom={data.wisdom} showRemaining textStyle={rdmStyles.body} />
-          <Text style={styles.wisdomStatus}>{data.wisdom.consistencyStatus === "perfect" ? "Perfect consistency—every day reflected."
-            : data.wisdom.consistencyStatus === "missed" ? data.wisdom.unresolvedDays > 0
-              ? "Your progress is saved. Keep reflecting on the remaining days."
-              : "All daily allocations are settled. Your completed and missed days are saved below."
-              : data.wisdom.consistencyStatus === "upcoming" ? "Your practice starts on the confirmed date."
-                : data.wisdom.consistencyStatus === "pending_funding" ? "Funding confirmation is pending."
-                  : "Consistency is recorded across the entire confirmed schedule."}</Text>
-          <Text style={rdmStyles.muted}>Bonus payouts are not enabled for this commitment. Your daily pledge allocations are settled only once.</Text>
-        </SurfaceCard>
-      ) : null}
-
-      <SurfaceCard>
-        <SectionLabel>{wisdomPractice ? "Today's mindful check-in" : "Today's act"}</SectionLabel>
-        {wisdomPractice ? <Text style={styles.wisdomGuidance}>Notice your eating experience without judging it. Difficulties are valid to record; completion does not depend on eating less or changing your weight. Follow your nutritional needs and professional guidance.</Text> : null}
-        {presentation.todayState === "upcoming" && scheduledPledge ? (
-          <Text style={rdmStyles.muted}>Your first scheduled day is {scheduledPledge.nextDayKey ?? scheduledPledge.startDayKey}. Your RDM is locked, but no daily amount will move before then.</Text>
-        ) : presentation.todayState === "rest" ? (
-          <Text style={rdmStyles.muted}>Today is a rest day. Your streak is preserved and no RDM moves. {scheduledPledge?.nextDayKey ? `Your next commitment is ${scheduledPledge.nextDayKey}.` : "All scheduled days have been settled."}</Text>
-        ) : presentation.todayState === "finished" ? (
-          <Text style={rdmStyles.muted}>The pledge window is complete. Every scheduled day has been settled.</Text>
-        ) : presentation.todayState === "act" ? (
-          <>
-            <TextInput accessibilityLabel={wisdomPractice ? "Mindful eating check-in" : "Action log"} maxLength={240} multiline onChangeText={setActionNote} placeholder={wisdomPractice ? "Describe a moment you noticed during a meal—even if it was difficult." : `How did ${data.target} go?`} placeholderTextColor={colors.inkSoft} style={styles.input} textAlignVertical="top" value={actionNote} />
-            <PrimaryButton label={wisdomPractice ? "Save today's check-in" : "Log today's act"} loading={logAction.isPending} onPress={() => {
-              setError(null);
-              if (actionNote.trim().length < 2) return setError(wisdomPractice ? "Add a short, honest note about your experience." : "Add a short note about what you completed.");
-              logAction.mutate({ id, note: actionNote.trim() });
-            }} />
-            <PrimaryButton color={colors.coral} label={wisdomPractice ? "Record a missed day" : "I missed this pledge"} loading={miss.isPending} variant="outline" onPress={() => setMissOpen(true)} />
-          </>
-        ) : <Text style={rdmStyles.muted}>{data.lastAction ?? "Action logged for today."}</Text>}
-      </SurfaceCard>
-
-      <SurfaceCard>
-        <SectionLabel>Reflect</SectionLabel>
-        {wisdomPractice ? <Text style={rdmStyles.body}>{wisdomPractice.reflectionPrompt}</Text> : null}
-        <TextInput accessibilityLabel="Reflection" editable={data.stage === "reflect"} maxLength={500} multiline onChangeText={setReflection} placeholder={wisdomPractice ? "What felt comfortable or difficult? Any honest reflection counts." : "What made this easier or harder today?"} placeholderTextColor={colors.inkSoft} style={[styles.input, data.stage !== "reflect" && styles.inputDisabled]} textAlignVertical="top" value={reflection} />
-      </SurfaceCard>
-
-      <SurfaceCard>
-        <SectionLabel>This week</SectionLabel>
-        <View style={styles.weekRow}>
-          {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => {
-            const actualDay = data.weekProgress[index];
-            const hit = actualDay?.completed ?? false;
-            return <View accessibilityLabel={`${actualDay?.dayKey ?? day}: ${hit ? "completed" : "not completed"}`} key={`${day}-${index}`} style={[styles.day, hit && styles.dayHit]}><Text style={[styles.dayText, hit && styles.dayTextHit]}>{day}</Text></View>;
-          })}
-        </View>
-      </SurfaceCard>
-
-      {data.history.length > 0 ? (
-        <SurfaceCard>
-          <SectionLabel>{wisdomPractice ? "Practice & reflection history" : "Habit history"}</SectionLabel>
-          {data.history.slice(0, showAllHistory ? undefined : 7).map((entry) => (
-            <View key={entry.dayKey} style={styles.historyEntry}>
-              <Text style={[styles.historyTitle, { color: entry.outcome === "completed" ? colors.growth : colors.coral }]}>
-                {entry.dayKey} · {entry.outcome === "completed" ? "Completed" : "Missed"}
-              </Text>
-              {entry.note ? <Text style={rdmStyles.muted}>{entry.note}</Text> : null}
-              {entry.reflection ? <Text style={rdmStyles.muted}>Reflection: {entry.reflection}</Text> : null}
-            </View>
-          ))}
-          {data.history.length > 7 ? <PrimaryButton variant="outline" label={showAllHistory ? "Show recent days" : `Show all ${data.history.length} days`} onPress={() => setShowAllHistory((current) => !current)} /> : null}
-        </SurfaceCard>
-      ) : null}
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {data.stage === "reflect" ? (
-        <PrimaryButton color={colors.gold} label={scheduledPledge ? `Complete → move ${scheduledPledge.perDay} RDM to Reward` : "Complete reflection → claim reward"} loading={reflect.isPending} onPress={() => {
-          setError(null);
-          if (reflection.trim().length < 4) return setError("Write one honest sentence before claiming the reward.");
-          reflect.mutate({ id, reflection: reflection.trim(), timeZone: scheduledPledge?.timeZone ?? timeZone });
-        }} />
-      ) : null}
-      {data.stage === "reward" && data.lastOutcome ? (
-        <View style={[styles.rewardCard, data.lastOutcome === "missed" && styles.missedCard]}>
-          <MaterialCommunityIcons name={data.lastOutcome === "missed" ? "backup-restore" : "trophy-outline"} size={32} color={data.lastOutcome === "missed" ? colors.coral : colors.gold} />
-          <View style={styles.rewardCopy}>
-            <Text style={[styles.rewardTitle, data.lastOutcome === "missed" && styles.missedTitle]}>{data.lastOutcome === "missed" ? "Honesty recorded" : "Reward claimed"}</Text>
-            <Text style={rdmStyles.muted}>
-              {data.lastOutcome === "missed"
-                ? `The streak reset and ${scheduledPledge?.perDay ?? 10} RDM moved to your Remorse Purse.`
-                : `${scheduledPledge?.perDay ?? 25} RDM moved to your Reward Purse and the streak moved forward.`}
-            </Text>
-          </View>
-          {scheduledPledge ? (
-            <Text style={styles.nextDayCopy}>
-              {scheduledPledge.status === "finished"
-                ? "Your complete pledge has now been allocated."
-                : "The next commitment day unlocks automatically."}
-            </Text>
+              <AllocationCard reward={completed} title={completed
+                ? formatRdm(presentation.rewardAmount) + " RDM moved to Reward Purse"
+                : pledge ? formatRdm(presentation.missedAmount) + " RDM moved to Remorse Purse" : "Today's missed pledge was recorded"}
+                description={pledge ? "From your existing habit pledge." : completed ? "Your habit reflection reward." : "Available Base RDM moved to Remorse, up to 10 RDM."} />
+              <View style={styles.metrics}>
+                <Metric icon="fire" label="Current streak" value={data.streak + (data.streak === 1 ? " day" : " days")} hint={completed ? "Consistency builds change." : "A fresh start on your next scheduled day."} />
+                <Metric icon="chart-bar" label="Reflections" value={String(presentation.completedCount) + (presentation.totalDays !== null ? " of " + presentation.totalDays : "")} hint="Keep reflecting daily." color={palette.link} />
+                {pledge ? <Metric icon="chart-pie" label="Remaining pledge" value={formatRdm(pledge.remaining) + " RDM"} hint={presentation.remainingDays ? "For the next " + presentation.remainingDays + " scheduled days." : "Every daily allocation is settled."} color={palette.link} /> : null}
+              </View>
+              <WeekProgress habit={data} todayDayKey={presentation.todayDayKey} />
+              {pledge ? <View style={styles.nextCard}><MaterialCommunityIcons name="calendar-month-outline" size={27} color={palette.text} /><View style={styles.flex}><Text style={styles.label}>{nextDayCopy(presentation.todayDayKey, presentation.nextDayKey)}</Text><Text style={styles.smallCopy}>{presentation.nextDayKey ? "Small steps, steady progress." : "Your history stays available below."}</Text></View></View> : <Text style={styles.smallCopy}>Come back on the next day to continue your routine.</Text>}
+              {wisdom ? <Text style={styles.smallCopy}>Your practice progress is in History → Insights. Consistency is assessed across the full schedule; bonus payouts remain disabled.</Text> : null}
+            </>
           ) : (
-            <PrimaryButton label="Start the next cycle" loading={startNext.isPending} onPress={() => startNext.mutate({ id, timeZone })} />
+            <View style={styles.neutral}>
+              <MaterialCommunityIcons name={state === "finished" ? "check-all" : "calendar-blank-outline"} size={65} color={palette.green} />
+              <Text accessibilityRole="header" style={styles.resultTitle}>{state === "upcoming" ? "Your habit starts soon." : state === "rest" ? "A rest day for your habit." : state === "finished" ? "Commitment complete." : legacyNext ? "Ready for your next cycle?" : "Your progress is saved."}</Text>
+              <Text style={styles.neutralCopy}>{state === "upcoming" ? "Your first scheduled day is " + formatDay(presentation.nextDayKey ?? pledge?.startDayKey ?? presentation.todayDayKey) + ". No daily RDM moves before then." : state === "rest" ? "No reflection or RDM settlement is due today. Rest days preserve your streak." : state === "finished" ? "Every scheduled day is settled. View your completed and missed reflections in History." : legacyNext ? "Start the next cycle when you are ready to log today's action." : "View your records and commitment details in History."}</Text>
+              {state === "rest" && presentation.nextDayKey ? <Text style={styles.subtitle}>{nextDayCopy(presentation.todayDayKey, presentation.nextDayKey)}</Text> : null}
+              {pledge ? <AllocationCard title={formatRdm(pledge.remaining) + " RDM still locked"} description="Only scheduled days move to Reward or Remorse." /> : null}
+              <WeekProgress habit={data} todayDayKey={presentation.todayDayKey} />
+            </View>
           )}
+        </ScrollView>
+
+        <View style={styles.footer}>
+          {habit.error ? <Pressable accessibilityRole="button" onPress={() => void habit.refetch()} style={styles.retry}><Text style={styles.error}>Couldn't refresh your habit. Your draft is kept here. Tap to retry.</Text></Pressable> : null}
+          {error ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
+          {historyOpen ? <Pressable accessibilityRole="button" onPress={() => setHistoryOpen(false)} disabled={busy} style={styles.outlineButton}><Text style={styles.outlineLabel}>Back to today's habit</Text></Pressable>
+            : isAction ? <><FocusedButton label={wisdom ? "Save check-in & reflect" : "Save action & reflect"} onPress={saveAction} loading={busy} /><Pressable accessibilityRole="button" disabled={busy} onPress={() => { setError(null); setMissDayKey(presentation.todayDayKey); }} style={styles.missLink}><Text style={styles.link}>I missed today</Text></Pressable></>
+              : isReflection ? <FocusedButton label="Complete reflection" onPress={saveReflection} loading={busy} />
+                : <>{legacyNext ? <FocusedButton label="Start the next cycle" loading={busy} onPress={() => { if (!busy && !inFlight.current) { inFlight.current = true; startNext.mutate({ id, timeZone: "Asia/Kolkata" }); } }} /> : <FocusedButton label={wisdom ? "Back to Japanese Wisdom" : "Back to habits"} onPress={backToHabits} disabled={busy} />}<Pressable accessibilityRole="button" disabled={busy} onPress={openHistory} style={styles.outlineButton}><Text style={styles.outlineLabel}>View history</Text></Pressable></>}
         </View>
-      ) : null}
-      <ActionDialog
-        cancelLabel={wisdomPractice ? "Go back" : "Keep working"}
-        confirmColor={colors.coral}
-        confirmLabel={wisdomPractice ? "Record missed day" : "Record honestly"}
-        loading={miss.isPending}
-        message={wisdomPractice
-          ? `This records a missed check-in, not a judgement about what you ate. Today's ${scheduledPledge?.perDay ?? 0} RDM allocation moves to Remorse and the streak resets. Earlier completed days keep their rewards.`
-          : `Your streak resets and ${scheduledPledge?.perDay ?? 10} RDM moves into the Remorse Purse for you to decide on later.`}
-        onCancel={() => setMissOpen(false)}
-        onConfirm={() => {
-          setMissOpen(false);
-          miss.mutate({ id });
-        }}
-        title={wisdomPractice ? "Record a missed day?" : "Record a missed pledge?"}
-        visible={missOpen}
-      />
-    </AppScreen>
+      </KeyboardAvoidingView>
+
+      <Modal animationType="slide" transparent visible={missDayKey !== null} onRequestClose={() => { if (!busy) setMissDayKey(null); }}>
+        <View style={styles.modalBackdrop}>
+          <Pressable accessibilityLabel="Keep reflecting" accessibilityRole="button" disabled={busy} onPress={() => setMissDayKey(null)} style={StyleSheet.absoluteFill} />
+          <View accessibilityViewIsModal role="dialog" aria-modal style={styles.missSheet}>
+            <ScrollView style={styles.sheetScroll} contentContainerStyle={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, 16) }]} keyboardShouldPersistTaps="handled">
+            <View style={styles.sheetHandle} />
+            <MaterialCommunityIcons name="close-circle" size={40} color={palette.coral} />
+            <Text accessibilityRole="header" style={styles.sheetTitle}>{wisdom ? "Record a missed check-in?" : "Mark today as missed?"}</Text>
+            <Text style={styles.sheetCopy}>{pledge
+              ? "Today's " + formatRdm(pledge.perDay) + " RDM will move from your habit pledge to your Remorse Purse.\nThis cannot be undone."
+              : "Up to 10 available Base RDM will move to your Remorse Purse.\nThis cannot be undone."}</Text>
+            {wisdom ? <Text style={styles.smallCopy}>This is not a judgement about what you ate. Honest reflections count even when the practice was difficult.</Text> : null}
+            {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+            <FocusedButton label="Confirm missed day" loading={busy} onPress={confirmMiss} style={styles.confirmMiss} />
+            <Pressable accessibilityRole="button" disabled={busy} onPress={() => setMissDayKey(null)} style={styles.outlineButton}><Text style={styles.outlineLabel}>Keep reflecting</Text></Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </FocusedScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  streakPill: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.goldTint, borderRadius: radii.pill, paddingHorizontal: 10 },
-  streakText: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 12 },
-  timeline: { flexDirection: "row", alignItems: "flex-start", paddingVertical: 6 },
-  stepWrap: { flex: 1, alignItems: "center", position: "relative" },
-  stepCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.panel, borderWidth: 2, borderColor: colors.line, alignItems: "center", justifyContent: "center", zIndex: 2 },
-  stepComplete: { backgroundColor: colors.growth, borderColor: colors.growth },
-  stepCurrent: { backgroundColor: colors.goldTint, borderColor: colors.gold },
-  stepNumber: { color: colors.inkSoft, fontFamily: fonts.bodyBold, fontSize: 12 },
-  stepNumberCurrent: { color: colors.gold },
-  stepLabel: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 9, marginTop: 5, textTransform: "capitalize" },
-  stepLine: { position: "absolute", top: 16, left: "67%", width: "66%", height: 2, backgroundColor: colors.line },
-  stepLineComplete: { backgroundColor: colors.growth },
-  pledge: { color: colors.ink, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 8 },
-  scheduleCopy: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 11, marginTop: 12, marginBottom: 4 },
-  wisdomCard: { gap: 12 },
-  wisdomStatus: { color: colors.plum, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
-  wisdomGuidance: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginTop: 8 },
-  historyEntry: { gap: 5, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.line },
-  historyTitle: { fontFamily: fonts.bodyBold, fontSize: 12 },
-  rdmPledgeGrid: { flexDirection: "row", gap: 7, marginTop: 14 },
-  rdmPledgeCell: { flex: 1, minHeight: 58, borderRadius: 10, backgroundColor: colors.panelRaised, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
-  rdmPledgeValue: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 12 },
-  rdmPledgeLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 8.5, marginTop: 3, textAlign: "center" },
-  input: { minHeight: 96, backgroundColor: colors.panelRaised, borderWidth: 1, borderColor: colors.line, borderRadius: 12, color: colors.ink, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, padding: 12, marginTop: 10, marginBottom: 12 },
-  inputDisabled: { color: colors.inkSoft, fontStyle: "italic" },
-  weekRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
-  day: { width: 34, height: 34, borderRadius: 9, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panelRaised, alignItems: "center", justifyContent: "center" },
-  dayHit: { backgroundColor: colors.growth, borderColor: colors.growth },
-  dayText: { color: colors.inkSoft, fontFamily: fonts.bodyBold, fontSize: 10 },
-  dayTextHit: { color: colors.backgroundDeep },
-  error: { color: colors.coral, fontFamily: fonts.bodyMedium, fontSize: 12 },
-  rewardCard: { borderRadius: radii.large, padding: 16, backgroundColor: colors.goldTint, borderWidth: 1, borderColor: "rgba(240,180,41,0.28)", gap: 12 },
-  missedCard: { backgroundColor: colors.coralTint, borderColor: "rgba(226,112,90,0.28)" },
-  rewardCopy: { gap: 3 },
-  rewardTitle: { color: colors.gold, fontFamily: fonts.display, fontSize: 18 },
-  missedTitle: { color: colors.coral },
-  nextDayCopy: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 17, textAlign: "center" },
+  screen: { paddingTop: 0, paddingBottom: 0, paddingHorizontal: 0 },
+  flex: { flex: 1 },
+  header: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, gap: 3 },
+  headerTop: { flexDirection: "row", alignItems: "center", gap: 4 },
+  iconButton: { minWidth: 40, minHeight: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 19, lineHeight: 26 },
+  headerMeta: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 2, paddingRight: 2 },
+  subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
+  content: { paddingHorizontal: 18, paddingBottom: 16, gap: 18 },
+  resultContent: { gap: 10, paddingBottom: 8 },
+  steps: { flexDirection: "row", paddingTop: 10, paddingBottom: 22, borderBottomWidth: 1, borderBottomColor: palette.line },
+  step: { flex: 1, alignItems: "center" },
+  stepCircle: { height: 30, width: 30, borderRadius: 15, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.background, alignItems: "center", justifyContent: "center", zIndex: 1 },
+  stepDone: { backgroundColor: palette.green, borderColor: palette.green },
+  stepCurrent: { borderColor: palette.green, borderWidth: 1.5 },
+  stepNumber: { color: palette.muted, fontFamily: fonts.body, fontSize: 13 },
+  stepCurrentNumber: { color: palette.green, fontFamily: fonts.bodyBold },
+  stepLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, marginTop: 6 },
+  stepLabelCurrent: { color: palette.text, fontFamily: fonts.bodyMedium },
+  stepLine: { position: "absolute", top: 14, left: "50%", width: "100%", height: 1, backgroundColor: palette.line },
+  stepLineDone: { backgroundColor: "#29684F" },
+  streakRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: palette.line },
+  todayRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  label: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19 },
+  dateLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, flexShrink: 1, textAlign: "right" },
+  field: { gap: 9 },
+  prompt: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 27 },
+  textArea: { minHeight: 174, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel, padding: 12, gap: 8 },
+  reflectionArea: { minHeight: 160 },
+  focusedTextArea: { borderColor: palette.link },
+  webInput: { outlineStyle: "solid", outlineWidth: 0, outlineColor: "transparent" },
+  input: { flex: 1, minHeight: 110, padding: 0, color: palette.text, fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
+  counter: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, textAlign: "right" },
+  smallCopy: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
+  linkColor: { color: palette.link },
+  allocation: { minHeight: 72, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel, flexDirection: "row", alignItems: "center", padding: 14, gap: 18 },
+  rewardAllocation: { borderColor: "#8F7631", backgroundColor: "#22251F" },
+  allocationTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19, marginBottom: 3 },
+  allocationAmount: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 28, marginBottom: 3 },
+  actionReviewSection: { borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 12 },
+  actionReview: { minHeight: 80, padding: 12, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel, flexDirection: "row", alignItems: "center", gap: 8 },
+  actionPreview: { flexDirection: "row", alignItems: "center", gap: 18, paddingTop: 8, paddingBottom: 3 },
+  footer: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 16, gap: 8 },
+  missLink: { minHeight: 44, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
+  link: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
+  outlineButton: { width: "100%", minHeight: 44, borderWidth: 1, borderColor: "#46515F", borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  outlineLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19, textAlign: "center" },
+  resultHero: { alignItems: "center", paddingTop: 0, paddingBottom: 5, gap: 2 },
+  resultTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 28, textAlign: "center", marginTop: 4 },
+  metrics: { borderBottomWidth: 1, borderBottomColor: palette.line },
+  metric: { minHeight: 60, paddingVertical: 11, borderTopWidth: 1, borderTopColor: palette.line, flexDirection: "row", alignItems: "center", gap: 18 },
+  metricHeading: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  metricLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 19 },
+  metricValue: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 21 },
+  weekSection: { gap: 10 },
+  week: { flexDirection: "row" },
+  weekDay: { flex: 1, alignItems: "center", gap: 4 },
+  weekLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 9, lineHeight: 14 },
+  weekDate: { height: 20, width: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  weekNumber: { color: palette.text, fontFamily: fonts.body, fontSize: 11 },
+  weekToday: { backgroundColor: palette.green },
+  weekTodayText: { color: palette.onGreen, fontFamily: fonts.bodyBold },
+  weekDot: { height: 11, width: 11, borderRadius: 6, backgroundColor: "#4B5664" },
+  weekHit: { backgroundColor: palette.green },
+  weekMiss: { backgroundColor: palette.coral },
+  nextCard: { flexDirection: "row", alignItems: "center", gap: 14, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, borderRadius: 8, padding: 12 },
+  neutral: { gap: 18, paddingTop: 30 },
+  neutralCopy: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 22, textAlign: "center" },
+  error: { color: palette.coral, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
+  retry: { minHeight: 44, justifyContent: "center" },
+  modalBackdrop: { flex: 1, justifyContent: "flex-end", alignItems: "center", backgroundColor: "rgba(0,0,0,0.48)" },
+  missSheet: { width: "100%", maxWidth: 480, maxHeight: "90%", backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line, borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: "hidden" },
+  sheetScroll: { width: "100%", flexShrink: 1 },
+  sheetContent: { paddingHorizontal: 18, paddingTop: 12, alignItems: "center", gap: 10 },
+  sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: "#40505E", marginBottom: 4 },
+  sheetTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 28, textAlign: "center" },
+  sheetCopy: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, textAlign: "center" },
+  confirmMiss: { width: "100%", minHeight: 44, backgroundColor: palette.coral },
 });
