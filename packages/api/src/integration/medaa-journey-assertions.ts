@@ -109,6 +109,43 @@ async function assertOperationOnce(h: Harness, operationId: string) {
 
 export const medaaRegressionCases: Array<{ name: string; run: (dependencies: Dependencies) => Promise<void> }> = [
   {
+    name: "Medaa saved journeys expose private goal counts without claiming linked goals are active",
+    async run(dependencies) {
+      const h = await harness(dependencies);
+      const empty = await h.medaa.start({ creationId: randomUUID(), timeZone: "UTC" });
+      const [emptySummary] = await h.medaa.conversations();
+      assert.ok(emptySummary);
+      assert.deepEqual(emptySummary, {
+        id: empty.id, title: "New journey", updatedAt: emptySummary.updatedAt,
+        horizonYears: null, category: null, createdGoalCount: 0, draftGoalCount: 0, settingGoalCount: 0,
+      });
+
+      let conversation = await readyJourney(h.medaa);
+      conversation = await h.medaa.generate({ conversationId: conversation.id, requestId: randomUUID(), action: { kind: "suggest-goals" } });
+      const first = conversation.drafts[0]!;
+      const second = conversation.drafts[1]!;
+      conversation = await h.medaa.chooseGoals({ conversationId: conversation.id, expectedRevision: conversation.revision,
+        draftIds: [first.id, second.id] });
+      const prepared = await quote(h, conversation, first.id, 14);
+      conversation = await h.medaa.set({ conversationId: conversation.id, draftId: first.id, reviewId: prepared.review.id });
+      const createdId = conversation.drafts.find((draft) => draft.id === first.id)?.entityId;
+      assert.ok(createdId);
+      const goal = await h.normal.rdm.goals.byId({ id: createdId });
+      await h.normal.rdm.goals.update({ id: createdId, action: "miss", requestId: randomUUID(), expectedVersion: goal.progressVersion,
+        note: "I confirm ending this goal and forfeiting its remaining allocation." });
+      await quote(h, conversation, second.id, 14);
+      await freezeBeforeCreation(h, conversation.id, second.id, dayAfter(0), dayAfter(14));
+
+      const summary = (await h.medaa.conversations()).find((item) => item.id === conversation.id);
+      assert.ok(summary);
+      assert.deepEqual(summary, {
+        id: conversation.id, title: "Build a useful and sustainable small business", updatedAt: summary.updatedAt,
+        horizonYears: 3, category: "Focus", createdGoalCount: 1, draftGoalCount: 1, settingGoalCount: 1,
+      });
+      assert.deepEqual(await h.asUser(randomUUID()).conversations(), []);
+    },
+  },
+  {
     name: "Medaa preserves a zero-Base journey without spending AI quota or creating goals",
     async run(dependencies) {
       const h = await harness(dependencies, () => goalBatch(), 0);
@@ -190,6 +227,32 @@ export const medaaRegressionCases: Array<{ name: string; run: (dependencies: Dep
       assert.equal(h.calls.length, 3);
       assert.equal((await h.normal.rdm.wallet.summary()).wallet.base, 20);
       assert.deepEqual(await h.normal.rdm.goals.list(), []);
+      const setRequest = { conversationId: conversation.id, draftId, reviewId: prepared.review.id };
+      const created = await h.medaa.set(setRequest);
+      const entityId = created.drafts.find((draft) => draft.id === draftId)?.entityId;
+      assert.ok(entityId);
+      await Promise.all([h.medaa.set(setRequest), h.medaa.set(setRequest)]);
+      const goals = await h.normal.rdm.goals.list();
+      assert.equal(goals.length, 1, "Repeated Set must expose one goal, not duplicate commitments");
+      const detail = await h.normal.rdm.goals.byId({ id: entityId });
+      for (const saved of [goals[0]!, detail]) {
+        assert.equal(saved.id, entityId);
+        assert.equal(saved.title, "Interview 1 potential customers");
+        assert.equal(saved.category, "Focus");
+        assert.equal(saved.target, "1 customer interviews documented");
+        assert.equal(saved.why, "Learn which customer problem is worth solving.");
+        assert.deepEqual(saved.steps, ["Arrange short customer interviews.", "Write down the recurring needs."]);
+        assert.equal(saved.reflectionPrompt, "What did you learn toward validating the customer problem today?");
+        assert.equal(saved.startDayKey, prepared.review.startDayKey);
+        assert.equal(saved.endDayKey, prepared.review.endDayKey);
+        assert.equal(saved.timeZone, "UTC");
+        assert.equal(saved.durationDays, 4);
+        assert.equal(saved.fundingMode, "daily");
+        assert.equal(saved.pledgePerDay, 5);
+        assert.equal(saved.pledgeAmount, 20);
+        assert.equal(saved.remainingPledge, 20);
+      }
+      assert.equal((await h.normal.rdm.wallet.summary()).wallet.base, 0);
     },
   },
   {
@@ -708,6 +771,10 @@ export const medaaRegressionCases: Array<{ name: string; run: (dependencies: Dep
       assert.ok(entityId);
       assert.equal(entityId, funded.id);
       assert.equal(conversation.drafts.find((draft) => draft.id === draftId)?.status, "created");
+      const [summary] = await h.medaa.conversations();
+      assert.equal(summary?.createdGoalCount, 1, "Legacy created habits must not inflate the goal count");
+      assert.equal(summary?.draftGoalCount, 0);
+      assert.equal(summary?.settingGoalCount, 0);
       let habit = await h.normal.rdm.habits.byId({ id: entityId });
       assert.equal(habit.rdmPledge?.remaining, 1);
       assert.equal(habit.rdmPledge?.endDayKey, dayAfter(1));
