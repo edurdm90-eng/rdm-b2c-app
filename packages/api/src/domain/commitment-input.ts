@@ -37,6 +37,18 @@ export const goalCreateInputSchema = z.object({
   startDayKey: dayKeySchema,
   timeZone: timeZoneSchema,
   pledgeAmount: z.number().int().min(1).max(100_000),
+  rdmPledgePerDay: z.number().int().min(1).max(100_000).optional(),
+  why: z.string().trim().min(1).max(500).optional(),
+  steps: z.array(z.string().trim().min(1).max(200)).min(1).max(5).optional(),
+  reflectionPrompt: z.string().trim().min(1).max(240).optional(),
+}).superRefine((input, context) => {
+  if (input.rdmPledgePerDay === undefined) return;
+  if (input.durationDays > 90) {
+    context.addIssue({ code: "custom", path: ["durationDays"], message: "Daily goals can last at most 90 days." });
+  }
+  if (input.pledgeAmount !== input.durationDays * input.rdmPledgePerDay) {
+    context.addIssue({ code: "custom", path: ["pledgeAmount"], message: "The total pledge must equal daily RDM multiplied by commitment days." });
+  }
 });
 
 export type HabitCreateInput = z.input<typeof habitCreateInputSchema>;

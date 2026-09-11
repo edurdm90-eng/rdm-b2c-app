@@ -11,6 +11,7 @@ import { verifySavedLeaderboard } from "./leaderboard-assertions";
 import { verifyCareRecovery } from "./care-recovery-assertions";
 import { medaaRegressionCases } from "./medaa-journey-assertions";
 import { signupAirdropCases } from "./signup-airdrop-assertions";
+import { dailyGoalCases } from "./daily-goal-assertions";
 
 let mongo: ChildProcess | undefined;
 let temporaryDirectory: string;
@@ -81,6 +82,10 @@ const today = () => new Date().toISOString().slice(0, 10);
 const dayAfter = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
 for (const regression of medaaRegressionCases) {
+  test(regression.name, async () => regression.run({ db, caller }));
+}
+
+for (const regression of dailyGoalCases) {
   test(regression.name, async () => regression.run({ db, caller }));
 }
 

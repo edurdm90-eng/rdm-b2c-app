@@ -110,9 +110,12 @@ export default function GoalsScreen() {
                   {goal.durationDays} days · ends {formatDayKey(goal.endDayKey)}
                 </Text>
                 <Text style={[styles.pledge, goal.status === "missed" && styles.missed]}>
-                  {formatRdm(goal.pledgeAmount)} RDM {goal.status === "active" ? "locked" : goal.status === "completed" ? "→ Reward" : "→ Remorse"}
+                  {goal.fundingMode === "daily"
+                    ? `${formatRdm(goal.pledgePerDay ?? 0)} RDM/day · ${formatRdm(goal.remainingPledge)} locked`
+                    : `${formatRdm(goal.pledgeAmount)} RDM ${goal.status === "active" ? "locked" : goal.status === "completed" ? "→ Reward" : "→ Remorse"}`}
                 </Text>
               </View>
+              {goal.fundingMode === "daily" ? <Text style={rdmStyles.muted}>{goal.canReflect ? "Today’s reflection is ready" : goal.todayStatus === "completed" ? "Today’s reflection saved" : goal.upcoming ? "Reflections begin on the start date" : "Daily reflection history saved"} · {goal.completedDayCount} reflected · {goal.missedDayCount} missed</Text> : null}
             </SurfaceCard>
           );
         })}

@@ -27,10 +27,12 @@ export default function GoalDetailScreen() {
   const goal = useQuery(trpc.rdm.goals.byId.queryOptions({ id }));
   const [progress, setProgress] = useState("");
   const [note, setNote] = useState("");
+  const [reflection, setReflection] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<"complete" | "miss" | null>(null);
   const attempt = useRef<{ fingerprint: string; requestId: string } | null>(null);
+  const reflectionAttempt = useRef<{ fingerprint: string; operationId: string } | null>(null);
 
   useEffect(() => {
     if (goal.data) setProgress(String(goal.data.progress));
@@ -41,7 +43,9 @@ export default function GoalDetailScreen() {
       setNote("");
       setProgress(String(saved.progress));
       attempt.current = null;
-      setNotice(saved.status === "completed"
+      setNotice(saved.fundingMode === "daily"
+        ? saved.status === "active" ? "Progress saved. Daily RDM is settled through your reflections." : "Goal closed. Your previous daily allocations are unchanged."
+        : saved.status === "completed"
         ? `${formatRdm(saved.pledgeAmount)} RDM moved to your Reward Purse.`
         : saved.status === "missed"
           ? `${formatRdm(saved.pledgeAmount)} RDM moved to your Remorse Purse.`
@@ -54,9 +58,34 @@ export default function GoalDetailScreen() {
     },
   }));
 
+  const reflectGoal = useMutation(trpc.rdm.goals.reflect.mutationOptions({
+    onSuccess: async (saved) => {
+      setReflection("");
+      reflectionAttempt.current = null;
+      setNotice(`Today’s reflection is saved. ${formatRdm(saved.pledgePerDay ?? 0)} RDM allocated to Reward.`);
+      await queryClient.invalidateQueries();
+    },
+    onError: async (mutationError) => {
+      setError(mutationError.message);
+      await goal.refetch();
+    },
+  }));
+
+  function submitReflection() {
+    if (!goal.data?.canReflect || reflectGoal.isPending || updateGoal.isPending) return;
+    const trimmed = reflection.trim();
+    if (trimmed.length < 2) { setError("Write a short reflection about today’s progress."); return; }
+    setError(null);
+    setNotice(null);
+    const values = { id, note: trimmed, expectedVersion: goal.data.progressVersion };
+    const fingerprint = JSON.stringify(values);
+    if (reflectionAttempt.current?.fingerprint !== fingerprint) reflectionAttempt.current = { fingerprint, operationId: Crypto.randomUUID() };
+    reflectGoal.mutate({ ...values, operationId: reflectionAttempt.current.operationId });
+  }
+
   function submit(action: GoalAction) {
     const data = goal.data;
-    if (!data || updateGoal.isPending) return;
+    if (!data || updateGoal.isPending || reflectGoal.isPending) return;
     setError(null);
     setNotice(null);
     if (note.trim().length < 2) {
@@ -88,6 +117,8 @@ export default function GoalDetailScreen() {
   }
 
   const data = goal.data;
+  const daily = data.fundingMode === "daily";
+  const busy = updateGoal.isPending || reflectGoal.isPending;
   const editable = data.status === "active" && !data.upcoming;
   const outcomeColor = data.status === "missed" ? colors.coral : colors.growth;
   const statusLabel = data.upcoming ? "Upcoming" : data.status.charAt(0).toUpperCase() + data.status.slice(1);
@@ -106,10 +137,20 @@ export default function GoalDetailScreen() {
         </View>
         <ProgressBar color={outcomeColor} progress={data.progress / 100} />
         <Text style={rdmStyles.muted}>{formatDayKey(data.startDayKey)} → {formatDayKey(data.endDayKey)} · {data.durationDays} days</Text>
-        <Text style={styles.hint}>Complete before {formatDayKey(data.endDayKey)} ({data.timeZone}). The finish date is not included.</Text>
+        <Text style={styles.hint}>{daily ? "Reflect each day through the day before" : "Complete before"} {formatDayKey(data.endDayKey)} ({data.timeZone}). The finish date is not included.</Text>
       </SurfaceCard>
 
-      <SurfaceCard style={styles.card}>
+      {data.why || data.steps.length > 0 ? <SurfaceCard style={styles.card}>
+        <SectionLabel>Your approach</SectionLabel>
+        {data.why ? <Text style={rdmStyles.muted}>{data.why}</Text> : null}
+        {data.steps.map((step, index) => <Text key={`${index}:${step}`} style={styles.historyNote}>{index + 1}. {step}</Text>)}
+      </SurfaceCard> : null}
+
+      {daily ? <SurfaceCard style={styles.card}>
+        <Text style={styles.pledge}>{formatRdm(data.pledgePerDay ?? 0)} RDM/day · {formatRdm(data.pledgeAmount)} RDM originally pledged</Text>
+        <Text style={rdmStyles.muted}>{formatRdm(data.remainingPledge)} RDM still locked · {data.completedDayCount} reflected days · {data.missedDayCount} missed days</Text>
+        <Text style={rdmStyles.muted}>Daily reflection sends that day’s allocation to Reward. Missed days go to Remorse. Goal progress and final achievement are recorded separately; there is no extra whole-goal payout.</Text>
+      </SurfaceCard> : <SurfaceCard style={styles.card}>
         <Text style={[styles.pledge, { color: outcomeColor }]}>
           {formatRdm(data.pledgeAmount)} RDM {data.status === "active" ? "locked" : data.status === "completed" ? "in Reward" : "in Remorse"}
         </Text>
@@ -120,28 +161,54 @@ export default function GoalDetailScreen() {
               ? "You reached your target. Your full pledge was returned to Reward, and this completion counts as fertilizer for an active tree."
               : "This goal has ended. Your progress and notes remain here, and the pledged RDM has moved to Remorse."}
         </Text>
-      </SurfaceCard>
+      </SurfaceCard>}
 
       {data.upcoming ? <Text style={styles.hint}>You can record progress from {formatDayKey(data.startDayKey)}.</Text> : null}
+      {daily ? <SurfaceCard style={styles.card}>
+        <SectionLabel>Daily reflection</SectionLabel>
+        {data.canReflect ? <>
+          <Text style={styles.target}>{data.reflectionPrompt || "What progress did you make toward this goal today?"}</Text>
+          <TextInput accessibilityLabel="Today’s goal reflection" editable={!busy} maxLength={500} multiline
+            onChangeText={setReflection} placeholder="A short, honest progress update…" placeholderTextColor={colors.inkSoft}
+            style={[styles.input, styles.multiline]} textAlignVertical="top" value={reflection} />
+          <PrimaryButton label={`Save today’s reflection · ${formatRdm(data.pledgePerDay ?? 0)} RDM to Reward`}
+            loading={reflectGoal.isPending} disabled={busy} onPress={submitReflection} />
+        </> : <Text style={rdmStyles.muted}>{data.todayStatus === "completed"
+          ? data.remainingPledge > 0 ? "Today’s reflection is already saved. Come back tomorrow for the next scheduled day."
+            : "All daily allocations are settled. Confirm your final target below if it has been reached."
+          : data.todayStatus === "upcoming" ? "Your daily reflections begin on the start date."
+            : data.todayStatus === "missed" ? "Today is already recorded as missed. Previously settled days cannot be rewritten."
+              : "This goal’s reflection period has ended. Your records remain below."}</Text>}
+      </SurfaceCard> : null}
       {editable ? (
         <>
+          {daily ? <SectionLabel>Optional target progress / final outcome</SectionLabel> : null}
           <SectionLabel>Progress percentage</SectionLabel>
-          <TextInput accessibilityLabel="Goal progress percentage" editable={!updateGoal.isPending}
+          <TextInput accessibilityLabel="Goal progress percentage" editable={!busy}
             keyboardType="number-pad" maxLength={3} onChangeText={setProgress}
             placeholder="0–99" placeholderTextColor={colors.inkSoft} style={styles.input} value={progress} />
           <SectionLabel>Progress or outcome note</SectionLabel>
-          <TextInput accessibilityLabel="Goal progress note" editable={!updateGoal.isPending}
+          <TextInput accessibilityLabel="Goal progress note" editable={!busy}
             maxLength={500} multiline onChangeText={setNote} placeholder="What have you accomplished?"
             placeholderTextColor={colors.inkSoft} style={[styles.input, styles.multiline]} textAlignVertical="top" value={note} />
-          <PrimaryButton label="Save progress" loading={updateGoal.isPending} onPress={() => submit("progress")} />
-          <PrimaryButton label="Complete goal" color={colors.gold} disabled={updateGoal.isPending}
+          <PrimaryButton label="Save progress" loading={updateGoal.isPending} disabled={busy} onPress={() => submit("progress")} />
+          {daily ? <Text style={styles.hint}>Progress notes do not replace today’s reflection. Final completion is available after the last daily allocation is settled.</Text> : null}
+          <PrimaryButton label="Complete goal" color={colors.gold} disabled={busy || (daily && !data.canComplete)}
             onPress={() => setConfirmAction("complete")} />
-          <PrimaryButton label="Mark goal as missed" color={colors.coral} variant="outline" disabled={updateGoal.isPending}
+          <PrimaryButton label={daily ? "End goal early" : "Mark goal as missed"} color={colors.coral} variant="outline" disabled={busy}
             onPress={() => setConfirmAction("miss")} />
         </>
       ) : null}
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+
+      {daily && data.dayEntries.length > 0 ? <>
+        <SectionLabel>Daily reflection history</SectionLabel>
+        {[...data.dayEntries].reverse().map((entry) => <SurfaceCard key={entry.dayKey} style={styles.card}>
+          <Text style={styles.historyStatus}>{formatDayKey(entry.dayKey)} · {entry.outcome === "completed" ? "Reflected · Reward" : "Missed · Remorse"}</Text>
+          <Text style={styles.historyNote}>{entry.note || "No reflection was recorded for this day."}</Text>
+        </SurfaceCard>)}
+      </> : null}
 
       <SectionLabel>Progress history</SectionLabel>
       {data.progressUpdates.length === 0 ? (
@@ -156,8 +223,11 @@ export default function GoalDetailScreen() {
         </SurfaceCard>
       ))}
 
-      <ActionDialog visible={confirmAction !== null} title={confirmAction === "complete" ? "Complete this goal?" : "Mark this goal as missed?"}
-        message={confirmAction === "complete"
+      <ActionDialog visible={confirmAction !== null} title={confirmAction === "complete" ? "Complete this goal?" : daily ? "End this goal early?" : "Mark this goal as missed?"}
+        message={daily ? confirmAction === "complete"
+          ? "Confirm that you reached the measurable target. All daily RDM is already allocated; completing does not issue another payout."
+          : `All remaining ${formatRdm(data.remainingPledge)} RDM will move to Remorse and this goal will close. RDM already allocated to Reward stays there.`
+          : confirmAction === "complete"
           ? `Confirm that you reached your target. Your full ${formatRdm(data.pledgeAmount)} RDM pledge will move to Reward.`
           : `Your ${formatRdm(data.pledgeAmount)} RDM pledge will move to Remorse and this goal will be closed.`}
         confirmLabel={confirmAction === "complete" ? "Complete goal" : "Record missed goal"}
@@ -177,7 +247,7 @@ const styles = StyleSheet.create({
   target: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 23 },
   progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   progress: { color: colors.growth, fontFamily: fonts.monoBold, fontSize: 28 },
-  pledge: { fontFamily: fonts.bodyBold, fontSize: 16 },
+  pledge: { color: colors.gold, fontFamily: fonts.bodyBold, fontSize: 16 },
   hint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, lineHeight: 16 },
   input: { minHeight: 52, borderRadius: radii.medium, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, color: colors.ink, fontFamily: fonts.body, fontSize: 14, paddingHorizontal: 14 },
   multiline: { minHeight: 105, paddingVertical: 12 },

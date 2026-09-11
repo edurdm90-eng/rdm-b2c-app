@@ -22,6 +22,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../index";
 import { savedLeaderboard } from "../services/leaderboard";
 import { hasMedaaCommitmentApproval } from "../services/medaa-commitment-approval";
+import { dailyGoalView, reconcileDailyGoal, reflectDailyGoal } from "../services/daily-goals";
 import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitment-input";
 import {
   awardSplitIsValid,
@@ -404,6 +405,7 @@ function serializeGoal(goal: any) {
   const status = String(goal.status ?? "active") as PersonalGoalStatus;
   const currentDayKey = dayKeyForTimeZone(new Date(), String(goal.timeZone));
   return {
+    ...dailyGoalView(goal),
     id: String(goal._id),
     title: String(goal.title),
     category: String(goal.category) as (typeof goalCategories)[number],
@@ -413,6 +415,9 @@ function serializeGoal(goal: any) {
     endDayKey: String(goal.endDayKey),
     timeZone: String(goal.timeZone),
     pledgeAmount: Number(goal.pledgeAmount),
+    why: goal.why ? String(goal.why) : null,
+    steps: Array.from(goal.steps ?? [], String),
+    reflectionPrompt: goal.reflectionPrompt ? String(goal.reflectionPrompt) : null,
     progress: Number(goal.progress),
     progressVersion: Number(goal.progressVersion ?? 0),
     status,
@@ -1463,6 +1468,7 @@ async function reconcilePendingGoalFunding(userId: string) {
 }
 
 async function settlePersonalGoal(goal: any, userId: string) {
+  if (goal.fundingMode === "daily") return reconcileDailyGoal(goal, userId, recordTreeCareActivity);
   if (goal.fundingStatus !== "funded" || goal.status === "active" || !goal.status || goal.settledAt) return goal;
   const destination = goal.status === "completed" ? "rewardBalance" : "remorseBalance";
   const operationId = `goal-settle:${goal._id}`;
@@ -1513,6 +1519,7 @@ async function settlePersonalGoal(goal: any, userId: string) {
 }
 
 async function reconcilePersonalGoal(goal: any, userId: string) {
+  if (goal.fundingMode === "daily") return reconcileDailyGoal(goal, userId, recordTreeCareActivity);
   let current = goal;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const now = new Date();
@@ -1588,6 +1595,9 @@ async function updatePersonalGoal({
   if (Array.from(current.progressUpdates ?? [], (entry: any) => String(entry.requestId)).includes(requestId)) return serializeGoal(current);
   if (Number(current.progressVersion ?? 0) !== expectedVersion) {
     throw new TRPCError({ code: "CONFLICT", message: "This goal was updated elsewhere. Refresh it before saving again." });
+  }
+  if (current.fundingMode === "daily" && command.type === "complete" && Number(current.remainingPledge) > 0) {
+    throw new TRPCError({ code: "CONFLICT", message: "Complete the daily reflection commitment before marking the goal complete. Future daily allocations cannot be paid out early." });
   }
   const now = new Date();
   let transition;
@@ -2639,6 +2649,16 @@ export const rdmRouter = router({
         if (!goal) throw new TRPCError({ code: "NOT_FOUND", message: "Goal not found" });
         return serializeGoal(await reconcilePersonalGoal(goal, ctx.session.user.id));
       }),
+    reflect: protectedProcedure
+      .input(z.object({
+        id: mongoId,
+        operationId: z.string().uuid(),
+        expectedVersion: z.number().int().min(0).optional(),
+        note: z.string().trim().min(2).max(500),
+      }))
+      .mutation(async ({ ctx, input }) => serializeGoal(await reflectDailyGoal({
+        ...input, userId: ctx.session.user.id, recordCare: recordTreeCareActivity,
+      }))),
     update: protectedProcedure
       .input(z.object({
         id: mongoId,
@@ -2681,13 +2701,18 @@ export const rdmRouter = router({
           userId: ctx.session.user.id,
           creationId: input.creationId,
         });
+        const matchesCreation = (candidate: typeof existingGoal) => candidate
+          && candidate.title === input.title && candidate.category === input.category
+          && candidate.target === input.target && candidate.startDayKey === input.startDayKey
+          && candidate.durationDays === input.durationDays && candidate.timeZone === input.timeZone
+          && candidate.pledgeAmount === input.pledgeAmount
+          && (candidate.pledgePerDay ?? undefined) === input.rdmPledgePerDay
+          && candidate.fundingMode === (input.rdmPledgePerDay === undefined ? "outcome" : "daily")
+          && (candidate.why ?? undefined) === input.why
+          && JSON.stringify(candidate.steps ?? []) === JSON.stringify(input.steps ?? [])
+          && (candidate.reflectionPrompt ?? undefined) === input.reflectionPrompt;
         if (existingGoal) {
-          if (
-            existingGoal.title !== input.title || existingGoal.category !== input.category
-            || existingGoal.target !== input.target || existingGoal.startDayKey !== input.startDayKey
-            || existingGoal.durationDays !== input.durationDays || existingGoal.timeZone !== input.timeZone
-            || existingGoal.pledgeAmount !== input.pledgeAmount
-          ) {
+          if (!matchesCreation(existingGoal)) {
             throw new TRPCError({ code: "CONFLICT", message: "This creation attempt already has different goal details. Open a new goal form to change them." });
           }
           const fundedGoal = await fundPendingGoal(existingGoal, ctx.session.user.id);
@@ -2711,6 +2736,12 @@ export const rdmRouter = router({
           endDayKey: window.endDayKey,
           timeZone: input.timeZone,
           pledgeAmount: input.pledgeAmount,
+          fundingMode: input.rdmPledgePerDay === undefined ? "outcome" : "daily",
+          pledgePerDay: input.rdmPledgePerDay,
+          remainingPledge: input.rdmPledgePerDay === undefined ? undefined : input.pledgeAmount,
+          why: input.why,
+          steps: input.steps,
+          reflectionPrompt: input.reflectionPrompt,
           fundingStatus: "pending",
           status: "active",
           progress: 0,
@@ -2727,6 +2758,9 @@ export const rdmRouter = router({
             creationId: input.creationId,
           });
           if (!concurrentGoal) throw error;
+          if (!matchesCreation(concurrentGoal)) {
+            throw new TRPCError({ code: "CONFLICT", message: "This creation attempt already has different goal details. Open a new goal form to change them." });
+          }
           goal = concurrentGoal;
         }
         const fundedGoal = await fundPendingGoal(goal, ctx.session.user.id);

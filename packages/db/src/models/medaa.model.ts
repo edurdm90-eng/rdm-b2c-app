@@ -11,13 +11,15 @@ export interface MedaaConversationRecord {
   messages: Array<{ id: string; role: "user" | "assistant"; text: string; createdAt: Date }>;
   drafts: Array<{
     id: string;
+    dailyPledgeRdm?: number;
     origin: "ai" | "manual";
     content: { type: "habit" | "goal"; title: string; category: string; target: string;
-      pledge: string | null; weekdays: number[]; durationDays: number | null };
+      pledge: string | null; weekdays: number[]; durationDays: number | null;
+      why?: string; steps?: string[]; reflectionPrompt?: string };
     version: number;
     status: "draft" | "setting" | "created";
     review: { id: string; startDayKey: string; endDayKey: string; timeZone: string;
-      pledgeAmount: number; scheduledDays: number; totalPledge: number } | null;
+      pledgeAmount: number; scheduledDays: number; totalPledge: number; fundingMode?: "daily" | "outcome" } | null;
     entityId: string | null;
   }>;
   pendingRequestId: string | null;
@@ -41,6 +43,7 @@ export interface MedaaConversationRecord {
     requestId: string;
     action: { kind: "suggest-goals" | "suggest-habits" | "refine"; draftId?: string; direction?: string };
     regenerate: boolean;
+    dailyPledgeRdm?: number;
   } | null;
   createdAt: Date;
   updatedAt: Date;
@@ -54,6 +57,9 @@ const contentSchema = new Schema({
   pledge: { type: String, default: null },
   weekdays: { type: [Number], required: true, default: [] },
   durationDays: { type: Number, default: null },
+  why: String,
+  steps: { type: [String], default: undefined },
+  reflectionPrompt: String,
 }, { _id: false });
 
 const reviewSchema = new Schema({
@@ -64,10 +70,12 @@ const reviewSchema = new Schema({
   pledgeAmount: { type: Number, required: true },
   scheduledDays: { type: Number, required: true },
   totalPledge: { type: Number, required: true },
+  fundingMode: { type: String, enum: ["daily", "outcome"] },
 }, { _id: false });
 
 const draftSchema = new Schema({
   id: { type: String, required: true },
+  dailyPledgeRdm: Number,
   origin: { type: String, enum: ["ai", "manual"], default: "ai" },
   content: { type: contentSchema, required: true },
   version: { type: Number, required: true, default: 0 },
@@ -104,6 +112,7 @@ const requestSchema = new Schema({
     direction: String,
   }, { _id: false }), required: true },
   regenerate: { type: Boolean, default: false },
+  dailyPledgeRdm: Number,
 }, { _id: false });
 
 const conversationSchema = new Schema<MedaaConversationRecord>({

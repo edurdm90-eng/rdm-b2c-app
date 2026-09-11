@@ -15,6 +15,8 @@ import { colors, fonts, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
 
+const visibleJourneyStages = medaaJourneyStages.filter((stage) => stage !== "habits");
+
 function keepNewestConversation(previous: MedaaConversation | undefined, incoming: MedaaConversation): MedaaConversation {
   // A read started before a save may arrive after it. Never roll that journey back.
   // Equal revisions still accept updates such as a serialized generation timeout.
@@ -48,11 +50,15 @@ export default function AiCoachScreen() {
   const data = conversation.data;
   const journey = data?.journey;
   const stage = journey?.stage ?? "horizon";
+  const visibleStep = visibleJourneyStages.indexOf(stage === "habits" ? "plan" : stage);
   const selectedDraft = data?.drafts.find((draft) => draft.id === draftId);
   const pending = Boolean(data?.pendingRequestId);
   const configured = status.data?.configured === true;
   const attemptsRemaining = Math.max(0, MEDAA_JOURNEY_GENERATION_LIMIT - (journey?.generations ?? 0));
   const failedRequest = localAttempt ?? (data?.failedRequestId ? data.lastRequest : null);
+  const failedAction = failedRequest?.action;
+  const retryableGoalRequest = failedAction && (failedAction.kind === "suggest-goals"
+    || (failedAction.kind === "refine" && data?.drafts.some((draft) => draft.id === failedAction.draftId && draft.content.type === "goal")));
   const locked = busy || pending;
   const aiDisabled = locked || !configured || attemptsRemaining === 0 || Boolean(failedRequest);
 
@@ -68,6 +74,7 @@ export default function AiCoachScreen() {
     queryClient.setQueryData<MedaaConversation>(trpc.medaa.conversation.queryKey({ id: next.id }),
       (previous) => keepNewestConversation(previous, next));
     void queryClient.invalidateQueries({ queryKey: trpc.medaa.conversations.queryKey() });
+    void queryClient.invalidateQueries({ queryKey: trpc.medaa.budget.queryKey() });
   }
 
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [stage, draftId, conversationId]);
@@ -109,9 +116,9 @@ export default function AiCoachScreen() {
     void run(() => navigate.mutateAsync({ conversationId: data.id, stage: nextStage, expectedRevision: data.revision }));
   }
 
-  async function requestAi(action: MedaaAiAction, regenerate = false, retry?: MedaaAiRequest) {
+  async function requestAi(action: MedaaAiAction, regenerate = false, retry?: MedaaAiRequest, dailyPledgeRdm = 1) {
     if (!data || operationLock.current || !configured) return;
-    const attempt = retry ?? { requestId: Crypto.randomUUID(), action, regenerate };
+    const attempt = retry ?? { requestId: Crypto.randomUUID(), action, regenerate, dailyPledgeRdm };
     setLocalAttempt(attempt);
     const result = await run(() => generate.mutateAsync({ conversationId: data.id, ...attempt }));
     if (result) setLocalAttempt(null);
@@ -147,13 +154,12 @@ export default function AiCoachScreen() {
   }
 
   const title = selectedDraft
-    ? `${selectedDraft.status === "created" ? "Your" : "Add a"} ${selectedDraft.content.type === "habit" ? "Habit" : "Goal"}`
+    ? selectedDraft.content.type === "habit" ? "Previous habit" : `${selectedDraft.status === "created" ? "Your" : "Review"} Goal`
     : "Medaa Ai";
   const subtitle = selectedDraft ? "PART OF YOUR PLAN" : data && !journey ? "SAVED CONVERSATION" : medaaStageTitles[stage].toUpperCase();
   const notice = error ?? data?.failureMessage ?? conversation.error?.message ?? status.error?.message;
   const latestReply = data?.lastRequest ? data.messages.find((item) => item.id === `assistant:${data.lastRequest?.requestId}`) : null;
   const replyMatchesStep = (stage === "short-term" && data?.lastRequest?.action.kind === "suggest-goals" && !draftId)
-    || (stage === "habits" && data?.lastRequest?.action.kind === "suggest-habits" && !draftId)
     || (selectedDraft && data?.lastRequest?.action.kind === "refine" && data.lastRequest.action.draftId === selectedDraft.id);
 
   return (
@@ -165,8 +171,8 @@ export default function AiCoachScreen() {
               onPress={() => setHistoryOpen(!historyOpen)} style={styles.iconButton}>
               <MaterialCommunityIcons name="history" size={23} color={colors.ai} />
             </Pressable>} />
-          {!draftId && (!data || journey) ? <View accessibilityLabel={`Step ${medaaJourneyStages.indexOf(stage) + 1} of 7`} style={styles.progress}>
-            {medaaJourneyStages.map((item, index) => <View key={item} style={[styles.progressSegment, index <= medaaJourneyStages.indexOf(stage) && styles.progressActive]} />)}
+          {!draftId && (!data || journey) ? <View accessibilityLabel={`Step ${visibleStep + 1} of ${visibleJourneyStages.length}`} style={styles.progress}>
+            {visibleJourneyStages.map((item, index) => <View key={item} style={[styles.progressSegment, index <= visibleStep && styles.progressActive]} />)}
           </View> : null}
         </View>
         {historyOpen ? <View style={styles.history}>
@@ -192,8 +198,8 @@ export default function AiCoachScreen() {
           {notice ? <SurfaceCard style={styles.failure}>
             <Text accessibilityLiveRegion="polite" style={styles.error}>{notice}</Text>
             {failedRequest && !pending ? <>
-              <PrimaryButton label="Retry this AI request" color={colors.ai} variant="outline" disabled={!configured || busy || attemptsRemaining === 0}
-                onPress={() => void requestAi(failedRequest.action, failedRequest.regenerate, failedRequest)} />
+              {retryableGoalRequest ? <PrimaryButton label="Retry this AI request" color={colors.ai} variant="outline" disabled={!configured || busy || attemptsRemaining === 0}
+                onPress={() => void requestAi(failedRequest.action, failedRequest.regenerate, failedRequest)} /> : null}
               <PrimaryButton label="Continue without this reply" color={colors.ai} variant="outline" disabled={busy}
                 onPress={() => void dismissFailed()} />
             </> : null}
@@ -209,7 +215,9 @@ export default function AiCoachScreen() {
             <MedaaDraftCard key={`${selectedDraft.id}:${selectedDraft.version}:${selectedDraft.status}`} conversationId={data.id} timeZone={data.timeZone}
               draft={selectedDraft} disabled={locked} initialEditing={!selectedDraft.review && selectedDraft.status === "draft"}
               onConversation={receive} onClose={closeDraft} aiDisabled={aiDisabled}
-              onRefine={journey ? (direction) => void requestAi({ kind: "refine", draftId: selectedDraft.id, direction }) : undefined} />
+              onRefine={journey && selectedDraft.content.type === "goal" ? (direction, rate) => {
+                void requestAi({ kind: "refine", draftId: selectedDraft.id, direction }, false, undefined, rate);
+              } : undefined} />
           </> : data && !journey ? <>
             <SurfaceCard><Text style={styles.historyTitle}>Your previous conversation is preserved</Text>
               <Text style={styles.helper}>Chat is now a guided journey. Review your saved drafts below or start a new journey. No new chat messages will be sent.</Text>

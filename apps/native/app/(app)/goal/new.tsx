@@ -25,7 +25,7 @@ import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
 
-type DurationChoice = "30" | "90" | "custom";
+type DurationChoice = "45" | "60" | "90" | "custom";
 
 export default function NewGoalScreen() {
   const timeZone = getDeviceTimeZone();
@@ -36,9 +36,9 @@ export default function NewGoalScreen() {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<GoalCategory>("Money");
   const [target, setTarget] = useState("");
-  const [durationChoice, setDurationChoice] = useState<DurationChoice>("90");
-  const [customDays, setCustomDays] = useState("120");
-  const [pledgeAmount, setPledgeAmount] = useState("50");
+  const [durationChoice, setDurationChoice] = useState<DurationChoice>("45");
+  const [customDays, setCustomDays] = useState("14");
+  const [pledgeAmount, setPledgeAmount] = useState("1");
   const [error, setError] = useState<string | null>(null);
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions());
   const durationDays = durationChoice === "custom" ? Number(customDays) : Number(durationChoice);
@@ -49,7 +49,8 @@ export default function NewGoalScreen() {
   const numericPledge = Number(pledgeAmount);
   const availableBase = wallet.data?.wallet.base ?? 0;
   const validPledge = Number.isInteger(numericPledge) && numericPledge > 0;
-  const canAfford = validPledge && numericPledge <= availableBase;
+  const totalPledge = validPledge && window ? numericPledge * window.durationDays : 0;
+  const canAfford = validPledge && Boolean(window) && totalPledge <= availableBase;
 
   const createGoal = useMutation(trpc.rdm.goals.create.mutationOptions({
     onSuccess: async (goal) => {
@@ -67,8 +68,8 @@ export default function NewGoalScreen() {
       setError("Add a clear goal title and a measurable target.");
       return;
     }
-    if (!window || window.durationDays > 3_650) {
-      setError("Choose a duration between 1 and 3,650 days.");
+    if (!window || window.durationDays > 90) {
+      setError("Choose a duration between 1 and 90 days.");
       return;
     }
     if (startDayKey < todayDayKey) {
@@ -80,7 +81,7 @@ export default function NewGoalScreen() {
       return;
     }
     if (!canAfford) {
-      setError(`You need ${formatRdm(numericPledge)} RDM in your Base Purse.`);
+      setError(`You need ${formatRdm(totalPledge)} RDM in your Base Purse. Lower the daily pledge or choose a smaller target and shorter period.`);
       return;
     }
     setError(null);
@@ -92,7 +93,8 @@ export default function NewGoalScreen() {
       durationDays: window.durationDays,
       startDayKey,
       timeZone,
-      pledgeAmount: numericPledge,
+      pledgeAmount: totalPledge,
+      rdmPledgePerDay: numericPledge,
     });
   }
 
@@ -166,7 +168,8 @@ export default function NewGoalScreen() {
       <SectionLabel>Duration</SectionLabel>
       <View style={styles.chips}>
         {([
-          { id: "30", label: "30 days" },
+          { id: "45", label: "45 days" },
+          { id: "60", label: "60 days" },
           { id: "90", label: "90 days" },
           { id: "custom", label: "Custom" },
         ] as const).map((item) => (
@@ -183,7 +186,7 @@ export default function NewGoalScreen() {
         <TextInput
           accessibilityLabel="Custom goal duration in days"
           keyboardType="number-pad"
-          maxLength={4}
+          maxLength={2}
           onChangeText={setCustomDays}
           placeholder="Number of days"
           placeholderTextColor={colors.inkSoft}
@@ -192,13 +195,14 @@ export default function NewGoalScreen() {
         />
       ) : null}
 
-      <SectionLabel>RDM pledge</SectionLabel>
+      <Text style={styles.summaryCopy}>Choose 1–90 days. Shorter commitments are welcome; keep your target realistic for the dates.</Text>
+      <SectionLabel>Daily RDM pledge</SectionLabel>
       <TextInput
-        accessibilityLabel="Goal RDM pledge"
+        accessibilityLabel="Goal daily RDM pledge"
         keyboardType="number-pad"
         maxLength={6}
         onChangeText={setPledgeAmount}
-        placeholder="50"
+        placeholder="1"
         placeholderTextColor={colors.inkSoft}
         style={styles.input}
         value={pledgeAmount}
@@ -213,7 +217,7 @@ export default function NewGoalScreen() {
           <View style={styles.summaryRight}>
             <Text style={styles.summaryLabel}>Locked now</Text>
             <Text style={[styles.summaryValue, !canAfford && styles.summaryError]}>
-              {validPledge ? `${formatRdm(numericPledge)} RDM` : "—"}
+              {validPledge && window ? `${formatRdm(totalPledge)} RDM` : "—"}
             </Text>
           </View>
         </View>
@@ -222,12 +226,14 @@ export default function NewGoalScreen() {
             ? `${window.durationDays} days · ${formatDayKey(window.startDayKey)} to ${formatDayKey(window.endDayKey)}. The finish date is the deadline boundary.`
             : "Enter a valid duration to calculate the goal window."}
         </Text>
-        <Text style={styles.summaryCopy}>Complete the goal to move the full pledge to Reward. An incomplete goal moves the pledge to Remorse at the deadline.</Text>
+        <Text style={styles.summaryCopy}>{window && validPledge ? `${window.durationDays} days × ${formatRdm(numericPledge)} RDM/day. ` : ""}Minimum 1 RDM/day. Reflect each day to move that day’s allocation to Reward; missed days go to Remorse. No second charge is made.</Text>
+        {canAfford ? <Text style={styles.summaryCopy}>{formatRdm(availableBase - totalPledge)} RDM remains in Base after creating this goal.</Text>
+          : validPledge ? <Text style={[styles.summaryCopy, styles.summaryError]}>At this daily pledge, your balance supports up to {Math.min(90, Math.floor(availableBase / numericPledge))} days. Choose a smaller target and duration if needed.</Text> : null}
       </SurfaceCard>
 
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       <PrimaryButton
-        disabled={wallet.isLoading || !window || !canAfford}
+        disabled={wallet.isLoading || !window || window.durationDays > 90 || !canAfford}
         label="Lock RDM & save goal"
         loading={createGoal.isPending}
         onPress={submit}

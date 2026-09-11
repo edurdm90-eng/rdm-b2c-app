@@ -18,9 +18,9 @@ import { medaaInstructions } from "./medaa-prompt";
 const requestTimeoutMs = 30_000;
 const maximumResponseCharacters = 128_000;
 
-// Keep the provider schema structural; domain validation additionally enforces
-// lengths, weekday uniqueness, habit categories, and type-dependent duration.
-const responseJsonSchema = {
+// The request schema constrains new outputs; shared domain validation also
+// checks action semantics, affordability, and safe goal content after parsing.
+const responseJsonSchema = (maxAffordableDays: number) => ({
   type: "object",
   additionalProperties: false,
   required: ["message", "suggestions"],
@@ -38,26 +38,31 @@ const responseJsonSchema = {
           content: {
             type: "object",
             additionalProperties: false,
-            required: ["type", "title", "category", "target", "pledge", "weekdays", "durationDays"],
+            required: ["type", "title", "category", "target", "pledge", "weekdays", "durationDays",
+              "why", "steps", "reflectionPrompt"],
             properties: {
-              type: { type: "string", enum: ["habit", "goal"] },
+              type: { type: "string", enum: ["goal"] },
               title: { type: "string", pattern: "^[\\s\\S]{3,80}$" },
               category: { type: "string", enum: [...goalCategories] },
               target: { type: "string", pattern: "^[\\s\\S]{2,120}$" },
-              pledge: { type: ["string", "null"], pattern: "^[\\s\\S]{8,500}$" },
+              pledge: { type: "null" },
               weekdays: {
                 type: "array",
-                maxItems: 7,
+                maxItems: 0,
                 items: { type: "integer", minimum: 1, maximum: 7 },
               },
-              durationDays: { type: "integer", minimum: 1, maximum: MEDAA_MAX_COMMITMENT_DAYS },
+              durationDays: { type: "integer", minimum: 1, maximum: maxAffordableDays },
+              why: { type: "string", pattern: "^[\\s\\S]{1,500}$" },
+              steps: { type: "array", minItems: 1, maxItems: 5,
+                items: { type: "string", pattern: "^[\\s\\S]{1,200}$" } },
+              reflectionPrompt: { type: "string", pattern: "^[\\s\\S]{1,240}$" },
             },
           },
         },
       },
     },
   },
-};
+});
 
 const responseEnvelopeSchema = z.object({
   status: z.string(),
@@ -79,7 +84,7 @@ const errorMessages: Record<ProviderErrorCode, string> = {
   unavailable: "Medaa Ai is temporarily unavailable. Your draft is saved; please try again later.",
   busy: "Medaa Ai is busy right now. Your draft is saved; please try again shortly.",
   timeout: "Medaa Ai took too long to respond. Your journey is saved; please retry.",
-  refused: "Medaa Ai could not help with that request. Try a safe, practical habit or goal instead.",
+  refused: "Medaa Ai could not help with that request. Try a safe, practical goal instead.",
   invalid_response: "Medaa Ai could not prepare a valid suggestion. Your draft is saved; please retry.",
 };
 
@@ -124,6 +129,12 @@ const structuredContextSchema = z.object({
   action: medaaAiActionSchema,
   todayDayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   timeZone: medaaTimeZoneSchema,
+  budget: z.object({
+    remainingBaseRdm: z.number().int().nonnegative(),
+    dailyPledgeRdm: z.number().int().min(1).max(100_000),
+    maxAffordableDays: z.number().int().min(1).max(MEDAA_MAX_COMMITMENT_DAYS),
+  }).strict().refine((budget) => budget.maxAffordableDays
+    === Math.min(MEDAA_MAX_COMMITMENT_DAYS, Math.floor(budget.remainingBaseRdm / budget.dailyPledgeRdm))),
   drafts: z.array(z.object({
     id: z.string().uuid(),
     content: medaaDraftContentSchema,
@@ -139,13 +150,15 @@ function structuredContext(context: MedaaGenerationContext) {
     action: context.action,
     todayDayKey: context.todayDayKey,
     timeZone: context.timeZone,
+    budget: context.budget,
     drafts: context.drafts.map(({ id, content, status }) => ({ id, content, status })),
   });
   if (!result.success) throw new MedaaProviderError("invalid_response");
   const snapshot = result.data;
+  if (snapshot.action.kind === "suggest-habits") throw new MedaaProviderError("invalid_response");
   if (snapshot.action.kind === "refine") {
     const draftId = snapshot.action.draftId;
-    if (!snapshot.drafts.some((draft) => draft.id === draftId && draft.status === "draft")) {
+    if (!snapshot.drafts.some((draft) => draft.id === draftId && draft.status === "draft" && draft.content.type === "goal")) {
       throw new MedaaProviderError("invalid_response");
     }
   }
@@ -187,7 +200,8 @@ export const medaaProvider: MedaaProvider = {
           reasoning: { effort: "minimal" },
           max_output_tokens: 3_000,
           text: {
-            format: { type: "json_schema", name: "medaa_coach_response", strict: true, schema: responseJsonSchema },
+            format: { type: "json_schema", name: "medaa_coach_response", strict: true,
+              schema: responseJsonSchema(snapshot.budget.maxAffordableDays) },
           },
         }),
       });
@@ -197,7 +211,7 @@ export const medaaProvider: MedaaProvider = {
       }
       const body = await response.text();
       if (body.length > maximumResponseCharacters) throw new MedaaProviderError("invalid_response");
-      const result = medaaActionResponseSchema(snapshot.action, snapshot.drafts)
+      const result = medaaActionResponseSchema(snapshot.action, snapshot.drafts, snapshot.budget)
         .safeParse(parseResponse(JSON.parse(body)));
       if (!result.success) throw new MedaaProviderError("invalid_response");
       return result.data;

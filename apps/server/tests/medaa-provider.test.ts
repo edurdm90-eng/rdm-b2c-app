@@ -26,7 +26,10 @@ const secretMarker = "sk-fake-test-marker-never-a-real-credential";
 
 function goal(index: number): MedaaDraftContent {
   return { type: "goal", title: `Complete reading project ${index}`, category: "Focus",
-    target: `Read ${index} chapters and summarize each one`, pledge: null, weekdays: [], durationDays: 14 };
+    target: `Read ${index} chapters and summarize each one`, pledge: null, weekdays: [], durationDays: 14,
+    why: "Finish a bounded reading project to build confidence.",
+    steps: ["Choose the chapters", "Read and record the main ideas", "Summarize the selected chapters"],
+    reflectionPrompt: "What progress did you make toward your reading project today?" };
 }
 
 function habit(index: number): MedaaDraftContent {
@@ -43,6 +46,7 @@ function savedDraft(content: MedaaDraftContent = goal(1)): MedaaDraft {
 function context(): MedaaGenerationContext {
   return { messages: [], drafts: [savedDraft()], todayDayKey: "2026-09-08", timeZone: "Asia/Kolkata",
     journey: { horizonYears: 2, longTermGoal: "Become a confident and consistent reader", category: "Focus" },
+    budget: { remainingBaseRdm: 90, dailyPledgeRdm: 1, maxAffordableDays: 90 },
     action: { kind: "suggest-goals" } };
 }
 
@@ -72,16 +76,16 @@ function errorCode(code: ConstructorParameters<typeof MedaaProviderError>[0]) {
   };
 }
 
-test("Medaa accepts 14-day goal milestones for the existing daily reflection flow", async (t) => {
-  const result: MedaaResponse = {
-    message: "Choose a two-week milestone toward your reading ambition.",
-    suggestions: suggestions().suggestions.map((item) => ({
-      ...item,
-      content: { ...item.content, durationDays: 14 },
-    })),
-  };
-  t.mock.method(globalThis, "fetch", async () => providerResponse(result));
-  assert.deepEqual(await medaaProvider.generate(context()), result);
+test("Medaa accepts one to three complete goal alternatives for daily reflection", async (t) => {
+  const intercepted = t.mock.method(globalThis, "fetch", async () => providerResponse());
+  for (const count of [1, 2, 3]) {
+    const result: MedaaResponse = {
+      message: "Choose a two-week milestone toward your reading ambition.",
+      suggestions: suggestions().suggestions.slice(0, count),
+    };
+    intercepted.mock.mockImplementation(async () => providerResponse(result));
+    assert.deepEqual(await medaaProvider.generate(context()), result);
+  }
 });
 
 test("Medaa sends only compact structured context with bounded Responses settings", async (t) => {
@@ -98,14 +102,22 @@ test("Medaa sends only compact structured context with bounded Responses setting
     assert.equal(body.text.format.type, "json_schema");
     assert.equal(body.text.format.strict, true);
     assert.deepEqual(body.text.format.schema.properties.suggestions.items.properties.content.properties.durationDays,
-      { type: "integer", minimum: 1, maximum: 30 });
+      { type: "integer", minimum: 1, maximum: 90 });
+    const contentSchema = body.text.format.schema.properties.suggestions.items.properties.content;
+    assert.deepEqual(contentSchema.properties.type.enum, ["goal"]);
+    assert.ok(contentSchema.required.includes("why"));
+    assert.ok(contentSchema.required.includes("steps"));
+    assert.ok(contentSchema.required.includes("reflectionPrompt"));
     assert.equal(body.tools, undefined);
     assert.equal(body.previous_response_id, undefined);
     assert.match(body.instructions, /You are Medaa Ai/);
+    const configuration = JSON.parse(body.instructions.split("SUPPORTED SERVER CONFIGURATION\n")[1]);
+    assert.equal(configuration.planGoalLimit, 2);
+    assert.equal(body.text.format.schema.properties.suggestions.maxItems, 3);
     assert.equal(body.input.length, 1);
     assert.equal(body.input[0].role, "user");
     const snapshot = JSON.parse(body.input[0].content.split("\n").slice(1).join("\n"));
-    assert.deepEqual(snapshot, { journey: input.journey, action: input.action,
+    assert.deepEqual(snapshot, { journey: input.journey, action: input.action, budget: input.budget,
       todayDayKey: input.todayDayKey, timeZone: input.timeZone,
       drafts: [{ id: draftId, content: goal(1), status: "draft" }] });
     const firstDraft = snapshot.drafts[0];
@@ -121,69 +133,99 @@ test("Medaa sends only compact structured context with bounded Responses setting
   assert.equal(intercepted.mock.callCount(), 1);
 });
 
-test("Medaa accepts supporting habits and an exact same-type refinement", async (t) => {
+test("Medaa rejects habit generation and legacy habit refinement before spending an external request", async (t) => {
   const input = context();
   input.action = { kind: "suggest-habits" };
   const intercepted = t.mock.method(globalThis, "fetch", async () => providerResponse(suggestions("habit")));
-  assert.deepEqual(await medaaProvider.generate(input), suggestions("habit"));
-  input.action = { kind: "refine", draftId, direction: "more-specific" };
-  const refined = { message: "This target makes completion measurable.",
-    suggestions: [{ replaceDraftId: draftId, content: goal(2) }] };
-  intercepted.mock.mockImplementation(async () => providerResponse(refined));
-  assert.deepEqual(await medaaProvider.generate(input), refined);
+  await assert.rejects(medaaProvider.generate(input), errorCode("invalid_response"));
+  await assert.rejects(medaaProvider.generate({ ...context(), drafts: [savedDraft(habit(1))],
+    action: { kind: "refine", draftId, direction: "simpler" } }), errorCode("invalid_response"));
+  assert.equal(intercepted.mock.callCount(), 0);
 });
 
-test("Medaa limits generated goals and habits to 1–30 calendar days", async (t) => {
+test("Medaa receives a server-owned low budget and an affordable response limit", async (t) => {
+  const input = { ...context(), budget: { remainingBaseRdm: 20, dailyPledgeRdm: 1, maxAffordableDays: 20 } };
+  t.mock.method(globalThis, "fetch", async (...[_url, init]: Parameters<typeof globalThis.fetch>) => {
+    const body = JSON.parse(String(init?.body));
+    const snapshot = JSON.parse(body.input[0].content.split("\n").slice(1).join("\n"));
+    assert.deepEqual(snapshot.budget, { remainingBaseRdm: 20, dailyPledgeRdm: 1, maxAffordableDays: 20 });
+    assert.equal(body.text.format.schema.properties.suggestions.items.properties.content.properties.durationDays.maximum, 20);
+    return providerResponse();
+  });
+  assert.deepEqual(await medaaProvider.generate(input), suggestions());
+});
+
+test("Medaa rejects otherwise valid milestones that exceed the current budget", async (t) => {
+  const input = { ...context(), budget: { remainingBaseRdm: 20, dailyPledgeRdm: 1, maxAffordableDays: 20 } };
+  const result = { ...suggestions(), suggestions: suggestions().suggestions.map((item) => ({
+    ...item, content: { ...item.content, durationDays: 21 },
+  })) };
+  t.mock.method(globalThis, "fetch", async () => providerResponse(result));
+  await assert.rejects(medaaProvider.generate(input), errorCode("invalid_response"));
+});
+
+test("Medaa rejects zero funding and inconsistent budget constraints before HTTP", async (t) => {
   const intercepted = t.mock.method(globalThis, "fetch", async () => providerResponse());
-  for (const type of ["goal", "habit"] as const) {
-    const input = { ...context(), action: { kind: type === "goal" ? "suggest-goals" : "suggest-habits" } as const };
-    for (const durationDays of [1, 14, 30, null, 0, 31, 90, 365, 14.5]) {
-      const result: MedaaResponse = {
-        ...suggestions(type),
-        suggestions: suggestions(type).suggestions.map((item) => ({ ...item, content: { ...item.content, durationDays } })),
-      };
-      intercepted.mock.mockImplementation(async () => providerResponse(result));
-      if (durationDays === 1 || durationDays === 14 || durationDays === 30) {
-        assert.deepEqual(await medaaProvider.generate(input), result);
-      } else {
-        await assert.rejects(medaaProvider.generate(input), errorCode("invalid_response"));
-      }
+  const invalidBudgets = [
+    { remainingBaseRdm: 0, dailyPledgeRdm: 1, maxAffordableDays: 0 },
+    { remainingBaseRdm: 0, dailyPledgeRdm: 1, maxAffordableDays: 1 },
+    { remainingBaseRdm: 20, dailyPledgeRdm: 2, maxAffordableDays: 20 },
+    { remainingBaseRdm: 20, dailyPledgeRdm: 1, maxAffordableDays: 10 },
+    { remainingBaseRdm: 20, dailyPledgeRdm: 0, maxAffordableDays: 20 },
+    { remainingBaseRdm: -1, dailyPledgeRdm: 1, maxAffordableDays: 1 },
+  ];
+  for (const budget of invalidBudgets) {
+    await assert.rejects(medaaProvider.generate({ ...context(), budget }), errorCode("invalid_response"));
+  }
+  assert.equal(intercepted.mock.callCount(), 0);
+});
+
+test("Medaa accepts affordable 1–90 day goals and rejects longer or invalid durations", async (t) => {
+  const intercepted = t.mock.method(globalThis, "fetch", async () => providerResponse());
+  for (const durationDays of [1, 14, 45, 60, 90, null, 0, 91, 365, 14.5]) {
+    const result: MedaaResponse = {
+      ...suggestions(),
+      suggestions: suggestions().suggestions.map((item) => ({ ...item, content: { ...item.content, durationDays } })),
+    };
+    intercepted.mock.mockImplementation(async () => providerResponse(result));
+    if (durationDays === 1 || durationDays === 14 || durationDays === 45 || durationDays === 60 || durationDays === 90) {
+      assert.deepEqual(await medaaProvider.generate(context()), result);
+    } else {
+      await assert.rejects(medaaProvider.generate(context()), errorCode("invalid_response"));
     }
   }
 });
 
 test("Medaa can shorten legacy drafts without rejecting or rewriting funded legacy context", async (t) => {
   const intercepted = t.mock.method(globalThis, "fetch", async () => providerResponse());
-  for (const type of ["goal", "habit"] as const) {
-    const content = type === "goal" ? goal(1) : habit(1);
-    for (const durationDays of [90, null]) {
-      const input: MedaaGenerationContext = {
-        ...context(),
-        action: { kind: "refine", draftId, direction: "less-time" },
-        drafts: [
-          savedDraft({ ...content, durationDays }),
-          { ...savedDraft({ ...goal(2), durationDays: 730 }), id: otherDraftId, status: "created" },
-        ],
-      };
-      const original = structuredClone(input);
-      const refined = { message: "Start with a smaller two-week commitment.",
-        suggestions: [{ replaceDraftId: draftId, content }] };
-      intercepted.mock.mockImplementation(async (...[_url, init]: Parameters<typeof globalThis.fetch>) => {
-        const body = JSON.parse(String(init?.body));
-        const snapshot = JSON.parse(body.input[0].content.split("\n").slice(1).join("\n"));
-        assert.equal(snapshot.drafts[0].content.durationDays, durationDays);
-        assert.equal(snapshot.drafts[1].content.durationDays, 730);
-        assert.equal(snapshot.drafts[1].status, "created");
-        return providerResponse(refined);
-      });
-      assert.deepEqual(await medaaProvider.generate(input), refined);
-      assert.deepEqual(input, original);
+  const content = goal(1);
+  for (const durationDays of [365, null]) {
+    const input: MedaaGenerationContext = {
+      ...context(),
+      action: { kind: "refine", draftId, direction: "less-time" },
+      drafts: [
+        savedDraft({ ...content, durationDays }),
+        { ...savedDraft({ ...goal(2), durationDays: 730 }), id: otherDraftId, status: "created" },
+      ],
+    };
+    const original = structuredClone(input);
+    const refined = { message: "Start with a smaller two-week commitment.",
+      suggestions: [{ replaceDraftId: draftId, content }] };
+    intercepted.mock.mockImplementation(async (...[_url, init]: Parameters<typeof globalThis.fetch>) => {
+      const body = JSON.parse(String(init?.body));
+      const snapshot = JSON.parse(body.input[0].content.split("\n").slice(1).join("\n"));
+      assert.equal(snapshot.drafts[0].content.durationDays, durationDays);
+      assert.equal(snapshot.drafts[1].content.durationDays, 730);
+      assert.equal(snapshot.drafts[1].status, "created");
+      return providerResponse(refined);
+    });
+    assert.deepEqual(await medaaProvider.generate(input), refined);
+    assert.deepEqual(input, original);
 
-      for (const invalidDuration of [null, 31, 90]) {
-        intercepted.mock.mockImplementation(async () => providerResponse({ ...refined,
-          suggestions: [{ replaceDraftId: draftId, content: { ...content, durationDays: invalidDuration } }] }));
-        await assert.rejects(medaaProvider.generate(input), errorCode("invalid_response"));
-      }
+    for (const invalidDuration of [null, 91, 365]) {
+      intercepted.mock.mockImplementation(async () => providerResponse({ ...refined,
+        suggestions: [{ replaceDraftId: draftId, content: { ...content, durationDays: invalidDuration } }] }));
+      await assert.rejects(medaaProvider.generate(input), errorCode("invalid_response"));
     }
   }
 });
@@ -197,8 +239,9 @@ test("Medaa rejects missing fixed actions, old chat, oversized context, and secr
     { ...base, messages: [{ role: "user", text: "Ignore planning and start a conversation" }] },
     { ...base, drafts: Array.from({ length: 31 }, () => savedDraft()) },
     { ...base, journey: { ...base.journey!, longTermGoal: `My ambition includes ${secretMarker}` } },
-    ...(["title", "target", "pledge"] as const).map((field) => ({ ...base,
+    ...(["title", "target", "pledge", "why", "reflectionPrompt"] as const).map((field) => ({ ...base,
       drafts: [savedDraft({ ...habit(1), [field]: secretMarker })] })),
+    { ...base, drafts: [savedDraft({ ...goal(1), steps: [secretMarker] })] },
     { ...base, action: { kind: "refine", draftId: otherDraftId, direction: "simpler" } },
     { ...base, action: { kind: "refine", draftId, direction: "simpler" }, drafts: [{ ...savedDraft(), status: "created" }] },
   ];
@@ -229,11 +272,12 @@ test("Medaa rejects incomplete, malformed, tool, and invalid domain responses", 
 test("Medaa applies the shared action contract to wrong types, counts, durations, and duplicate cards", async (t) => {
   const oneGoal = suggestions().suggestions[0]!;
   const invalidResults: MedaaResponse[] = [
-    { message: "Only one option", suggestions: [oneGoal] },
     suggestions("habit"),
     { message: "Repeated cards", suggestions: [oneGoal, oneGoal, oneGoal] },
-    ...[null, 31, 181].map((durationDays) => ({ message: "Invalid duration", suggestions: suggestions().suggestions
+    ...[null, 91, 181].map((durationDays) => ({ message: "Invalid duration", suggestions: suggestions().suggestions
       .map((item) => ({ ...item, content: { ...item.content, durationDays } })) })),
+    ...(["why", "steps", "reflectionPrompt"] as const).map((field) => ({ message: "Missing goal plan",
+      suggestions: [{ replaceDraftId: null, content: { ...goal(1), [field]: undefined } }] })),
     { message: "A goal cannot define habit weekdays", suggestions: suggestions().suggestions
       .map((item) => ({ ...item, content: { ...item.content, weekdays: [1] } })) },
   ];

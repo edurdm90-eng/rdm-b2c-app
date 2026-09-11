@@ -38,7 +38,11 @@ export async function hasMedaaCommitmentApproval(userId: string, commitment: Com
       const input = commitment.input;
       return input.startDayKey === review.startDayKey
         && input.durationDays === content.durationDays
-        && input.pledgeAmount === review.pledgeAmount
+        && (review.fundingMode === "daily"
+          ? input.rdmPledgePerDay === review.pledgeAmount && review.totalPledge === review.pledgeAmount * input.durationDays
+            && input.why === content.why && JSON.stringify(input.steps) === JSON.stringify(content.steps)
+            && input.reflectionPrompt === content.reflectionPrompt
+          : input.rdmPledgePerDay === undefined && input.pledgeAmount === review.pledgeAmount)
         && review.totalPledge === input.pledgeAmount
         && review.scheduledDays === input.durationDays;
     }
