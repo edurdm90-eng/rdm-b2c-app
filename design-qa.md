@@ -69,4 +69,24 @@ Review summary: Standards — 2 P2 findings resolved, 0 outstanding blockers; Sp
 - [x] Full tests, types, build, native bundles and two-axis review.
 - [x] Limited to v2; no push, master or environment-file changes.
 
-final result: passed
+## Focused Groups — design QA
+
+### Reference and implementation
+
+- Source visual truth: the three user-supplied Focused Routine group-goal boards attached to this task. The boards define dark charcoal mobile surfaces, outlined cards, muted labels, purple progress accents, green primary actions, and a payment-unavailable top-up state. Their people, dates, balances, and activity examples are illustrative only.
+- Implementation scope: existing native group list, creation, invite-code join, dashboard, awards, results, settings, and top-up routes. The redesign uses the app's installed MaterialCommunityIcons rather than copying illustrative emoji or a photo thumbnail. Existing server data drives names, targets, balances, members, pledges, and outcomes.
+- Captured preview: `http://localhost:8081/login` at the native web default viewport. The application correctly loaded, but the available session was unauthenticated, so group routes could not be reached without creating or using an account. No account or group was created solely for visual verification.
+
+### Comparison and findings
+
+- Full visual comparison is blocked: the source boards were inspected, but a rendered authenticated group state was unavailable. The unauthenticated login capture confirms the Expo web bundle reaches the app; it cannot establish group-surface fidelity.
+- Code-level comparison completed: group surfaces now share the intended dark panel hierarchy, compact metrics, outlined selected states, Material icons, purple group emphasis, and green primary actions. The top-up screen presents unavailable payment choices and contains no selection or payment state; its only enabled action is the existing navigation to Wallet.
+- Responsive/device capture, authenticated interaction capture, and side-by-side group-screen screenshots remain required before this section can pass. Creating/joining/logging/awarding behavior is covered by the existing production code paths and the domain suite, not mocked board data.
+
+### Regression evidence
+
+- `pnpm --filter native check-types`: passed.
+- `pnpm test`: passed, 97 tests.
+- `git diff --check`: passed.
+
+final result: blocked

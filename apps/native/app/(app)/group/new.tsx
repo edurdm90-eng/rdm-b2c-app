@@ -10,7 +10,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { GroupAiNote, GroupErrorState, GroupStepDots } from "@/components/group-goal-ui";
+import { GroupErrorState, GroupStepDots } from "@/components/group-goal-ui";
 import { GroupJoinFlow } from "@/components/group-join-flow";
 import {
   AppScreen,
@@ -85,7 +85,7 @@ export default function NewGroupScreen() {
     },
     onError: (mutationError) => setError(mutationError.message),
   }));
-  const createSubtitle = `${category.toUpperCase()} · STEP ${step} OF 5`;
+  const createSubtitle = `STEP ${step} OF 4`;
   const hasValidPledge = Number.isInteger(totalPledge) && totalPledge > 0 && totalPledge <= baseBalance;
 
   function selectActivity(activity: (typeof activities)[number]) {
@@ -168,7 +168,7 @@ export default function NewGroupScreen() {
     if (step === 1) {
       return (
         <>
-          <SectionLabel>Who&apos;s this group for?</SectionLabel>
+          <View style={styles.intro}><Text style={styles.introTitle}>Who&apos;s joining you?</Text><Text style={styles.introBody}>Choose the circle this goal is for.</Text></View>
           <View style={styles.categoryGrid}>
             {groupGoalCategories.map((item) => (
               <Pressable
@@ -178,27 +178,26 @@ export default function NewGroupScreen() {
                 onPress={() => selectCategory(item.id)}
                 style={[styles.categoryCard, category === item.id && styles.selectedCard]}
               >
-                <Text style={styles.categoryIcon}>{item.icon}</Text>
+                <View style={styles.categoryIcon}><MaterialCommunityIcons color={category === item.id ? colors.plum : colors.ink} name={item.icon as never} size={29} /></View>
                 <Text style={styles.categoryTitle}>{item.id}</Text>
                 <Text style={styles.categoryDescription}>{item.description}</Text>
               </Pressable>
             ))}
           </View>
-          <GroupAiNote label="Not sure? Let AI suggest one" />
         </>
       );
     }
     if (step === 2) {
       return (
         <>
-          <SectionLabel>{category} activities</SectionLabel>
+          <View style={styles.intro}><Text style={styles.introTitle}>What will you do together?</Text><Text style={styles.introBody}>Choose an activity for your group goal.</Text></View>
           {activities.map((activity) => (
             <SurfaceCard
               key={activity.id}
               onPress={() => selectActivity(activity)}
               style={[styles.activityCard, activityId === activity.id && styles.selectedCard]}
             >
-              <Text style={styles.activityIcon}>{activity.icon}</Text>
+              <View style={styles.activityIcon}><MaterialCommunityIcons color={activityId === activity.id ? colors.plum : colors.ink} name={activity.icon as never} size={26} /></View>
               <View style={styles.activityCopy}>
                 <Text style={styles.activityTitle}>{activity.title}</Text>
                 <Text style={styles.activityDescription}>{activity.description}</Text>
@@ -220,7 +219,7 @@ export default function NewGroupScreen() {
             }}
             style={[styles.activityCard, activityId === "custom" && styles.selectedCard]}
           >
-            <Text style={styles.activityIcon}>✏️</Text>
+            <View style={styles.activityIcon}><MaterialCommunityIcons color={activityId === "custom" ? colors.plum : colors.ink} name="pencil-outline" size={26} /></View>
             <View style={styles.activityCopy}>
               <Text style={styles.activityTitle}>Create a custom activity</Text>
               <Text style={styles.activityDescription}>Define something meaningful for your group.</Text>
@@ -232,13 +231,13 @@ export default function NewGroupScreen() {
               <TextInput accessibilityLabel="Custom activity description" multiline onChangeText={setDescription} placeholder="What will the group do?" placeholderTextColor={colors.inkSoft} style={[styles.input, styles.multiline]} value={description} />
             </View>
           ) : null}
-          <GroupAiNote label="Use AI to write the activity for us" />
         </>
       );
     }
     if (step === 3) {
       return (
         <>
+          <View style={styles.intro}><Text style={styles.introTitle}>Make the goal clear.</Text><Text style={styles.introBody}>Set a shared target and timeline for your group.</Text></View>
           <SectionLabel>Group goal</SectionLabel>
           <TextInput accessibilityLabel="Group goal name" onChangeText={setName} placeholder="Group goal name" placeholderTextColor={colors.inkSoft} style={styles.input} value={name} />
           <TextInput accessibilityLabel="Group goal description" multiline onChangeText={setDescription} placeholder="Describe the shared activity" placeholderTextColor={colors.inkSoft} style={[styles.input, styles.multiline]} value={description} />
@@ -260,7 +259,6 @@ export default function NewGroupScreen() {
             <Pill active={cadence === "daily"} color={colors.plum} label="Daily log" onPress={() => setCadence("daily")} />
             <Pill active={cadence === "weekly"} color={colors.plum} label="Weekly log" onPress={() => setCadence("weekly")} />
           </View>
-          <GroupAiNote label="Use AI to suggest a fair target" />
         </>
       );
     }
@@ -299,7 +297,6 @@ export default function NewGroupScreen() {
             <View style={styles.activityCopy}><Text style={styles.activityTitle}>{option.title}</Text><Text style={styles.activityDescription}>{option.description}</Text></View>
           </SurfaceCard>
         ))}
-        <GroupAiNote label="Use AI to recommend a stake" />
       </>
     );
   }
@@ -327,11 +324,11 @@ export default function NewGroupScreen() {
         <Pill active color={colors.plum} label="Create" />
         <Pill color={colors.plum} label="Join with code" onPress={() => { setMode("join"); setError(null); }} />
       </View>
-      <GroupStepDots current={step} />
+      <GroupStepDots current={step} total={4} />
       {renderCreateStep()}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <PrimaryButton
-        color={step === 4 ? colors.gold : colors.plum}
+        color={colors.growth}
         disabled={step === 4 && !hasValidPledge}
         label={step === 4 ? `Lock ${Number.isFinite(totalPledge) ? formatRdm(totalPledge) : 0} RDM & create` : "Continue"}
         loading={createGroup.isPending}
@@ -343,19 +340,22 @@ export default function NewGroupScreen() {
 
 const styles = StyleSheet.create({
   modeRow: { flexDirection: "row", gap: 8 },
-  categoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  categoryCard: { width: "48%", minHeight: 118, borderRadius: radii.medium, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, padding: 14 },
-  selectedCard: { borderColor: colors.plum, backgroundColor: colors.plumTint },
-  categoryIcon: { fontSize: 25, marginBottom: 10 },
-  categoryTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 17 },
-  categoryDescription: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 3 },
-  activityCard: { alignItems: "center", flexDirection: "row", gap: 12 },
-  activityIcon: { fontSize: 25 },
+  intro: { gap: 4, marginTop: 2 },
+  introTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 27, letterSpacing: -0.6, lineHeight: 33 },
+  introBody: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
+  categoryGrid: { gap: 10 },
+  categoryCard: { alignItems: "center", backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: radii.medium, borderWidth: 1, flexDirection: "row", gap: 13, minHeight: 94, padding: 14 },
+  selectedCard: { borderColor: colors.plum, backgroundColor: "rgba(179, 154, 232, 0.09)" },
+  categoryIcon: { alignItems: "center", backgroundColor: colors.background, borderRadius: 22, height: 45, justifyContent: "center", width: 45 },
+  categoryTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 17 },
+  categoryDescription: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 3 },
+  activityCard: { alignItems: "center", backgroundColor: colors.panelRaised, flexDirection: "row", gap: 12 },
+  activityIcon: { alignItems: "center", backgroundColor: colors.background, borderRadius: 12, height: 48, justifyContent: "center", width: 48 },
   activityCopy: { flex: 1 },
   activityTitle: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 13 },
   activityDescription: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 16, marginTop: 3 },
   fieldStack: { gap: 10 },
-  input: { minHeight: 52, borderRadius: 13, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panel, color: colors.ink, fontFamily: fonts.body, fontSize: 14, paddingHorizontal: 14 },
+  input: { minHeight: 52, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panelRaised, color: colors.ink, fontFamily: fonts.body, fontSize: 14, paddingHorizontal: 14 },
   multiline: { minHeight: 88, paddingTop: 14, textAlignVertical: "top" },
   targetRow: { flexDirection: "row", gap: 10 },
   targetInput: { flex: 1 },

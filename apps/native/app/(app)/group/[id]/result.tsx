@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { Share, StyleSheet, Text, View } from "react-native";
@@ -49,7 +50,7 @@ export default function GroupResultScreen() {
         subtitle={data.name.toUpperCase()}
       />
       <View style={styles.hero}>
-        <Text style={styles.trophy}>🏆</Text>
+        <View style={styles.trophy}><MaterialCommunityIcons color={colors.gold} name="trophy-outline" size={58} /></View>
         <Text style={styles.heroTitle}>Goal complete!</Text>
         <Text style={styles.heroSubtitle}>{data.target} {data.unit} together · pool distributed</Text>
       </View>
@@ -60,7 +61,7 @@ export default function GroupResultScreen() {
           <Text style={styles.winnerAmount}>{formatRdm(winner.award)} RDM</Text>
           {data.specialCollectible ? (
             <View style={styles.specialBadge}>
-              <Text style={styles.specialText}>🏅 {data.specialCollectible.title}</Text>
+              <View style={styles.specialTitleRow}><MaterialCommunityIcons color={colors.plum} name="gift-outline" size={16} /><Text style={styles.specialText}>{data.specialCollectible.title}</Text></View>
               <Text style={styles.specialMeta}>Owned by {data.specialCollectible.recipientName} · {data.specialCollectible.id}</Text>
             </View>
           ) : null}
@@ -88,7 +89,7 @@ export default function GroupResultScreen() {
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background },
   hero: { alignItems: "center", gap: 5, paddingVertical: 12 },
-  trophy: { fontSize: 54 },
+  trophy: { alignItems: "center", backgroundColor: colors.goldTint, borderRadius: 42, height: 84, justifyContent: "center", width: 84 },
   heroTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 24 },
   heroSubtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
   winnerCard: { alignItems: "center", borderColor: colors.gold, borderWidth: 1.5, gap: 8, paddingVertical: 20 },
@@ -97,6 +98,7 @@ const styles = StyleSheet.create({
   winnerTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 17 },
   winnerAmount: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 25 },
   specialBadge: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 14, gap: 2, paddingHorizontal: 11, paddingVertical: 7 },
+  specialTitleRow: { alignItems: "center", flexDirection: "row", gap: 5 },
   specialText: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 10 },
   specialMeta: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 7.5 },
   resultRow: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", gap: 10, minHeight: 52 },

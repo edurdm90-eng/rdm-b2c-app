@@ -5,7 +5,7 @@ import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { GroupAiNote, GroupAvatars, GroupErrorState } from "@/components/group-goal-ui";
+import { GroupAvatars, GroupErrorState } from "@/components/group-goal-ui";
 import {
   AppScreen,
   LoadingState,
@@ -67,11 +67,9 @@ export default function GroupDashboardScreen() {
         subtitle={`${data.category.toUpperCase()} · ${data.awarded ? "COMPLETE" : data.status === "expired" ? "EXPIRED" : data.targetHit ? "TARGET HIT" : `ENDS ${data.endDayKey ? formatDayKey(data.endDayKey).toUpperCase() : "SOON"}`}`}
         trailing={data.status === "active" && !data.targetHit ? <PrimaryButton color={colors.plum} icon="account-plus-outline" label="Invite" onPress={() => router.push({ pathname: "/(app)/group/[id]/invite", params: { id } })} style={styles.headerButton} variant="outline" /> : undefined}
       />
-      <GroupAiNote label="Ask AI for a progress check-in" />
       <SurfaceCard style={styles.poolCard}>
-        <Text style={styles.poolLabel}>TOTAL GROUP POOL</Text>
-        <Text style={styles.poolValue}>{formatRdm(data.rewardPool)} RDM</Text>
-        <Text style={styles.progressCopy}>{data.current} / {data.target} {data.unit} completed</Text>
+        <View style={styles.poolHero}><View style={styles.poolIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={27} /></View><View><Text style={styles.poolName}>{data.name}</Text><Text style={styles.progressCopy}>{data.daysRemaining} days remaining</Text></View></View>
+        <View style={styles.metrics}><View><Text style={styles.metricValue}>{data.current} / {data.target}</Text><Text style={styles.metricLabel}>{data.unit} logged</Text></View><View><Text style={styles.metricValue}>{Math.round((data.current / data.target) * 100)}%</Text><Text style={styles.metricLabel}>completed</Text></View><View><Text style={styles.metricValue}>{formatRdm(data.rewardPool)}</Text><Text style={styles.metricLabel}>RDM pool</Text></View></View>
         <ProgressBar color={data.targetHit ? colors.gold : colors.plum} progress={data.current / data.target} />
         <View style={styles.poolFooter}>
           <Text style={styles.poolMeta}>{data.daysRemaining} days left · {data.cadence} check-in</Text>
@@ -107,7 +105,7 @@ export default function GroupDashboardScreen() {
             <Text style={styles.unitLabel}>{data.unit}</Text>
           </View>
           <Text style={styles.helper}>You have logged {currentMember?.contribution ?? 0} {data.unit}. You can submit one combined update each {data.cadence === "weekly" ? "week" : "day"}.</Text>
-          <PrimaryButton color={colors.plum} label={`Log ${numericAmount || ""} ${data.unit}`} loading={logContribution.isPending} onPress={submitProgress} />
+          <PrimaryButton color={colors.growth} label={`Log ${numericAmount || ""} ${data.unit}`} loading={logContribution.isPending} onPress={submitProgress} />
         </SurfaceCard>
       ) : null}
 
@@ -129,7 +127,7 @@ export default function GroupDashboardScreen() {
         <PrimaryButton color={colors.gold} icon="trophy-outline" label="Choose winners" onPress={() => router.push({ pathname: "/(app)/group/[id]/winners", params: { id } })} />
       ) : null}
       {data.targetHit && !data.canAward && !data.awarded ? (
-        <SurfaceCard style={styles.waitingCard}><Text style={styles.waitingTitle}>Target reached 🎉</Text><Text style={styles.helper}>The group creator will announce the awards.</Text></SurfaceCard>
+        <SurfaceCard style={styles.waitingCard}><Text style={styles.waitingTitle}>Target reached</Text><Text style={styles.helper}>The group creator will announce the awards.</Text></SurfaceCard>
       ) : null}
       {data.awarded ? (
         <PrimaryButton color={colors.gold} icon="trophy" label="View group results" onPress={() => router.push({ pathname: "/(app)/group/[id]/result", params: { id } })} />
@@ -140,10 +138,15 @@ export default function GroupDashboardScreen() {
 
 const styles = StyleSheet.create({
   headerButton: { minHeight: 34, paddingHorizontal: 10 },
-  poolCard: { alignItems: "center", gap: 9, paddingVertical: 20 },
+  poolCard: { backgroundColor: colors.panelRaised, gap: 14, padding: 16 },
+  poolHero: { alignItems: "center", flexDirection: "row", gap: 11 },
+  poolIcon: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 23, height: 46, justifyContent: "center", width: 46 },
+  poolName: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 17 },
   poolLabel: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.8 },
-  poolValue: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 31 },
-  progressCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
+  progressCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
+  metrics: { borderBottomColor: colors.line, borderBottomWidth: 1, borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingVertical: 11 },
+  metricValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 14, textAlign: "center" },
+  metricLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 8.5, marginTop: 3, textAlign: "center" },
   poolFooter: { flexDirection: "row", justifyContent: "space-between", width: "100%" },
   poolMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9 },
   descriptionCard: { alignItems: "center", flexDirection: "row", gap: 10 },

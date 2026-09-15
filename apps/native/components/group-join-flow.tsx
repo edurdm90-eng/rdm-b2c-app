@@ -1,13 +1,13 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { router, useIsFocused } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
-import { GroupAiNote, GroupAvatars } from "@/components/group-goal-ui";
+import { GroupAvatars } from "@/components/group-goal-ui";
 import {
   AppScreen,
   PageHeader,
-  Pill,
   PrimaryButton,
   SectionLabel,
   SurfaceCard,
@@ -77,14 +77,9 @@ export function GroupJoinFlow({
       <PageHeader
         back
         onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
-        title="Join a Group Goal"
-        subtitle="ENTER AN INVITE CODE"
+        title="Join group"
       />
-      <View style={styles.modeRow}>
-        <Pill color={colors.plum} label="Create" onPress={onCreate} />
-        <Pill active color={colors.plum} label="Join with code" />
-      </View>
-      <SectionLabel>Group invite code</SectionLabel>
+      <View style={styles.intro}><Text style={styles.introTitle}>Enter invite code</Text><Text style={styles.introBody}>Ask a friend in the group for the code.</Text></View>
       <TextInput
         accessibilityLabel="Group invite code"
         autoCapitalize="characters"
@@ -110,10 +105,9 @@ export function GroupJoinFlow({
       {preview.data ? (
         <>
           <SurfaceCard style={styles.previewCard}>
+            <View style={styles.previewTop}><View style={styles.runningIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={25} /></View><View style={styles.previewCopy}><Text style={styles.previewTitle}>{preview.data.group.name}</Text><Text style={styles.description}>{preview.data.group.description}</Text></View></View>
+            <View style={styles.previewMetrics}><Text style={styles.previewMeta}>{preview.data.group.durationDays} days</Text><Text style={styles.previewMeta}>{preview.data.group.members.length} member{preview.data.group.members.length === 1 ? "" : "s"}</Text><Text style={styles.previewMeta}>{formatRdm(preview.data.group.rewardPool)} RDM pool</Text></View>
             <GroupAvatars members={preview.data.group.members} />
-            <Text style={styles.previewTitle}>{preview.data.group.name}</Text>
-            <Text style={styles.description}>{preview.data.group.description}</Text>
-            <Text style={styles.previewMeta}>{preview.data.group.members.length} member{preview.data.group.members.length === 1 ? "" : "s"} joined · {formatRdm(preview.data.group.rewardPool)} RDM pooled · {preview.data.group.durationDays} days</Text>
           </SurfaceCard>
           {!preview.data.alreadyJoined ? (
             <>
@@ -139,21 +133,27 @@ export function GroupJoinFlow({
       {!joinHasFunds && preview.data && !preview.data.alreadyJoined ? (
         <PrimaryButton color={colors.gold} label="View Wallet" onPress={() => router.push("/(app)/(tabs)/wallet")} variant="outline" />
       ) : null}
-      <GroupAiNote label="Use AI to explain how group rewards work" />
+      <PrimaryButton color={colors.plum} label="Create a group instead" onPress={onCreate} variant="outline" />
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  modeRow: { flexDirection: "row", gap: 8 },
-  input: { backgroundColor: colors.panel, borderColor: colors.line, borderRadius: 13, borderWidth: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 14, minHeight: 52, paddingHorizontal: 14 },
-  codeInput: { fontFamily: fonts.monoBold, fontSize: 25, letterSpacing: 6, textAlign: "center", textTransform: "uppercase" },
+  intro: { gap: 4 },
+  introTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 26, letterSpacing: -0.5, lineHeight: 32 },
+  introBody: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14 },
+  input: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 10, borderWidth: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 14, minHeight: 52, paddingHorizontal: 14 },
+  codeInput: { borderColor: colors.growth, fontFamily: fonts.monoBold, fontSize: 25, letterSpacing: 6, textAlign: "center", textTransform: "uppercase" },
   helper: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   error: { color: colors.coral, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
-  previewCard: { alignItems: "center", gap: 9 },
-  previewTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 20, textAlign: "center" },
+  previewCard: { gap: 12 },
+  previewTop: { alignItems: "center", flexDirection: "row", gap: 11 },
+  runningIcon: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 22, height: 44, justifyContent: "center", width: 44 },
+  previewCopy: { flex: 1 },
+  previewTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 16 },
   description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 16, marginTop: 3 },
-  previewMeta: { color: colors.plum, fontFamily: fonts.mono, fontSize: 10, textAlign: "center" },
+  previewMetrics: { borderBottomColor: colors.line, borderBottomWidth: 1, borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingVertical: 9 },
+  previewMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9 },
   joinPledge: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 24, textAlign: "center" },
   balanceCard: { alignItems: "center", borderRadius: radii.medium, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", padding: 14 },
   balanceGood: { backgroundColor: colors.growthTint, borderColor: "rgba(63,203,139,0.35)" },

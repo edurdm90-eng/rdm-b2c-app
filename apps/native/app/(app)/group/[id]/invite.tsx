@@ -103,8 +103,8 @@ export default function GroupInviteScreen() {
       <SectionLabel>Send a direct invite</SectionLabel>
       <SurfaceCard style={styles.directCard}>
         <View style={styles.modeRow}>
-          <Pill active={directMode === "email"} color={colors.ai} label="✉️ Email" onPress={() => setDirectMode("email")} />
-          <Pill active={directMode === "whatsapp"} color={colors.growth} label="💬 WhatsApp" onPress={() => setDirectMode("whatsapp")} />
+          <Pill active={directMode === "email"} color={colors.ai} label="Email" onPress={() => setDirectMode("email")} />
+          <Pill active={directMode === "whatsapp"} color={colors.growth} label="WhatsApp" onPress={() => setDirectMode("whatsapp")} />
         </View>
         {directMode === "email" ? (
           <TextInput

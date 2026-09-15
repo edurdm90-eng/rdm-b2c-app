@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
@@ -54,7 +55,7 @@ export default function GroupWinnersScreen() {
         title="Choose winners"
         subtitle={`${groupRewardStructureTitle(group.rewardStructure).toUpperCase()} · ${formatRdm(group.rewardPool)} RDM`}
       />
-      <Text style={styles.intro}>Awards are calculated from the reward structure selected when the group was created. Review them before announcing.</Text>
+      <View style={styles.hero}><View style={styles.heroIcon}><MaterialCommunityIcons color={colors.gold} name="trophy-outline" size={27} /></View><View><Text style={styles.heroTitle}>You reached the goal together.</Text><Text style={styles.intro}>Review the group awards before announcing them.</Text></View></View>
       <SectionLabel>Final ranking</SectionLabel>
       {ranked.map((member, index) => (
         <SurfaceCard key={`${member.initials}-${index}`} style={[styles.winnerRow, member.award > 0 && styles.winnerSelected]}>
@@ -68,7 +69,7 @@ export default function GroupWinnersScreen() {
         </SurfaceCard>
       ))}
       <Pressable accessibilityRole="switch" accessibilityState={{ checked: specialAwarded }} onPress={() => setSpecialAwarded((current) => !current)} style={styles.specialCard}>
-        <Text style={styles.specialIcon}>🏅</Text>
+        <View style={styles.specialIcon}><MaterialCommunityIcons color={colors.gold} name="trophy-outline" size={23} /></View>
         <View style={styles.memberCopy}>
           <Text style={styles.specialTitle}>Award a special winner collectible</Text>
           <Text style={styles.memberProgress}>Recognize the member with the highest contribution.</Text>
@@ -81,7 +82,10 @@ export default function GroupWinnersScreen() {
 }
 
 const styles = StyleSheet.create({
-  intro: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 18 },
+  hero: { alignItems: "center", backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: radii.medium, borderWidth: 1, flexDirection: "row", gap: 12, padding: 14 },
+  heroIcon: { alignItems: "center", backgroundColor: colors.goldTint, borderRadius: 23, height: 46, justifyContent: "center", width: 46 },
+  heroTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 17 },
+  intro: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, marginTop: 3 },
   winnerRow: { alignItems: "center", flexDirection: "row", gap: 10 },
   winnerSelected: { backgroundColor: colors.goldTint, borderColor: "rgba(240,180,41,0.45)" },
   rank: { alignItems: "center", backgroundColor: colors.panelRaised, borderRadius: 8, height: 26, justifyContent: "center", width: 26 },
@@ -96,7 +100,7 @@ const styles = StyleSheet.create({
   award: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 11 },
   zeroAward: { color: colors.inkSoft },
   specialCard: { alignItems: "center", borderColor: colors.plum, borderRadius: radii.medium, borderStyle: "dashed", borderWidth: 1, flexDirection: "row", gap: 10, padding: 14 },
-  specialIcon: { fontSize: 22 },
+  specialIcon: { alignItems: "center", backgroundColor: colors.goldTint, borderRadius: 15, height: 31, justifyContent: "center", width: 31 },
   specialTitle: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12 },
   switchTrack: { backgroundColor: colors.line, borderRadius: 12, height: 24, padding: 3, width: 42 },
   switchTrackOn: { backgroundColor: colors.plum },
