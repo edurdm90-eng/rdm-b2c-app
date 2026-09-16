@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
-import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { ErrorState, LoadingState, RdmLogo } from "@/components/rdm-ui";
 import { fonts, formatRdm, formatTransactionDate } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -49,7 +49,10 @@ export default function WalletScreen() {
       <Text accessibilityRole="header" style={styles.title}>Wallet</Text>
       <View style={styles.balanceSection}>
         <Text style={styles.balanceLabel}>Total RDM</Text>
-        <Text style={styles.balance}>{formatRdm(data.wallet.balance)}</Text>
+        <View style={styles.totalBalance}>
+          <RdmLogo width={54} height={28} />
+          <Text style={styles.balance}>{formatRdm(data.wallet.balance)}</Text>
+        </View>
         <View accessibilityLabel={purses.map((purse) => `${purse.title}: ${formatRdm(data.wallet[purse.id])} RDM`).join(", ")} style={styles.purseMeter}>
           {purses.filter((purse) => data.wallet[purse.id] > 0).map((purse) => <View key={purse.id} style={[styles.purseSegment, { backgroundColor: purse.color, flex: purseTotal > 0 ? data.wallet[purse.id] / purseTotal : 0 }]} />)}
         </View>
@@ -122,6 +125,7 @@ const styles = StyleSheet.create({
   title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 28, lineHeight: 36 },
   balanceSection: { gap: 3 },
   balanceLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
+  totalBalance: { flexDirection: "row", alignItems: "center", gap: 10 },
   balance: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 52, lineHeight: 64 },
   purseMeter: { minHeight: 19, marginTop: 4, borderRadius: 12, flexDirection: "row", overflow: "hidden", backgroundColor: palette.line, gap: 2 },
   purseSegment: { minWidth: 0 },
