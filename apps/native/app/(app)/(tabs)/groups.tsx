@@ -6,7 +6,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
   ErrorState,
   LoadingState,
-  ProgressBar,
 } from "@/components/rdm-ui";
 import {
   GroupPageHeader,
@@ -58,13 +57,14 @@ export default function GroupsScreen() {
                 <Text style={styles.groupTitle}>{group.name}</Text>
                 <Text style={styles.memberCount}>{group.members.length} member{group.members.length === 1 ? "" : "s"}</Text>
               </View>
+              <MaterialCommunityIcons color={colors.inkSoft} name="chevron-right" size={23} />
             </View>
             <View style={styles.metaRow}>
               <Text style={styles.metaText}>{group.durationDays} day challenge</Text>
               <Text style={[styles.metaText, group.awarded && styles.metaGold, group.status === "expired" && styles.metaCoral]}>{rightMeta}</Text>
             </View>
             <View style={styles.progressRow}>
-              <ProgressBar color={group.awarded ? colors.gold : colors.plum} progress={group.current / group.target} />
+              <View style={styles.progressTrack}><View style={[styles.progressFill, { backgroundColor: group.awarded ? colors.gold : colors.plum, width: `${Math.min(100, Math.max(0, percent))}%` }]} /></View>
               <Text style={styles.percentText}>{percent}%</Text>
             </View>
             <View style={styles.poolBlock}>
@@ -102,11 +102,13 @@ const styles = StyleSheet.create({
   cardTopCopy: { flex: 1 },
   groupTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 18 },
   memberCount: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
-  metaRow: { flexDirection: "row", justifyContent: "space-between" },
+  metaRow: { borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingTop: 12 },
   metaText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
   metaGold: { color: colors.gold },
   metaCoral: { color: colors.coral },
-  progressRow: { alignItems: "center", flexDirection: "row", gap: 10 },
+  progressRow: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", gap: 10, paddingBottom: 12 },
+  progressTrack: { backgroundColor: "#2A3541", borderRadius: 5, flex: 1, height: 9, overflow: "hidden" },
+  progressFill: { borderRadius: 5, height: "100%" },
   percentText: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 12, minWidth: 34, textAlign: "right" },
   poolBlock: { gap: 4 },
   poolLabelRow: { alignItems: "center", flexDirection: "row", gap: 6 },

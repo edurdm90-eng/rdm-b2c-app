@@ -39,13 +39,9 @@ export const groupGoalActivities: Record<GroupGoalCategory, ReadonlyArray<GroupG
     { id: "family-screen-free", icon: "cellphone-off", title: "Screen-Free Family Challenge", description: "Spend at least 1 hour together without personal screens every day.", target: "30", unit: "hours" },
   ],
   Friends: [
-    { id: "friends-fitness", icon: "run", title: "Group Fitness Challenge", description: "Complete 30 minutes of physical activity together 5 times this week.", target: "150", unit: "minutes" },
-    { id: "friends-study", icon: "book-education-outline", title: "Study Together Challenge", description: "Complete 1 hour of focused study together for 5 days.", target: "5", unit: "hours" },
-    { id: "friends-gaming", icon: "gamepad-variant-outline", title: "Gaming Session Goal", description: "Organize and complete 2 group gaming sessions this week.", target: "8", unit: "sessions" },
-    { id: "friends-movie", icon: "popcorn", title: "Movie Night Challenge", description: "Watch one movie together as a group this week.", target: "4", unit: "movies" },
-    { id: "friends-adventure", icon: "campfire", title: "Weekend Adventure Challenge", description: "Complete one outdoor activity together every weekend.", target: "4", unit: "adventures" },
-    { id: "friends-quiz", icon: "head-question-outline", title: "Quiz Challenge", description: "Complete 3 group quiz sessions this week.", target: "12", unit: "quizzes" },
-    { id: "friends-check-in", icon: "message-text-outline", title: "Daily Check-In Challenge", description: "Check in with the group every day for 7 consecutive days.", target: "7", unit: "check-ins" },
+    { id: "friends-walk", icon: "run", title: "Morning walk", description: "Move together, at your own pace.", target: "56", unit: "walks" },
+    { id: "friends-reading", icon: "book-open-variant", title: "Read a book", description: "Share progress, one page at a time.", target: "56", unit: "pages" },
+    { id: "friends-skill", icon: "chart-bar", title: "Practice a skill", description: "Build together, step by step.", target: "7", unit: "sessions" },
   ],
   Work: [
     { id: "work-deep", icon: "target", title: "Deep Work Challenge", description: "Complete two 60-minute distraction-free work sessions every workday.", target: "40", unit: "sessions" },
