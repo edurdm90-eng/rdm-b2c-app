@@ -466,6 +466,25 @@ test("three real group participants join, contribute and receive the saved award
   await assert.rejects(() => caller(randomUUID()).rdm.groups.detail({ id: group.id }));
 });
 
+test("a contribution note is saved for that member only and defaults to empty", async () => {
+  const ids = [randomUUID(), randomUUID()];
+  await Promise.all(ids.map((userId) => db.RdmProfile.create({ userId, walletBalance: 100 })));
+  const [creatorId, secondId] = ids;
+  assert.ok(creatorId && secondId);
+  const creator = caller(creatorId);
+  const second = caller(secondId);
+  const group = await creator.rdm.groups.create(testGroupInput());
+  await second.rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 });
+  const beforeLog = await creator.rdm.groups.detail({ id: group.id });
+  assert.equal(beforeLog.members.every((member) => member.lastNote === ""), true);
+  await creator.rdm.groups.logContribution({ id: group.id, operationId: randomUUID(), amount: 1, note: "Morning session done" });
+  await second.rdm.groups.logContribution({ id: group.id, operationId: randomUUID(), amount: 1 });
+  const creatorMember = (await creator.rdm.groups.detail({ id: group.id })).members.find((member) => member.currentUser);
+  assert.equal(creatorMember?.lastNote, "Morning session done");
+  const secondMember = (await second.rdm.groups.detail({ id: group.id })).members.find((member) => member.currentUser);
+  assert.equal(secondMember?.lastNote, "");
+});
+
 test("an unfinished group expires and refunds each member's original pledge once", async () => {
   const creatorId = randomUUID();
   const memberId = randomUUID();

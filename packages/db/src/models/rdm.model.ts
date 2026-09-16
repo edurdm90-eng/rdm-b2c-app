@@ -271,6 +271,7 @@ const memberSchema = new Schema(
     },
     joinedAt: { type: Date, required: true, default: Date.now },
     award: { type: Number, required: true, default: 0 },
+    lastNote: { type: String, default: "", maxlength: 100 },
   },
   { _id: false },
 );

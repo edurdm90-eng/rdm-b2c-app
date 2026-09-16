@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import {
   GroupAvatars,
@@ -32,6 +32,7 @@ export default function GroupDashboardScreen() {
   const validId = /^[a-f\d]{24}$/i.test(id);
   const [tab, setTab] = useState<DashboardTab>("progress");
   const [amount, setAmount] = useState(1);
+  const [note, setNote] = useState("");
   const [operationId, setOperationId] = useState(() => Crypto.randomUUID());
   const group = useQuery({
     ...trpc.rdm.groups.detail.queryOptions({ id }),
@@ -43,6 +44,7 @@ export default function GroupDashboardScreen() {
     onSuccess: async () => {
       setOperationId(Crypto.randomUUID());
       setAmount(1);
+      setNote("");
       await queryClient.invalidateQueries();
     },
     onError: (error) => Alert.alert("Could not log progress", error.message),
@@ -62,7 +64,7 @@ export default function GroupDashboardScreen() {
       Alert.alert("Add progress", `Enter a positive amount up to 1,000 ${data.unit}.`);
       return;
     }
-    logContribution.mutate({ id, amount, operationId });
+    logContribution.mutate({ id, amount, operationId, note: note.trim() || undefined });
   }
 
   return (
@@ -118,6 +120,17 @@ export default function GroupDashboardScreen() {
                 <Pressable accessibilityLabel="Increase amount" accessibilityRole="button" style={styles.counterButton} onPress={() => setAmount((current) => Math.min(1000, current + 1))}><Text style={styles.counterButtonText}>+</Text></Pressable>
               </View>
               <Text style={styles.helper}>You have logged {currentMember?.contribution ?? 0} {data.unit}. You can submit one combined update each {data.cadence === "weekly" ? "week" : "day"}.</Text>
+              <Text style={styles.noteLabel}>Optional note</Text>
+              <TextInput
+                accessibilityLabel="Optional progress note"
+                maxLength={100}
+                onChangeText={setNote}
+                placeholder="Add a note about today's progress"
+                placeholderTextColor={colors.inkSoft}
+                style={styles.noteInput}
+                value={note}
+              />
+              <Text style={styles.charCount}>{note.length}/100</Text>
               <GroupPrimaryButton color={colors.growth} label={`Log ${amount} ${progressUnit}`} loading={logContribution.isPending} onPress={submitProgress} />
             </GroupSurfaceCard>
           ) : null}
@@ -212,6 +225,9 @@ const styles = StyleSheet.create({
   counterButtonText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 22 },
   counterValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 28, minWidth: 60, textAlign: "center" },
   helper: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
+  noteLabel: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 11 },
+  noteInput: { backgroundColor: colors.background, borderColor: colors.line, borderRadius: 10, borderWidth: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 13, height: 44, paddingHorizontal: 12 },
+  charCount: { alignSelf: "flex-end", color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9 },
   waitingCard: { alignItems: "center", backgroundColor: colors.goldTint, gap: 6 },
   waitingTitle: { color: colors.gold, fontFamily: fonts.display, fontSize: 17 },
   loggedCard: { alignItems: "center", backgroundColor: colors.growthTint, gap: 6 },

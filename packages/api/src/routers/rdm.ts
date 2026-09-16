@@ -425,6 +425,7 @@ function serializeGroup(group: any, currentUserId: string) {
       pledgeAmount: Number(member.pledgeAmount ?? 0),
       award: Number(member.award),
       currentUser: member.userId ? String(member.userId) === currentUserId : false,
+      lastNote: String(member.lastNote ?? ""),
     })),
   };
 }
@@ -3349,6 +3350,7 @@ export const rdmRouter = router({
         id: mongoId,
         operationId: z.string().uuid(),
         amount: z.number().positive().max(1000),
+        note: z.string().trim().max(100).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const fundedMembership = {
@@ -3449,6 +3451,7 @@ export const rdmRouter = router({
                                   [currentPeriodKey],
                                 ],
                               },
+                              lastNote: input.note ?? "",
                             },
                           ],
                         },
