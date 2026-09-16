@@ -9,6 +9,16 @@ export type GameIconName = ComponentProps<typeof MaterialCommunityIcons>["name"]
 export const gameBlue = "#63AEF5";
 export const gameOrder = ["memory-match", "aptitude-bliss", "focus-flow", "unscramble-word", "gratitude-tap", "box-breathing", "sort-sprint"];
 
+const gameLogoSources: Record<string, ReturnType<typeof require>> = {
+  "aptitude-bliss": require("@/assets/game_logo/aptitude_bliss.png"),
+  "box-breathing": require("@/assets/game_logo/box_breathing.png"),
+  "focus-flow": require("@/assets/game_logo/focus_flow.png"),
+  "gratitude-tap": require("@/assets/game_logo/gratitude_tap.png"),
+  "memory-match": require("@/assets/game_logo/memory_match.png"),
+  "sort-sprint": require("@/assets/game_logo/sort_sprint.png"),
+  "unscramble-word": require("@/assets/game_logo/word_scramble.png"),
+};
+
 export function GameIcon({ name, size = 24, color = c.muted }: { name: GameIconName; size?: number; color?: string }) {
   return <MaterialCommunityIcons accessible={false} name={name} size={size} color={color} />;
 }
@@ -35,9 +45,9 @@ export function GamesNote({ children, icon = "information-outline", color = c.mu
   return <View style={s.note}><GameIcon name={icon} size={22} color={color} /><Text style={s.noteText}>{children}</Text></View>;
 }
 export function GameArt({ id, intro = false, large = false }: { id: string; intro?: boolean; large?: boolean }) {
-  if (id === "memory-match") return <Image accessible={false} source={intro ? require("@/assets/images/games-memory-intro.png") : require("@/assets/images/games-memory-complete.png")} resizeMode="contain" style={{ width: "100%", height: large ? intro ? 180 : 140 : 76 }} />;
-  const icons: Record<string, GameIconName> = { "aptitude-bliss": "calculator-variant-outline", "focus-flow": "bullseye", "unscramble-word": "alphabetical-variant", "gratitude-tap": "hand-heart-outline", "box-breathing": "square-outline", "sort-sprint": "shape" };
-  return <View style={{ height: large ? 180 : 68, alignItems: "center", justifyContent: "center" }}><GameIcon name={icons[id] ?? "gamepad-variant-outline"} size={large ? 132 : 66} color={id === "gratitude-tap" ? c.green : id === "sort-sprint" ? c.gold : gameBlue} /></View>;
+  if (intro && id === "memory-match") return <Image accessible={false} source={require("@/assets/images/games-memory-intro.png")} resizeMode="contain" style={{ width: "100%", height: large ? 180 : 76 }} />;
+  if (!gameLogoSources[id]) return <View style={{ height: large ? 180 : 68, alignItems: "center", justifyContent: "center" }}><GameIcon name="gamepad-variant-outline" size={large ? 132 : 66} color={gameBlue} /></View>;
+  return <Image accessible={false} source={gameLogoSources[id]} resizeMode="contain" style={{ width: "100%", height: large ? 180 : 76 }} />;
 }
 export function GamesProgress({ value, color = c.green }: { value: number; color?: string }) {
   const progress = Math.min(1, Math.max(0, value));
