@@ -66,9 +66,18 @@ export default function GroupDashboardScreen() {
       <PageHeader
         back
         onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
-        title={data.name}
+        title="Back to Groups"
         subtitle={`${data.category.toUpperCase()} · ${data.awarded ? "COMPLETE" : data.status === "expired" ? "EXPIRED" : data.targetHit ? "TARGET HIT" : `ENDS ${data.endDayKey ? formatDayKey(data.endDayKey).toUpperCase() : "SOON"}`}`}
-        trailing={data.status === "active" && !data.targetHit ? <PrimaryButton color={colors.plum} icon="account-plus-outline" label="Invite" onPress={() => router.push({ pathname: "/(app)/group/[id]/invite", params: { id } })} style={styles.headerButton} variant="outline" /> : undefined}
+        trailing={(
+          <Pressable
+            accessibilityLabel="Group settings"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => router.push("/(app)/group/settings")}
+          >
+            <MaterialCommunityIcons color={colors.inkSoft} name="dots-horizontal" size={22} />
+          </Pressable>
+        )}
       />
       <SurfaceCard style={styles.poolCard}>
         <View style={styles.poolHero}><View style={styles.poolIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={27} /></View><View><Text style={styles.poolName}>{data.name}</Text><Text style={styles.progressCopy}>{data.status === "active" && !data.targetHit ? `Day ${dayNumber} of ${data.durationDays}` : `${data.daysRemaining} days remaining`}</Text></View></View>
@@ -163,7 +172,6 @@ export default function GroupDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerButton: { minHeight: 34, paddingHorizontal: 10 },
   poolCard: { backgroundColor: colors.panelRaised, gap: 14, padding: 16 },
   poolHero: { alignItems: "center", flexDirection: "row", gap: 11 },
   poolIcon: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 23, height: 46, justifyContent: "center", width: 46 },

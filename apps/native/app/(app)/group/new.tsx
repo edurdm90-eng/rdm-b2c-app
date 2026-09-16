@@ -258,7 +258,10 @@ export default function NewGroupScreen() {
             </View>
             <View style={styles.fieldStack}>
               <Text style={styles.fieldLabel}>Unit</Text>
-              <TextInput accessibilityLabel="Target unit" autoCapitalize="none" onChangeText={setUnit} placeholder="km" placeholderTextColor={colors.inkSoft} style={styles.input} value={unit} />
+              <View style={styles.selectFieldWrap}>
+                <TextInput accessibilityLabel="Target unit" autoCapitalize="none" onChangeText={setUnit} placeholder="km" placeholderTextColor={colors.inkSoft} style={[styles.input, styles.selectField]} value={unit} />
+                <MaterialCommunityIcons color={colors.inkSoft} name="chevron-down" size={18} style={styles.selectChevron} />
+              </View>
             </View>
           </View>
           <Text style={styles.helper}>A shared target for the whole group.</Text>
@@ -387,6 +390,9 @@ const styles = StyleSheet.create({
   activityDescription: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 16, marginTop: 3 },
   fieldStack: { flex: 1, gap: 6 },
   fieldLabel: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 11 },
+  selectFieldWrap: { justifyContent: "center" },
+  selectField: { paddingRight: 34 },
+  selectChevron: { position: "absolute", right: 14 },
   input: { minHeight: 52, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.panelRaised, color: colors.ink, fontFamily: fonts.body, fontSize: 14, paddingHorizontal: 14 },
   multiline: { minHeight: 88, paddingTop: 14, textAlignVertical: "top" },
   charCount: { alignSelf: "flex-end", color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9 },

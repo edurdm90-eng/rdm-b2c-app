@@ -12,7 +12,7 @@ import {
   ProgressBar,
   SurfaceCard,
 } from "@/components/rdm-ui";
-import { initialsForGroupName } from "@/lib/group-goals";
+import { groupAvatarColor, initialsForGroupName } from "@/lib/group-goals";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -51,7 +51,7 @@ export default function GroupsScreen() {
         return (
           <SurfaceCard key={group.id} style={styles.groupCard}>
             <View style={styles.cardTop}>
-              <View style={styles.avatar}><Text style={styles.avatarText}>{initialsForGroupName(group.name)}</Text></View>
+              <View style={[styles.avatar, { backgroundColor: groupAvatarColor(group.id) }]}><Text style={styles.avatarText}>{initialsForGroupName(group.name)}</Text></View>
               <View style={styles.cardTopCopy}>
                 <Text style={styles.groupTitle}>{group.name}</Text>
                 <Text style={styles.memberCount}>{group.members.length} member{group.members.length === 1 ? "" : "s"}</Text>
@@ -65,7 +65,7 @@ export default function GroupsScreen() {
               <ProgressBar color={group.awarded ? colors.gold : colors.plum} progress={group.current / group.target} />
               <Text style={styles.percentText}>{percent}%</Text>
             </View>
-            <View style={styles.poolRow}>
+            <View style={styles.poolBlock}>
               <View style={styles.poolLabelRow}>
                 <MaterialCommunityIcons color={colors.inkSoft} name="account-group-outline" size={15} />
                 <Text style={styles.poolLabel}>Pledged pool</Text>
@@ -104,10 +104,10 @@ const styles = StyleSheet.create({
   metaCoral: { color: colors.coral },
   progressRow: { alignItems: "center", flexDirection: "row", gap: 10 },
   percentText: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 12, minWidth: 34, textAlign: "right" },
-  poolRow: { flexDirection: "row", justifyContent: "space-between" },
+  poolBlock: { gap: 4 },
   poolLabelRow: { alignItems: "center", flexDirection: "row", gap: 6 },
   poolLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
-  poolValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 14 },
+  poolValue: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 22 },
   description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, textAlign: "center" },
   emptyCard: { alignItems: "center", gap: 9, paddingVertical: 22 },
   emptyTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 17 },

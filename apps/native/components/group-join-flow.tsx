@@ -132,9 +132,12 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
                   <Text style={styles.description}>{groupRewardStructureDescription(preview.data.group.rewardStructure)}</Text>
                 </View>
               </SurfaceCard>
-              <SurfaceCard style={styles.balanceCard}>
-                <View style={styles.balanceBreakdownRow}><Text style={styles.balanceLabel}>Base purse available</Text><Text style={styles.balanceValue}>{formatRdm(baseBalance)} RDM</Text></View>
-                <View style={styles.balanceBreakdownRow}><Text style={styles.balanceLabel}>After joining</Text><Text style={[styles.balanceValue, !joinHasFunds && styles.balanceValueLow]}>{formatRdm(Math.max(0, baseAfterJoin))} RDM</Text></View>
+              <SurfaceCard style={styles.balanceCardRow}>
+                <MaterialCommunityIcons color={colors.inkSoft} name="wallet-outline" size={22} />
+                <View style={styles.balanceCard}>
+                  <View style={styles.balanceBreakdownRow}><Text style={styles.balanceLabel}>Available</Text><Text style={styles.balanceValue}>{formatRdm(baseBalance)} RDM</Text></View>
+                  <View style={styles.balanceBreakdownRow}><Text style={styles.balanceLabel}>After joining</Text><Text style={[styles.balanceValue, !joinHasFunds && styles.balanceValueLow]}>{formatRdm(Math.max(0, baseAfterJoin))} RDM</Text></View>
+                </View>
               </SurfaceCard>
               <View style={styles.infoRow}><MaterialCommunityIcons color={colors.inkSoft} name="information-outline" size={15} /><Text style={styles.helper}>Your pledge will be deducted from your own Base Purse.</Text></View>
             </>
@@ -187,7 +190,8 @@ const styles = StyleSheet.create({
   rewardRow: { alignItems: "center", flexDirection: "row", gap: 10 },
   activityCopy: { flex: 1 },
   rewardTitle: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 13 },
-  balanceCard: { gap: 6 },
+  balanceCardRow: { alignItems: "center", flexDirection: "row", gap: 12 },
+  balanceCard: { flex: 1, gap: 6 },
   balanceBreakdownRow: { flexDirection: "row", justifyContent: "space-between" },
   balanceLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
   balanceValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 13 },

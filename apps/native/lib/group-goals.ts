@@ -68,8 +68,8 @@ export const groupGoalActivities: Record<GroupGoalCategory, ReadonlyArray<GroupG
 };
 
 const rewardStructurePresentation: Record<GroupGoalRewardStructure, { title: string; description: string }> = {
-  winner_takes_all: { title: "Winner takes all", description: "100% of the pool goes to the top contributor." },
-  top_3: { title: "Top 3 · 60 / 30 / 10", description: "The pool is split across first, second, and third place." },
+  winner_takes_all: { title: "Winner takes all", description: "Entire pool to highest contributor." },
+  top_3: { title: "Top 3 finishers", description: "Split pool among top 3." },
   win_as_group: { title: "Win as a group", description: "Everyone shares the pool in proportion to their contribution." },
 };
 
@@ -95,4 +95,14 @@ export function initialsForGroupName(name: string) {
   if (words.length === 0) return "GG";
   if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
   return `${words[0]![0]}${words[1]![0]}`.toUpperCase();
+}
+
+const groupAvatarPalette = ["#B39AE8", "#E2708F", "#5FA6ED", "#F0B429", "#3FCB8B"] as const;
+
+export function groupAvatarColor(id: string) {
+  let hash = 0;
+  for (let index = 0; index < id.length; index += 1) {
+    hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
+  }
+  return groupAvatarPalette[hash % groupAvatarPalette.length];
 }
