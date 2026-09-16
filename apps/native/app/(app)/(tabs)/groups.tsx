@@ -4,14 +4,16 @@ import { router, useIsFocused } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
-  AppScreen,
   ErrorState,
   LoadingState,
-  PageHeader,
-  PrimaryButton,
   ProgressBar,
-  SurfaceCard,
 } from "@/components/rdm-ui";
+import {
+  GroupPageHeader,
+  GroupPrimaryButton,
+  GroupScreen,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
 import { groupAvatarColor, initialsForGroupName } from "@/lib/group-goals";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
@@ -31,10 +33,10 @@ export default function GroupsScreen() {
   }
 
   return (
-    <AppScreen>
-      <PageHeader
+    <GroupScreen>
+      <GroupPageHeader
         title="Groups"
-        subtitle="KEEP GOING, TOGETHER."
+        subtitle="Keep going, together."
         trailing={(
           <Pressable accessibilityLabel="Group settings" accessibilityRole="button" hitSlop={10} onPress={() => router.push("/(app)/group/settings")}>
             <MaterialCommunityIcons color={colors.inkSoft} name="cog-outline" size={23} />
@@ -49,7 +51,7 @@ export default function GroupsScreen() {
             ? "Expired"
             : `${group.current} of ${group.target} ${group.unit}`;
         return (
-          <SurfaceCard key={group.id} style={styles.groupCard}>
+          <GroupSurfaceCard key={group.id} style={styles.groupCard}>
             <View style={styles.cardTop}>
               <View style={[styles.avatar, { backgroundColor: groupAvatarColor(group.id) }]}><Text style={styles.avatarText}>{initialsForGroupName(group.name)}</Text></View>
               <View style={styles.cardTopCopy}>
@@ -72,26 +74,28 @@ export default function GroupsScreen() {
               </View>
               <Text style={styles.poolValue}>{formatRdm(group.rewardPool)} RDM</Text>
             </View>
-            <PrimaryButton color={colors.growth} label="Open group" onPress={() => router.push({ pathname: "/(app)/group/[id]", params: { id: group.id } })} />
-          </SurfaceCard>
+            <GroupPrimaryButton color={colors.growth} label="Open group" onPress={() => router.push({ pathname: "/(app)/group/[id]", params: { id: group.id } })} />
+          </GroupSurfaceCard>
         );
       }) : (
-        <SurfaceCard style={styles.emptyCard}>
-          <MaterialCommunityIcons color={colors.plum} name="account-group-outline" size={34} />
+        <GroupSurfaceCard style={styles.emptyCard}>
+          <View style={styles.emptyIcon}>
+            <MaterialCommunityIcons color={colors.plum} name="account-group-outline" size={38} />
+          </View>
           <Text style={styles.emptyTitle}>No groups yet</Text>
-          <Text style={styles.description}>Start one in under a minute or join with an invite code.</Text>
-        </SurfaceCard>
+          <Text style={styles.description}>Bring a few people together around one clear goal. Everyone pledges from their own Base Purse.</Text>
+        </GroupSurfaceCard>
       )}
       <View style={styles.footerActions}>
-        <PrimaryButton color={colors.plum} icon="plus" label="Create group" onPress={() => router.push("/(app)/group/new")} style={styles.footerButton} variant="outline" />
-        <PrimaryButton color={colors.plum} icon="view-grid-outline" label="Join with code" onPress={() => router.push({ pathname: "/(app)/group/new", params: { mode: "join" } })} style={styles.footerButton} variant="outline" />
+        <GroupPrimaryButton color={colors.plum} icon="plus" label="Create group" onPress={() => router.push("/(app)/group/new")} style={styles.footerButton} variant="outline" />
+        <GroupPrimaryButton color={colors.plum} icon="view-grid-outline" label="Join with code" onPress={() => router.push({ pathname: "/(app)/group/new", params: { mode: "join" } })} style={styles.footerButton} variant="outline" />
       </View>
-    </AppScreen>
+    </GroupScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  groupCard: { backgroundColor: colors.panelRaised, gap: 11, padding: 15 },
+  groupCard: { gap: 12, padding: 16 },
   cardTop: { alignItems: "center", flexDirection: "row", gap: 12 },
   avatar: { alignItems: "center", backgroundColor: colors.plum, borderRadius: 22, height: 44, justifyContent: "center", width: 44 },
   avatarText: { color: colors.backgroundDeep, fontFamily: fonts.bodyBold, fontSize: 14 },
@@ -109,8 +113,9 @@ const styles = StyleSheet.create({
   poolLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
   poolValue: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 22 },
   description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, textAlign: "center" },
-  emptyCard: { alignItems: "center", gap: 9, paddingVertical: 22 },
-  emptyTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 17 },
-  footerActions: { flexDirection: "row", gap: 10 },
+  emptyCard: { alignItems: "center", gap: 10, paddingHorizontal: 25, paddingVertical: 34 },
+  emptyIcon: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 32, height: 64, justifyContent: "center", marginBottom: 2, width: 64 },
+  emptyTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 20 },
+  footerActions: { flexDirection: "row", gap: 10, marginTop: 1 },
   footerButton: { flex: 1 },
 });

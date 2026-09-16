@@ -3,13 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 
-import { GroupErrorState } from "@/components/group-goal-ui";
 import {
-  AppScreen,
+  GroupErrorState,
+  GroupPageHeader,
+  GroupPrimaryButton,
+  GroupScreen,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
+import {
   LoadingState,
-  PageHeader,
-  PrimaryButton,
-  SurfaceCard,
 } from "@/components/rdm-ui";
 import { formatDayRange } from "@/lib/date";
 import { groupRewardStructureTitle } from "@/lib/group-goals";
@@ -43,12 +45,11 @@ export default function GroupResultScreen() {
   const resultMessage = `${data.name} complete! ${winner?.name ?? "The group"} led the group, and ${formatRdm(data.rewardPool)} RDM was distributed.`;
 
   return (
-    <AppScreen contentStyle={styles.screen}>
-      <PageHeader
+    <GroupScreen contentStyle={styles.screen}>
+      <GroupPageHeader
         back
         onBack={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })}
-        title="Goal complete!"
-        subtitle={data.name.toUpperCase()}
+        title="Group result"
       />
       <View style={styles.hero}>
         <View style={styles.trophy}><MaterialCommunityIcons color={colors.gold} name="trophy-outline" size={58} /></View>
@@ -58,21 +59,21 @@ export default function GroupResultScreen() {
         <Text style={styles.heroSubtitle}>{data.target} {data.unit} · {data.members.length} members · {data.durationDays} days</Text>
         {data.startDayKey && data.endDayKey ? <Text style={styles.heroSubtitle}>{formatDayRange(data.startDayKey, data.endDayKey)}</Text> : null}
       </View>
-      <SurfaceCard style={styles.peerAwardCard}>
+      <GroupSurfaceCard style={styles.peerAwardCard}>
         <View style={styles.peerAwardIcon}><MaterialCommunityIcons color={colors.gold} name="gift-outline" size={22} /></View>
         <View style={styles.peerAwardCopy}>
           <Text style={styles.peerAwardTitle}>Your Peer Award · {formatRdm(currentMember?.award ?? 0)} RDM</Text>
           <Text style={styles.peerAwardHint}>Credited to your Peer Awards</Text>
         </View>
-      </SurfaceCard>
+      </GroupSurfaceCard>
       {data.specialCollectible ? (
-        <SurfaceCard style={styles.specialBadge}>
+        <GroupSurfaceCard style={styles.specialBadge}>
           <View style={styles.specialTitleRow}><MaterialCommunityIcons color={colors.plum} name="gift-outline" size={16} /><Text style={styles.specialText}>{data.specialCollectible.title}</Text></View>
           <Text style={styles.specialMeta}>Owned by {data.specialCollectible.recipientName} · {data.specialCollectible.id}</Text>
-        </SurfaceCard>
+        </GroupSurfaceCard>
       ) : null}
       <Text style={styles.sectionLabel}>Group contribution</Text>
-      <SurfaceCard style={styles.contributionCard}>
+      <GroupSurfaceCard style={styles.contributionCard}>
         {ranked.map((member, index) => (
           <View key={`${member.initials}-${index}`} style={styles.resultRow}>
             <View style={styles.avatar}><Text style={styles.avatarText}>{member.initials}</Text></View>
@@ -84,17 +85,17 @@ export default function GroupResultScreen() {
           <Text style={styles.totalLabel}>Total {data.unit}</Text>
           <Text style={styles.totalValue}>{data.current}</Text>
         </View>
-      </SurfaceCard>
+      </GroupSurfaceCard>
       <Text style={styles.distributionNote}>{formatRdm(data.rewardPool)} RDM distributed across {data.members.length} members via {groupRewardStructureTitle(data.rewardStructure)}.</Text>
       <View style={styles.actions}>
-        <PrimaryButton color={colors.growth} label="Back to groups" onPress={() => router.dismissTo("/(app)/(tabs)/groups")} />
-        <PrimaryButton color={colors.plum} icon="share-variant-outline" label="Share result" onPress={() => void Share.share({ message: resultMessage })} variant="outline" />
+        <GroupPrimaryButton color={colors.growth} label="Back to groups" onPress={() => router.dismissTo("/(app)/(tabs)/groups")} />
+        <GroupPrimaryButton color={colors.plum} icon="share-variant-outline" label="Share result" onPress={() => void Share.share({ message: resultMessage })} variant="outline" />
         <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/group/new")} style={styles.textLink}>
           <Text style={styles.textLinkLabel}>Create another group</Text>
           <MaterialCommunityIcons color={colors.plum} name="arrow-right" size={15} />
         </Pressable>
       </View>
-    </AppScreen>
+    </GroupScreen>
   );
 }
 
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background },
   hero: { alignItems: "center", gap: 5, paddingVertical: 12 },
   trophy: { alignItems: "center", backgroundColor: colors.goldTint, borderRadius: 42, height: 84, justifyContent: "center", width: 84, marginBottom: 4 },
-  heroTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 22 },
+  heroTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 25 },
   heroGroupName: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 13 },
   completePill: { alignItems: "center", backgroundColor: colors.growthTint, borderRadius: 999, flexDirection: "row", gap: 5, marginTop: 2, paddingHorizontal: 10, paddingVertical: 4 },
   completePillText: { color: colors.growth, fontFamily: fonts.bodyBold, fontSize: 10 },

@@ -97,6 +97,30 @@ export function initialsForGroupName(name: string) {
   return `${words[0]![0]}${words[1]![0]}`.toUpperCase();
 }
 
+const irregularSingularUnits: Record<string, string> = {
+  activities: "activity",
+  quizzes: "quiz",
+};
+
+/**
+ * Best-effort English singularization for a group's target unit, used only for
+ * display (e.g. "Log 1 walk" vs "Log 3 walks"). Known irregular units from the
+ * activity catalog are mapped explicitly; anything else falls back to a small
+ * set of conservative suffix rules, or is returned unchanged if none apply.
+ */
+export function singularizeUnit(unit: string) {
+  const lower = unit.toLowerCase();
+  const irregular = irregularSingularUnits[lower];
+  if (irregular) return irregular;
+  if (lower.endsWith("ies") && lower.length > 3) return `${unit.slice(0, -3)}y`;
+  if (lower.endsWith("zzes")) return unit.slice(0, -3);
+  if (lower.endsWith("ses") || lower.endsWith("xes") || lower.endsWith("ches") || lower.endsWith("shes")) {
+    return unit.slice(0, -2);
+  }
+  if (lower.endsWith("s") && !lower.endsWith("ss")) return unit.slice(0, -1);
+  return unit;
+}
+
 const groupAvatarPalette = ["#B39AE8", "#E2708F", "#5FA6ED", "#F0B429", "#3FCB8B"] as const;
 
 export function groupAvatarColor(id: string) {

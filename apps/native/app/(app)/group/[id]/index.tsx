@@ -5,18 +5,21 @@ import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { GroupAvatars, GroupErrorState } from "@/components/group-goal-ui";
 import {
-  AppScreen,
+  GroupAvatars,
+  GroupErrorState,
+  GroupPageHeader,
+  GroupPrimaryButton,
+  GroupScreen,
+  GroupSectionLabel,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
+import {
   LoadingState,
-  PageHeader,
-  PrimaryButton,
   ProgressBar,
-  SectionLabel,
-  SurfaceCard,
 } from "@/components/rdm-ui";
 import { formatDayKey } from "@/lib/date";
-import { groupRewardStructureTitle } from "@/lib/group-goals";
+import { groupRewardStructureTitle, singularizeUnit } from "@/lib/group-goals";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -53,6 +56,7 @@ export default function GroupDashboardScreen() {
   const data = group.data;
   const currentMember = data.members.find((member) => member.currentUser);
   const dayNumber = Math.min(data.durationDays, Math.max(1, data.durationDays - data.daysRemaining + 1));
+  const progressUnit = amount === 1 ? singularizeUnit(data.unit) : data.unit;
   function submitProgress() {
     if (!Number.isFinite(amount) || amount <= 0 || amount > 1000) {
       Alert.alert("Add progress", `Enter a positive amount up to 1,000 ${data.unit}.`);
@@ -62,8 +66,8 @@ export default function GroupDashboardScreen() {
   }
 
   return (
-    <AppScreen>
-      <PageHeader
+    <GroupScreen>
+      <GroupPageHeader
         back
         onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
         title="Back to Groups"
@@ -79,15 +83,15 @@ export default function GroupDashboardScreen() {
           </Pressable>
         )}
       />
-      <SurfaceCard style={styles.poolCard}>
+      <GroupSurfaceCard style={styles.poolCard}>
         <View style={styles.poolHero}><View style={styles.poolIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={27} /></View><View><Text style={styles.poolName}>{data.name}</Text><Text style={styles.progressCopy}>{data.status === "active" && !data.targetHit ? `Day ${dayNumber} of ${data.durationDays}` : `${data.daysRemaining} days remaining`}</Text></View></View>
-        <View style={styles.metrics}><View><Text style={styles.metricValue}>{data.current} / {data.target}</Text><Text style={styles.metricLabel}>Total {data.unit}</Text></View><View><Text style={styles.metricValue}>{Math.round((data.current / data.target) * 100)}%</Text><Text style={styles.metricLabel}>completed</Text></View><View><Text style={styles.metricValue}>{formatRdm(data.rewardPool)}</Text><Text style={styles.metricLabel}>Group pool</Text></View></View>
+        <View style={styles.metrics}><View><Text style={styles.metricValue}>{data.current} / {data.target}</Text><Text style={styles.metricLabel}>Total {data.unit}</Text></View><View><Text style={styles.metricValue}>{Math.round((data.current / data.target) * 100)}%</Text><Text style={styles.metricLabel}>completed</Text></View><View><Text style={styles.metricValue}>{formatRdm(data.rewardPool)} RDM</Text><Text style={styles.metricLabel}>Group pool</Text></View></View>
         <ProgressBar color={data.targetHit ? colors.gold : colors.plum} progress={data.current / data.target} />
         <View style={styles.poolFooter}>
           <Text style={styles.poolMeta}>{data.daysRemaining} days left · {data.cadence} check-in</Text>
           <Text style={styles.poolMeta}>{groupRewardStructureTitle(data.rewardStructure)}</Text>
         </View>
-      </SurfaceCard>
+      </GroupSurfaceCard>
 
       <View style={styles.tabRow}>
         <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === "progress" }} onPress={() => setTab("progress")} style={[styles.tab, tab === "progress" && styles.tabActive]}>
@@ -100,52 +104,52 @@ export default function GroupDashboardScreen() {
 
       {tab === "progress" ? (
         <>
-          <SurfaceCard style={styles.descriptionCard}>
+          <GroupSurfaceCard style={styles.descriptionCard}>
             <MaterialCommunityIcons name="flag-checkered" color={colors.plum} size={20} />
             <Text style={styles.description}>{data.description || `Reach ${data.target} ${data.unit} together.`}</Text>
-          </SurfaceCard>
+          </GroupSurfaceCard>
 
           {data.status === "active" && !data.targetHit && !data.awarded && !currentMember?.loggedCurrentPeriod ? (
-            <SurfaceCard style={styles.logCard}>
-              <SectionLabel action={<Text style={styles.unitChip}>{data.unit}</Text>}>Log today&apos;s progress</SectionLabel>
+            <GroupSurfaceCard style={styles.logCard}>
+              <GroupSectionLabel action={<Text style={styles.unitChip}>{data.unit}</Text>}>Log today&apos;s progress</GroupSectionLabel>
               <View style={styles.counterRow}>
                 <Pressable accessibilityLabel="Decrease amount" accessibilityRole="button" style={styles.counterButton} onPress={() => setAmount((current) => Math.max(1, current - 1))}><Text style={styles.counterButtonText}>−</Text></Pressable>
                 <Text style={styles.counterValue}>{amount}</Text>
                 <Pressable accessibilityLabel="Increase amount" accessibilityRole="button" style={styles.counterButton} onPress={() => setAmount((current) => Math.min(1000, current + 1))}><Text style={styles.counterButtonText}>+</Text></Pressable>
               </View>
               <Text style={styles.helper}>You have logged {currentMember?.contribution ?? 0} {data.unit}. You can submit one combined update each {data.cadence === "weekly" ? "week" : "day"}.</Text>
-              <PrimaryButton color={colors.growth} label={`Log ${amount} ${data.unit}`} loading={logContribution.isPending} onPress={submitProgress} />
-            </SurfaceCard>
+              <GroupPrimaryButton color={colors.growth} label={`Log ${amount} ${progressUnit}`} loading={logContribution.isPending} onPress={submitProgress} />
+            </GroupSurfaceCard>
           ) : null}
 
           {data.status === "active" && !data.targetHit && currentMember?.loggedCurrentPeriod ? (
-            <SurfaceCard style={styles.loggedCard}>
+            <GroupSurfaceCard style={styles.loggedCard}>
               <Text style={styles.loggedTitle}>Progress logged ✓</Text>
               <Text style={styles.helper}>Your next {data.cadence === "weekly" ? "weekly" : "daily"} check-in opens in the next period.</Text>
-            </SurfaceCard>
+            </GroupSurfaceCard>
           ) : null}
 
           {data.status === "expired" ? (
-            <SurfaceCard style={styles.expiredCard}>
+            <GroupSurfaceCard style={styles.expiredCard}>
               <Text style={styles.expiredTitle}>This goal ended</Text>
               <Text style={styles.helper}>The target was not completed before the deadline. Every backed member pledge has been returned to its owner&apos;s Base Purse.</Text>
-            </SurfaceCard>
+            </GroupSurfaceCard>
           ) : null}
 
           {data.targetHit && data.canAward && !data.awarded ? (
-            <PrimaryButton color={colors.gold} icon="trophy-outline" label="Choose winners" onPress={() => router.push({ pathname: "/(app)/group/[id]/winners", params: { id } })} />
+            <GroupPrimaryButton color={colors.gold} icon="trophy-outline" label="Choose winners" onPress={() => router.push({ pathname: "/(app)/group/[id]/winners", params: { id } })} />
           ) : null}
           {data.targetHit && !data.canAward && !data.awarded ? (
-            <SurfaceCard style={styles.waitingCard}><Text style={styles.waitingTitle}>Target reached</Text><Text style={styles.helper}>The group creator will announce the awards.</Text></SurfaceCard>
+            <GroupSurfaceCard style={styles.waitingCard}><Text style={styles.waitingTitle}>Target reached</Text><Text style={styles.helper}>The group creator will announce the awards.</Text></GroupSurfaceCard>
           ) : null}
           {data.awarded ? (
-            <PrimaryButton color={colors.gold} icon="trophy" label="View group results" onPress={() => router.push({ pathname: "/(app)/group/[id]/result", params: { id } })} />
+            <GroupPrimaryButton color={colors.gold} icon="trophy" label="View group results" onPress={() => router.push({ pathname: "/(app)/group/[id]/result", params: { id } })} />
           ) : null}
         </>
       ) : (
         <>
-          <SectionLabel action={<Text style={styles.memberCount}>{data.members.length} MEMBERS</Text>}>Members & pledges</SectionLabel>
-          <SurfaceCard>
+          <GroupSectionLabel action={<Text style={styles.memberCount}>{data.members.length} MEMBERS</Text>}>Members & pledges</GroupSectionLabel>
+          <GroupSurfaceCard>
             <View style={styles.avatarHeader}><GroupAvatars members={data.members} /></View>
             {data.members.map((member, index) => (
               <View key={`${member.initials}-${index}`} style={styles.memberRow}>
@@ -164,10 +168,10 @@ export default function GroupDashboardScreen() {
                 <MaterialCommunityIcons color={colors.inkSoft} name="chevron-right" size={20} />
               </Pressable>
             ) : null}
-          </SurfaceCard>
+          </GroupSurfaceCard>
         </>
       )}
-    </AppScreen>
+    </GroupScreen>
   );
 }
 
@@ -182,11 +186,11 @@ const styles = StyleSheet.create({
   metricLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 8.5, marginTop: 3, textAlign: "center" },
   poolFooter: { flexDirection: "row", justifyContent: "space-between", width: "100%" },
   poolMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9 },
-  tabRow: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: radii.pill, borderWidth: 1, flexDirection: "row", padding: 4 },
-  tab: { alignItems: "center", borderRadius: radii.pill, flex: 1, paddingVertical: 9 },
-  tabActive: { backgroundColor: colors.plum },
+  tabRow: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 9, borderWidth: 1, flexDirection: "row", padding: 3 },
+  tab: { alignItems: "center", borderRadius: 7, flex: 1, paddingVertical: 9 },
+  tabActive: { backgroundColor: "#263541" },
   tabLabel: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 12 },
-  tabLabelActive: { color: colors.backgroundDeep },
+  tabLabelActive: { color: colors.ink },
   descriptionCard: { alignItems: "center", flexDirection: "row", gap: 10 },
   description: { color: colors.ink, flex: 1, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
   memberCount: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 9 },

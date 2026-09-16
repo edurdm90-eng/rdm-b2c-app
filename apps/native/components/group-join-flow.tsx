@@ -4,14 +4,14 @@ import { router, useIsFocused } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
-import { GroupAvatars } from "@/components/group-goal-ui";
 import {
-  AppScreen,
-  PageHeader,
-  PrimaryButton,
-  SectionLabel,
-  SurfaceCard,
-} from "@/components/rdm-ui";
+  GroupAvatars,
+  GroupPageHeader,
+  GroupPrimaryButton,
+  GroupScreen,
+  GroupSectionLabel,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
 import { formatDayRange } from "@/lib/date";
 import { groupRewardStructureDescription, groupRewardStructureTitle } from "@/lib/group-goals";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
@@ -63,8 +63,8 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
   }
 
   return (
-    <AppScreen>
-      <PageHeader
+    <GroupScreen>
+      <GroupPageHeader
         back
         onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
         title="Join group"
@@ -92,13 +92,13 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
       {preview.error ? (
         <View>
           <Text style={styles.error}>{preview.error.message}</Text>
-          <PrimaryButton label="Check invite again" onPress={() => void preview.refetch()} variant="outline" />
+          <GroupPrimaryButton label="Check invite again" onPress={() => void preview.refetch()} variant="outline" />
         </View>
       ) : null}
       {preview.data ? (
         <>
-          <SectionLabel>Group preview</SectionLabel>
-          <SurfaceCard style={styles.previewCard}>
+          <GroupSectionLabel>Group preview</GroupSectionLabel>
+          <GroupSurfaceCard style={styles.previewCard}>
             <View style={styles.previewTop}>
               <View style={styles.runningIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={25} /></View>
               <View style={styles.previewCopy}>
@@ -113,39 +113,39 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
               <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="account-group-outline" size={16} /><Text style={styles.previewMeta}>{preview.data.group.durationDays} days</Text></View>
             </View>
             <GroupAvatars members={preview.data.group.members} />
-          </SurfaceCard>
+          </GroupSurfaceCard>
           {!preview.data.alreadyJoined ? (
             <>
-              <SectionLabel>Your commitment</SectionLabel>
-              <SurfaceCard style={styles.commitmentCard}>
+              <GroupSectionLabel>Your commitment</GroupSectionLabel>
+              <GroupSurfaceCard style={styles.commitmentCard}>
                 <View style={styles.commitmentRow}>
                   <MaterialCommunityIcons color={colors.gold} name="hand-coin-outline" size={20} />
                   <Text style={styles.commitmentTotal}>{formatRdm(joinMinimum)} RDM total</Text>
                 </View>
                 <Text style={styles.commitmentHint}>{formatRdm(preview.data.group.pledgePerUnit)} RDM per {preview.data.group.pledgeBasis === "per_day" ? "day" : "activity"} × {preview.data.group.durationDays} days</Text>
-              </SurfaceCard>
-              <SectionLabel>Reward rule</SectionLabel>
-              <SurfaceCard style={styles.rewardRow}>
+              </GroupSurfaceCard>
+              <GroupSectionLabel>Reward rule</GroupSectionLabel>
+              <GroupSurfaceCard style={styles.rewardRow}>
                 <MaterialCommunityIcons color={colors.gold} name="trophy-outline" size={22} />
                 <View style={styles.activityCopy}>
                   <Text style={styles.rewardTitle}>{groupRewardStructureTitle(preview.data.group.rewardStructure)}</Text>
                   <Text style={styles.description}>{groupRewardStructureDescription(preview.data.group.rewardStructure)}</Text>
                 </View>
-              </SurfaceCard>
-              <SurfaceCard style={styles.balanceCardRow}>
+              </GroupSurfaceCard>
+              <GroupSurfaceCard style={styles.balanceCardRow}>
                 <MaterialCommunityIcons color={colors.inkSoft} name="wallet-outline" size={22} />
                 <View style={styles.balanceCard}>
                   <View style={styles.balanceBreakdownRow}><Text style={styles.balanceLabel}>Available</Text><Text style={styles.balanceValue}>{formatRdm(baseBalance)} RDM</Text></View>
                   <View style={styles.balanceBreakdownRow}><Text style={styles.balanceLabel}>After joining</Text><Text style={[styles.balanceValue, !joinHasFunds && styles.balanceValueLow]}>{formatRdm(Math.max(0, baseAfterJoin))} RDM</Text></View>
                 </View>
-              </SurfaceCard>
+              </GroupSurfaceCard>
               <View style={styles.infoRow}><MaterialCommunityIcons color={colors.inkSoft} name="information-outline" size={15} /><Text style={styles.helper}>Your pledge will be deducted from your own Base Purse.</Text></View>
             </>
           ) : null}
         </>
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <PrimaryButton
+      <GroupPrimaryButton
         color={colors.growth}
         disabled={!preview.data || !!preview.error || (!preview.data.alreadyJoined && !joinHasFunds)}
         label={preview.data?.alreadyJoined ? "Open group dashboard" : `Pledge ${formatRdm(joinMinimum)} RDM & join`}
@@ -153,10 +153,10 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
         onPress={submitJoin}
       />
       {!joinHasFunds && preview.data && !preview.data.alreadyJoined ? (
-        <PrimaryButton color={colors.gold} label="View Wallet" onPress={() => router.push("/(app)/(tabs)/wallet")} variant="outline" />
+        <GroupPrimaryButton color={colors.gold} label="View Wallet" onPress={() => router.push("/(app)/(tabs)/wallet")} variant="outline" />
       ) : null}
-      <PrimaryButton color={colors.inkSoft} label="Cancel" onPress={() => router.dismissTo("/(app)/(tabs)/groups")} variant="outline" />
-    </AppScreen>
+      <GroupPrimaryButton color={colors.inkSoft} label="Cancel" onPress={() => router.dismissTo("/(app)/(tabs)/groups")} variant="outline" />
+    </GroupScreen>
   );
 }
 

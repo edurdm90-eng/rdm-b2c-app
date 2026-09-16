@@ -5,14 +5,17 @@ import { useQuery } from "@tanstack/react-query";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { Alert, Pressable, Share, StyleSheet, Text, View } from "react-native";
 
-import { GroupAvatars, GroupErrorState } from "@/components/group-goal-ui";
 import {
-  AppScreen,
+  GroupAvatars,
+  GroupErrorState,
+  GroupPageHeader,
+  GroupPrimaryButton,
+  GroupScreen,
+  GroupSectionLabel,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
+import {
   LoadingState,
-  PageHeader,
-  PrimaryButton,
-  SectionLabel,
-  SurfaceCard,
 } from "@/components/rdm-ui";
 import { colors, fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
@@ -70,33 +73,33 @@ export default function GroupInviteScreen() {
   }
 
   return (
-    <AppScreen>
-      <PageHeader
+    <GroupScreen>
+      <GroupPageHeader
         back
         onBack={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })}
         title="Invite people"
       />
-      <SurfaceCard style={styles.readyBanner}>
+      <GroupSurfaceCard style={styles.readyBanner}>
         <MaterialCommunityIcons color={colors.growth} name="check-circle" size={20} />
         <View style={styles.readyCopy}>
           <Text style={styles.readyTitle}>{data.name} is ready</Text>
           <Text style={styles.readySubtitle}>Your group has been created.</Text>
         </View>
-      </SurfaceCard>
-      <SurfaceCard style={styles.codeCard}>
+      </GroupSurfaceCard>
+      <GroupSurfaceCard style={styles.codeCard}>
         <GroupAvatars members={data.members} />
         <Text style={styles.groupName}>{data.name}</Text>
         <Text style={styles.codeLabel}>GROUP CODE</Text>
         <Text selectable style={styles.code}>{data.inviteCode}</Text>
-        <PrimaryButton color={colors.plum} icon="content-copy" label="Copy code" onPress={() => void copyCode()} style={styles.fullButton} />
+        <GroupPrimaryButton color={colors.plum} icon="content-copy" label="Copy code" onPress={() => void copyCode()} style={styles.fullButton} />
         <View style={styles.metricsRow}>
           <View style={styles.metric}><MaterialCommunityIcons color={colors.inkSoft} name="calendar-outline" size={16} /><Text style={styles.metricText}>{data.durationDays} days</Text></View>
           <View style={styles.metric}><MaterialCommunityIcons color={colors.inkSoft} name="hand-coin-outline" size={16} /><Text style={styles.metricText}>{formatRdm(data.minimumPledge)} RDM per member</Text></View>
           <View style={styles.metric}><MaterialCommunityIcons color={colors.inkSoft} name="flag-checkered" size={16} /><Text style={styles.metricText}>{data.target} {data.unit}</Text></View>
         </View>
-      </SurfaceCard>
-      <SectionLabel>Send a direct invite</SectionLabel>
-      <SurfaceCard>
+      </GroupSurfaceCard>
+      <GroupSectionLabel>Send a direct invite</GroupSectionLabel>
+      <GroupSurfaceCard>
         <Pressable accessibilityRole="button" onPress={() => void openEmailInvite()} style={styles.channelRow}>
           <View style={styles.channelIcon}><MaterialCommunityIcons color={colors.ai} name="email-outline" size={20} /></View>
           <View style={styles.activityCopy}><Text style={styles.channelTitle}>Email invite</Text><Text style={styles.channelHint}>Open your email app</Text></View>
@@ -107,15 +110,15 @@ export default function GroupInviteScreen() {
           <View style={styles.activityCopy}><Text style={styles.channelTitle}>WhatsApp invite</Text><Text style={styles.channelHint}>Open WhatsApp</Text></View>
           <MaterialCommunityIcons color={colors.inkSoft} name="open-in-new" size={18} />
         </Pressable>
-      </SurfaceCard>
-      <SectionLabel>How joining works</SectionLabel>
-      <SurfaceCard>
+      </GroupSurfaceCard>
+      <GroupSectionLabel>How joining works</GroupSectionLabel>
+      <GroupSurfaceCard>
         <View style={styles.infoRow}><Text style={styles.infoIcon}>1</Text><Text style={styles.infoText}>They enter the six-character invite code.</Text></View>
         <View style={styles.infoRow}><Text style={styles.infoIcon}>2</Text><Text style={styles.infoText}>They review the target, duration, and pooled reward.</Text></View>
         <View style={[styles.infoRow, styles.infoRowLast]}><Text style={styles.infoIcon}>3</Text><Text style={styles.infoText}>They pledge at least {formatRdm(data.minimumPledge)} RDM from their own Base Purse.</Text></View>
-      </SurfaceCard>
-      <PrimaryButton color={colors.growth} label="Open group dashboard" onPress={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })} />
-    </AppScreen>
+      </GroupSurfaceCard>
+      <GroupPrimaryButton color={colors.growth} label="Open group dashboard" onPress={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })} />
+    </GroupScreen>
   );
 }
 
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
   readyTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
   readySubtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
   codeCard: { alignItems: "center", gap: 10, paddingVertical: 22 },
-  groupName: { color: colors.ink, fontFamily: fonts.display, fontSize: 18, textAlign: "center" },
+  groupName: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 19, textAlign: "center" },
   codeLabel: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, marginTop: 4 },
   code: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 31, letterSpacing: 5 },
   fullButton: { width: "100%" },

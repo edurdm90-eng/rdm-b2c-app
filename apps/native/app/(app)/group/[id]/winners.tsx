@@ -4,15 +4,17 @@ import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { GroupErrorState } from "@/components/group-goal-ui";
 import {
-  AppScreen,
+  GroupErrorState,
+  GroupPageHeader,
+  GroupPrimaryButton,
+  GroupScreen,
+  GroupSectionLabel,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
+import {
   LoadingState,
-  PageHeader,
-  PrimaryButton,
   ProgressBar,
-  SectionLabel,
-  SurfaceCard,
 } from "@/components/rdm-ui";
 import { groupRewardStructureTitle } from "@/lib/group-goals";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
@@ -50,12 +52,11 @@ export default function GroupWinnersScreen() {
   const totalAwards = amounts.reduce((sum, value) => sum + value, 0);
 
   return (
-    <AppScreen>
-      <PageHeader
+    <GroupScreen>
+      <GroupPageHeader
         back
         onBack={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })}
-        title="Confirm awards"
-        subtitle={`${groupRewardStructureTitle(group.rewardStructure).toUpperCase()} · ${formatRdm(group.rewardPool)} RDM`}
+        title={group.name}
       />
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>You reached the goal together.</Text>
@@ -63,13 +64,13 @@ export default function GroupWinnersScreen() {
         <ProgressBar color={colors.growth} progress={1} />
         <Text style={styles.intro}>All group members completed their target for this cycle.</Text>
       </View>
-      <SectionLabel action={<Text style={styles.ownerOnly}>OWNER ONLY</Text>}>Confirm group awards</SectionLabel>
-      <SurfaceCard style={styles.summaryCard}>
+      <GroupSectionLabel action={<Text style={styles.ownerOnly}>OWNER ONLY</Text>}>Confirm group awards</GroupSectionLabel>
+      <GroupSurfaceCard style={styles.summaryCard}>
         <View style={styles.summaryRow}><MaterialCommunityIcons color={colors.gold} name="account-group-outline" size={20} /><Text style={styles.summaryLabel}>Reward structure</Text><Text style={styles.summaryValue}>{groupRewardStructureTitle(group.rewardStructure)}</Text></View>
         <View style={[styles.summaryRow, styles.summaryRowLast]}><MaterialCommunityIcons color={colors.gold} name="database-outline" size={20} /><Text style={styles.summaryLabel}>Backed pool</Text><Text style={styles.summaryValue}>{formatRdm(group.rewardPool)} RDM</Text></View>
-      </SurfaceCard>
+      </GroupSurfaceCard>
       {ranked.map((member, index) => (
-        <SurfaceCard key={`${member.initials}-${index}`} style={[styles.winnerRow, member.award > 0 && styles.winnerSelected]}>
+        <GroupSurfaceCard key={`${member.initials}-${index}`} style={[styles.winnerRow, member.award > 0 && styles.winnerSelected]}>
           <View style={[styles.rank, member.award > 0 && styles.rankSelected]}><Text style={[styles.rankText, member.award > 0 && styles.rankTextSelected]}>{index + 1}</Text></View>
           <View style={styles.avatar}><Text style={styles.avatarText}>{member.initials}</Text></View>
           <View style={styles.memberCopy}>
@@ -77,7 +78,7 @@ export default function GroupWinnersScreen() {
             <Text style={styles.memberProgress}>{member.contribution} {group.unit} logged</Text>
           </View>
           <Text style={[styles.award, member.award === 0 && styles.zeroAward]}>{member.award > 0 ? `${formatRdm(member.award)} RDM` : "—"}</Text>
-        </SurfaceCard>
+        </GroupSurfaceCard>
       ))}
       <View style={styles.totalRow}><Text style={styles.totalLabel}>Total group awards</Text><Text style={styles.totalValue}>{formatRdm(totalAwards)} RDM</Text></View>
       <Pressable accessibilityRole="switch" accessibilityState={{ checked: specialAwarded }} onPress={() => setSpecialAwarded((current) => !current)} style={styles.specialCard}>
@@ -88,8 +89,8 @@ export default function GroupWinnersScreen() {
         </View>
         <View style={[styles.switchTrack, specialAwarded && styles.switchTrackOn]}><View style={[styles.switchKnob, specialAwarded && styles.switchKnobOn]} /></View>
       </Pressable>
-      <PrimaryButton color={colors.gold} icon="bullhorn-outline" label="Announce awards" loading={award.isPending} onPress={() => award.mutate({ id, specialAwarded })} />
-    </AppScreen>
+      <GroupPrimaryButton color={colors.gold} icon="bullhorn-outline" label="Announce awards" loading={award.isPending} onPress={() => award.mutate({ id, specialAwarded })} />
+    </GroupScreen>
   );
 }
 

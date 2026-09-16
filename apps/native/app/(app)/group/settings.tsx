@@ -4,12 +4,14 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
-  AppScreen,
   ErrorState,
   LoadingState,
-  PageHeader,
-  SurfaceCard,
 } from "@/components/rdm-ui";
+import {
+  GroupPageHeader,
+  GroupScreen,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
 import { colors, fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -61,14 +63,13 @@ export default function GroupSettingsScreen() {
   ];
 
   return (
-    <AppScreen>
-      <PageHeader
+    <GroupScreen>
+      <GroupPageHeader
         back
         onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
         title="Group settings"
-        subtitle="RDM & ACCOUNT"
       />
-      <SurfaceCard>
+      <GroupSurfaceCard>
         {items.map((item) => (
           <Pressable accessibilityRole={item.onPress ? "button" : undefined} disabled={!item.onPress} key={item.label} onPress={item.onPress ?? undefined} style={styles.row}>
             <View style={styles.icon}><MaterialCommunityIcons color={colors.plum} name={item.icon} size={20} /></View>
@@ -81,12 +82,12 @@ export default function GroupSettingsScreen() {
               : <Text style={styles.soon}>SOON</Text>}
           </Pressable>
         ))}
-      </SurfaceCard>
-      <SurfaceCard style={styles.note}>
+      </GroupSurfaceCard>
+      <GroupSurfaceCard style={styles.note}>
         <Text style={styles.noteTitle}>How group pledges work</Text>
         <Text style={styles.description}>Each member funds their own pledge from Base. Completed goals distribute the backed pool to Peer; expired goals return every backed pledge to Base.</Text>
-      </SurfaceCard>
-    </AppScreen>
+      </GroupSurfaceCard>
+    </GroupScreen>
   );
 }
 
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
   copy: { flex: 1 },
   title: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 },
   description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, lineHeight: 16, marginTop: 3 },
-  note: { backgroundColor: colors.growthTint, gap: 5 },
-  noteTitle: { color: colors.growth, fontFamily: fonts.display, fontSize: 16 },
+  note: { backgroundColor: "transparent", borderBottomWidth: 0, borderLeftWidth: 0, borderRadius: 0, borderRightWidth: 0, gap: 6, marginTop: 6, paddingHorizontal: 4, paddingTop: 20 },
+  noteTitle: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14 },
   soon: { color: colors.inkSoft, fontFamily: fonts.monoBold, fontSize: 8 },
 });

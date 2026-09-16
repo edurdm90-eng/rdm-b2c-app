@@ -11,16 +11,19 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { GroupErrorState, GroupStepDots } from "@/components/group-goal-ui";
+import {
+  GroupErrorState,
+  GroupPageHeader,
+  GroupPill,
+  GroupPrimaryButton,
+  GroupScreen,
+  GroupSectionLabel,
+  GroupStepDots,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
 import { GroupJoinFlow } from "@/components/group-join-flow";
 import {
-  AppScreen,
   LoadingState,
-  PageHeader,
-  Pill,
-  PrimaryButton,
-  SectionLabel,
-  SurfaceCard,
 } from "@/components/rdm-ui";
 import { formatDayRange } from "@/lib/date";
 import {
@@ -203,7 +206,7 @@ export default function NewGroupScreen() {
           </View>
           <View style={styles.intro}><Text style={styles.introTitle}>What will you do together?</Text><Text style={styles.introBody}>Choose an activity for your group goal.</Text></View>
           {activities.map((activity) => (
-            <SurfaceCard
+            <GroupSurfaceCard
               key={activity.id}
               onPress={() => selectActivity(activity)}
               style={[styles.activityCard, activityId === activity.id && styles.selectedCard]}
@@ -218,9 +221,9 @@ export default function NewGroupScreen() {
                 color={activityId === activity.id ? colors.plum : colors.inkSoft}
                 size={20}
               />
-            </SurfaceCard>
+            </GroupSurfaceCard>
           ))}
-          <SurfaceCard
+          <GroupSurfaceCard
             onPress={() => {
               setActivityId("custom");
               setName("");
@@ -235,7 +238,7 @@ export default function NewGroupScreen() {
               <Text style={styles.activityTitle}>Create a custom activity</Text>
               <Text style={styles.activityDescription}>Define something meaningful for your group.</Text>
             </View>
-          </SurfaceCard>
+          </GroupSurfaceCard>
           {activityId === "custom" ? (
             <View style={styles.fieldStack}>
               <TextInput accessibilityLabel="Custom activity name" onChangeText={setName} placeholder="Activity name" placeholderTextColor={colors.inkSoft} style={styles.input} value={name} />
@@ -249,7 +252,7 @@ export default function NewGroupScreen() {
       return (
         <>
           <View style={styles.intro}><Text style={styles.introTitle}>Make the goal clear.</Text><Text style={styles.introBody}>Set a shared target and timeline for your group.</Text></View>
-          <SectionLabel>Group goal</SectionLabel>
+          <GroupSectionLabel>Group goal</GroupSectionLabel>
           <TextInput accessibilityLabel="Group goal name" onChangeText={setName} placeholder="Group goal name" placeholderTextColor={colors.inkSoft} style={styles.input} value={name} />
           <View style={styles.targetRow}>
             <View style={styles.fieldStack}>
@@ -265,30 +268,30 @@ export default function NewGroupScreen() {
             </View>
           </View>
           <Text style={styles.helper}>A shared target for the whole group.</Text>
-          <SectionLabel>Duration</SectionLabel>
+          <GroupSectionLabel>Duration</GroupSectionLabel>
           <View style={styles.optionRow}>
-            <Pill active={durationChoice === "7"} color={colors.plum} label="1 week" onPress={() => setDurationChoice("7")} />
-            <Pill active={durationChoice === "30"} color={colors.plum} label="1 month" onPress={() => setDurationChoice("30")} />
-            <Pill active={durationChoice === "custom"} color={colors.plum} label="Custom" onPress={() => setDurationChoice("custom")} />
+            <GroupPill active={durationChoice === "7"} color={colors.plum} label="1 week" onPress={() => setDurationChoice("7")} />
+            <GroupPill active={durationChoice === "30"} color={colors.plum} label="1 month" onPress={() => setDurationChoice("30")} />
+            <GroupPill active={durationChoice === "custom"} color={colors.plum} label="Custom" onPress={() => setDurationChoice("custom")} />
           </View>
           {durationChoice === "custom" ? (
             <TextInput accessibilityLabel="Duration in days" keyboardType="number-pad" onChangeText={(value) => setCustomDuration(value.replace(/\D/g, ""))} placeholder="Days" placeholderTextColor={colors.inkSoft} style={styles.input} value={customDuration} />
           ) : null}
           {scheduleWindow ? (
             <>
-              <SectionLabel>Schedule</SectionLabel>
+              <GroupSectionLabel>Schedule</GroupSectionLabel>
               <View style={styles.scheduleRow}>
                 <MaterialCommunityIcons color={colors.inkSoft} name="calendar-range" size={18} />
                 <Text style={styles.scheduleText}>{formatDayRange(startDayKey, scheduleWindow.endDayKey)}</Text>
               </View>
             </>
           ) : null}
-          <SectionLabel>Check-in cadence</SectionLabel>
+          <GroupSectionLabel>Check-in cadence</GroupSectionLabel>
           <View style={styles.optionRow}>
-            <Pill active={cadence === "daily"} color={colors.plum} label="Daily log" onPress={() => setCadence("daily")} />
-            <Pill active={cadence === "weekly"} color={colors.plum} label="Weekly log" onPress={() => setCadence("weekly")} />
+            <GroupPill active={cadence === "daily"} color={colors.plum} label="Daily log" onPress={() => setCadence("daily")} />
+            <GroupPill active={cadence === "weekly"} color={colors.plum} label="Weekly log" onPress={() => setCadence("weekly")} />
           </View>
-          <SectionLabel>Description (optional)</SectionLabel>
+          <GroupSectionLabel>Description (optional)</GroupSectionLabel>
           <TextInput accessibilityLabel="Group goal description" maxLength={200} multiline onChangeText={setDescription} placeholder="Describe the shared activity" placeholderTextColor={colors.inkSoft} style={[styles.input, styles.multiline]} value={description} />
           <Text style={styles.charCount}>{description.length}/200</Text>
         </>
@@ -296,12 +299,12 @@ export default function NewGroupScreen() {
     }
     return (
       <>
-        <SectionLabel>Pledge basis</SectionLabel>
+        <GroupSectionLabel>Pledge basis</GroupSectionLabel>
         <View style={styles.optionRow}>
-          <Pill active={pledgeBasis === "per_day"} color={colors.plum} label="Daily" onPress={() => setPledgeBasis("per_day")} />
-          <Pill active={pledgeBasis === "per_activity"} color={colors.plum} label="Per activity" onPress={() => setPledgeBasis("per_activity")} />
+          <GroupPill active={pledgeBasis === "per_day"} color={colors.plum} label="Daily" onPress={() => setPledgeBasis("per_day")} />
+          <GroupPill active={pledgeBasis === "per_activity"} color={colors.plum} label="Per activity" onPress={() => setPledgeBasis("per_activity")} />
         </View>
-        <SurfaceCard style={styles.pledgeCard}>
+        <GroupSurfaceCard style={styles.pledgeCard}>
           <Text style={styles.pledgeEyebrow}>YOUR STAKE, AS GROUP CREATOR</Text>
           <Text style={styles.pledgeFieldLabel}>RDM {pledgeBasis === "per_day" ? "per day" : "per activity"}</Text>
           <View style={styles.counterRow}>
@@ -326,14 +329,14 @@ export default function NewGroupScreen() {
             <View style={styles.balanceBreakdownRow}><Text style={styles.balanceBreakdownLabel}>Base available</Text><Text style={styles.balanceBreakdownValue}>{formatRdm(baseBalance)} RDM</Text></View>
             <View style={styles.balanceBreakdownRow}><Text style={styles.balanceBreakdownLabel}>After this group</Text><Text style={[styles.balanceBreakdownValue, baseAfterPledge < 0 && styles.balanceBreakdownValueLow]}>{formatRdm(Math.max(0, baseAfterPledge))} RDM</Text></View>
           </View>
-        </SurfaceCard>
+        </GroupSurfaceCard>
         <Text style={styles.helper}>Every member pledges at least this total from their own Base Purse when they join. It stays pooled until awards are announced; if the goal expires, each backed pledge returns to Base.</Text>
-        <SectionLabel>Reward structure</SectionLabel>
+        <GroupSectionLabel>Reward structure</GroupSectionLabel>
         {groupRewardStructures.map((option) => (
-          <SurfaceCard key={option.id} onPress={() => setRewardStructure(option.id)} style={[styles.rewardCard, rewardStructure === option.id && styles.selectedCard]}>
+          <GroupSurfaceCard key={option.id} onPress={() => setRewardStructure(option.id)} style={[styles.rewardCard, rewardStructure === option.id && styles.selectedCard]}>
             <MaterialCommunityIcons name={rewardStructure === option.id ? "radiobox-marked" : "radiobox-blank"} color={rewardStructure === option.id ? colors.gold : colors.inkSoft} size={20} />
             <View style={styles.activityCopy}><Text style={styles.activityTitle}>{option.title}</Text><Text style={styles.activityDescription}>{option.description}</Text></View>
-          </SurfaceCard>
+          </GroupSurfaceCard>
         ))}
       </>
     );
@@ -349,8 +352,8 @@ export default function NewGroupScreen() {
   }
 
   return (
-    <AppScreen>
-      <PageHeader
+    <GroupScreen>
+      <GroupPageHeader
         back
         onBack={step > 1
           ? () => setStep((step - 1) as CreateStep)
@@ -361,14 +364,14 @@ export default function NewGroupScreen() {
       <GroupStepDots current={step} total={4} />
       {renderCreateStep()}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <PrimaryButton
+      <GroupPrimaryButton
         color={colors.growth}
         disabled={step === 4 && !hasValidPledge}
         label={step === 4 ? `Lock ${Number.isFinite(totalPledge) ? formatRdm(totalPledge) : 0} RDM & create group` : continueLabel}
         loading={createGroup.isPending}
         onPress={step === 4 ? submitCreate : validateAndContinue}
       />
-    </AppScreen>
+    </GroupScreen>
   );
 }
 
@@ -410,7 +413,7 @@ const styles = StyleSheet.create({
   counterRow: { alignItems: "center", flexDirection: "row", gap: 18 },
   counterButton: { alignItems: "center", backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 12, borderWidth: 1, height: 42, justifyContent: "center", width: 42 },
   counterButtonText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 22 },
-  pledgeValue: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 34, minWidth: 80, textAlign: "center" },
+  pledgeValue: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 34, maxWidth: 80, minWidth: 80, textAlign: "center", width: 80 },
   pledgeDescription: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
   totalBreakdownRow: { alignItems: "center", borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", gap: 12, paddingTop: 12, width: "100%" },
   totalBreakdownCopy: { flex: 1 },

@@ -4,14 +4,16 @@ import { StyleSheet, Text, View } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import {
-  AppScreen,
   ErrorState,
   LoadingState,
-  PageHeader,
-  PrimaryButton,
-  SectionLabel,
-  SurfaceCard,
 } from "@/components/rdm-ui";
+import {
+  GroupPageHeader,
+  GroupPrimaryButton,
+  GroupScreen,
+  GroupSectionLabel,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
 import { colors, fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -24,28 +26,27 @@ export default function GroupTopUpScreen() {
   }
 
   return (
-    <AppScreen>
-      <PageHeader
+    <GroupScreen>
+      <GroupPageHeader
         back
         onBack={() => router.dismissTo("/(app)/group/settings")}
         title="Top up RDM"
-        subtitle="PAYMENTS UNAVAILABLE"
       />
       <View style={styles.hero}><View style={styles.walletIcon}><MaterialCommunityIcons color={colors.inkSoft} name="wallet-outline" size={58} /></View><Text style={styles.heroTitle}>Payments aren&apos;t{`\n`}available yet.</Text><Text style={styles.helper}>RDM top ups will be available in a future version. You can still track your balance and progress.</Text></View>
-      <SurfaceCard style={styles.balanceCard}>
-        <View style={styles.balanceMark} /><View style={styles.balanceCopy}><Text style={styles.balanceLabel}>BASE PURSE</Text><Text style={styles.balanceValue}>{formatRdm(wallet.data.wallet.base)} RDM</Text><Text style={styles.balanceHint}>Available to pledge</Text></View></SurfaceCard>
-      <SectionLabel>Select amount (RDM)</SectionLabel>
+      <GroupSurfaceCard style={styles.balanceCard}>
+        <View style={styles.balanceMark} /><View style={styles.balanceCopy}><Text style={styles.balanceLabel}>BASE PURSE</Text><Text style={styles.balanceValue}>{formatRdm(wallet.data.wallet.base)} RDM</Text><Text style={styles.balanceHint}>Available to pledge</Text></View></GroupSurfaceCard>
+      <GroupSectionLabel>Select amount (RDM)</GroupSectionLabel>
       <View style={styles.options}>
         {[100, 250, 500].map((option) => <View key={option} style={styles.disabledOption}><Text style={styles.disabledOptionText}>{option} RDM</Text></View>)}
       </View>
-      <SectionLabel>Payment method</SectionLabel>
+      <GroupSectionLabel>Payment method</GroupSectionLabel>
       <View style={styles.paymentRows}><View style={styles.paymentRow}><MaterialCommunityIcons color={colors.inkSoft} name="cellphone-wireless" size={24} /><View><Text style={styles.paymentTitle}>UPI</Text><Text style={styles.paymentHint}>Not available</Text></View><View style={styles.radio} /></View><View style={styles.paymentRow}><MaterialCommunityIcons color={colors.inkSoft} name="credit-card-outline" size={24} /><View><Text style={styles.paymentTitle}>Card</Text><Text style={styles.paymentHint}>Not available</Text></View><View style={styles.radio} /></View></View>
-      <SurfaceCard style={styles.notice}>
+      <GroupSurfaceCard style={styles.notice}>
         <MaterialCommunityIcons color={colors.ai} name="information-outline" size={25} /><View style={styles.noticeCopy}><Text style={styles.noticeTitle}>Payment setup required.</Text><Text style={styles.noticeBody}>You can&apos;t purchase RDM in this version.</Text></View>
-      </SurfaceCard>
-      <PrimaryButton color={colors.growth} disabled label="Top up unavailable" onPress={() => undefined} />
-      <PrimaryButton color={colors.growth} label="Open wallet" onPress={() => router.replace("/(app)/(tabs)/wallet")} />
-    </AppScreen>
+      </GroupSurfaceCard>
+      <GroupPrimaryButton color={colors.growth} disabled label="Top up unavailable" onPress={() => undefined} />
+      <GroupPrimaryButton color={colors.growth} label="Open wallet" onPress={() => router.replace("/(app)/(tabs)/wallet")} />
+    </GroupScreen>
   );
 }
 
