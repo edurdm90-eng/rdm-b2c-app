@@ -73,20 +73,26 @@ const rewardStructurePresentation: Record<GroupGoalRewardStructure, { title: str
   win_as_group: { title: "Win as a group", description: "Everyone shares the pool in proportion to their contribution." },
 };
 
-export const groupRewardStructures = groupGoalRewardStructureIds.map((id) => ({
-  id,
-  ...rewardStructurePresentation[id],
-}));
+const rewardStructureDisplayOrder = ["win_as_group", "top_3", "winner_takes_all"] satisfies ReadonlyArray<GroupGoalRewardStructure>;
+
+export const groupRewardStructures = rewardStructureDisplayOrder
+  .filter((id) => (groupGoalRewardStructureIds as ReadonlyArray<GroupGoalRewardStructure>).includes(id))
+  .map((id) => ({
+    id,
+    ...rewardStructurePresentation[id],
+  }));
 
 export function groupRewardStructureTitle(structure: GroupGoalRewardStructure) {
   return groupRewardStructures.find((option) => option.id === structure)?.title ?? "Group reward";
 }
 
-export function ordinalRank(rank: number) {
-  const remainder100 = rank % 100;
-  if (remainder100 >= 11 && remainder100 <= 13) return `${rank}th`;
-  if (rank % 10 === 1) return `${rank}st`;
-  if (rank % 10 === 2) return `${rank}nd`;
-  if (rank % 10 === 3) return `${rank}rd`;
-  return `${rank}th`;
+export function groupRewardStructureDescription(structure: GroupGoalRewardStructure) {
+  return groupRewardStructures.find((option) => option.id === structure)?.description ?? "";
+}
+
+export function initialsForGroupName(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "GG";
+  if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
+  return `${words[0]![0]}${words[1]![0]}`.toUpperCase();
 }

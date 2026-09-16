@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { GroupAvatars, GroupErrorState } from "@/components/group-goal-ui";
 import {
@@ -20,12 +20,15 @@ import { groupRewardStructureTitle } from "@/lib/group-goals";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
+type DashboardTab = "progress" | "members";
+
 export default function GroupDashboardScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = String(params.id ?? "");
   const focused = useIsFocused();
   const validId = /^[a-f\d]{24}$/i.test(id);
-  const [amount, setAmount] = useState("");
+  const [tab, setTab] = useState<DashboardTab>("progress");
+  const [amount, setAmount] = useState(1);
   const [operationId, setOperationId] = useState(() => Crypto.randomUUID());
   const group = useQuery({
     ...trpc.rdm.groups.detail.queryOptions({ id }),
@@ -36,7 +39,7 @@ export default function GroupDashboardScreen() {
   const logContribution = useMutation(trpc.rdm.groups.logContribution.mutationOptions({
     onSuccess: async () => {
       setOperationId(Crypto.randomUUID());
-      setAmount("");
+      setAmount(1);
       await queryClient.invalidateQueries();
     },
     onError: (error) => Alert.alert("Could not log progress", error.message),
@@ -48,14 +51,14 @@ export default function GroupDashboardScreen() {
   }
 
   const data = group.data;
-  const numericAmount = Number(amount);
   const currentMember = data.members.find((member) => member.currentUser);
+  const dayNumber = Math.min(data.durationDays, Math.max(1, data.durationDays - data.daysRemaining + 1));
   function submitProgress() {
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0 || numericAmount > 1000) {
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 1000) {
       Alert.alert("Add progress", `Enter a positive amount up to 1,000 ${data.unit}.`);
       return;
     }
-    logContribution.mutate({ id, amount: numericAmount, operationId });
+    logContribution.mutate({ id, amount, operationId });
   }
 
   return (
@@ -68,8 +71,8 @@ export default function GroupDashboardScreen() {
         trailing={data.status === "active" && !data.targetHit ? <PrimaryButton color={colors.plum} icon="account-plus-outline" label="Invite" onPress={() => router.push({ pathname: "/(app)/group/[id]/invite", params: { id } })} style={styles.headerButton} variant="outline" /> : undefined}
       />
       <SurfaceCard style={styles.poolCard}>
-        <View style={styles.poolHero}><View style={styles.poolIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={27} /></View><View><Text style={styles.poolName}>{data.name}</Text><Text style={styles.progressCopy}>{data.daysRemaining} days remaining</Text></View></View>
-        <View style={styles.metrics}><View><Text style={styles.metricValue}>{data.current} / {data.target}</Text><Text style={styles.metricLabel}>{data.unit} logged</Text></View><View><Text style={styles.metricValue}>{Math.round((data.current / data.target) * 100)}%</Text><Text style={styles.metricLabel}>completed</Text></View><View><Text style={styles.metricValue}>{formatRdm(data.rewardPool)}</Text><Text style={styles.metricLabel}>RDM pool</Text></View></View>
+        <View style={styles.poolHero}><View style={styles.poolIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={27} /></View><View><Text style={styles.poolName}>{data.name}</Text><Text style={styles.progressCopy}>{data.status === "active" && !data.targetHit ? `Day ${dayNumber} of ${data.durationDays}` : `${data.daysRemaining} days remaining`}</Text></View></View>
+        <View style={styles.metrics}><View><Text style={styles.metricValue}>{data.current} / {data.target}</Text><Text style={styles.metricLabel}>Total {data.unit}</Text></View><View><Text style={styles.metricValue}>{Math.round((data.current / data.target) * 100)}%</Text><Text style={styles.metricLabel}>completed</Text></View><View><Text style={styles.metricValue}>{formatRdm(data.rewardPool)}</Text><Text style={styles.metricLabel}>Group pool</Text></View></View>
         <ProgressBar color={data.targetHit ? colors.gold : colors.plum} progress={data.current / data.target} />
         <View style={styles.poolFooter}>
           <Text style={styles.poolMeta}>{data.daysRemaining} days left · {data.cadence} check-in</Text>
@@ -77,61 +80,84 @@ export default function GroupDashboardScreen() {
         </View>
       </SurfaceCard>
 
-      <SurfaceCard style={styles.descriptionCard}>
-        <MaterialCommunityIcons name="flag-checkered" color={colors.plum} size={20} />
-        <Text style={styles.description}>{data.description || `Reach ${data.target} ${data.unit} together.`}</Text>
-      </SurfaceCard>
+      <View style={styles.tabRow}>
+        <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === "progress" }} onPress={() => setTab("progress")} style={[styles.tab, tab === "progress" && styles.tabActive]}>
+          <Text style={[styles.tabLabel, tab === "progress" && styles.tabLabelActive]}>Progress</Text>
+        </Pressable>
+        <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === "members" }} onPress={() => setTab("members")} style={[styles.tab, tab === "members" && styles.tabActive]}>
+          <Text style={[styles.tabLabel, tab === "members" && styles.tabLabelActive]}>Members</Text>
+        </Pressable>
+      </View>
 
-      <SectionLabel action={<Text style={styles.memberCount}>{data.members.length} MEMBERS</Text>}>Members & pledges</SectionLabel>
-      <SurfaceCard>
-        <View style={styles.avatarHeader}><GroupAvatars members={data.members} /></View>
-        {data.members.map((member, index) => (
-          <View key={`${member.initials}-${index}`} style={styles.memberRow}>
-            <View style={styles.memberAvatar}><Text style={styles.memberAvatarText}>{member.initials}</Text></View>
-            <View style={styles.memberCopy}>
-              <Text style={styles.memberName}>{member.currentUser ? "You" : member.name}</Text>
-              <Text style={styles.memberProgress}>{member.contribution} {data.unit} logged</Text>
-            </View>
-            <Text style={styles.memberPledge}>{formatRdm(member.pledgeAmount)} RDM</Text>
-          </View>
-        ))}
-      </SurfaceCard>
+      {tab === "progress" ? (
+        <>
+          <SurfaceCard style={styles.descriptionCard}>
+            <MaterialCommunityIcons name="flag-checkered" color={colors.plum} size={20} />
+            <Text style={styles.description}>{data.description || `Reach ${data.target} ${data.unit} together.`}</Text>
+          </SurfaceCard>
 
-      {data.status === "active" && !data.targetHit && !data.awarded && !currentMember?.loggedCurrentPeriod ? (
-        <SurfaceCard style={styles.logCard}>
-          <SectionLabel>Log your progress</SectionLabel>
-          <View style={styles.logRow}>
-            <TextInput accessibilityLabel={`Progress in ${data.unit}`} keyboardType="decimal-pad" onChangeText={setAmount} placeholder="Amount completed" placeholderTextColor={colors.inkSoft} style={styles.progressInput} value={amount} />
-            <Text style={styles.unitLabel}>{data.unit}</Text>
-          </View>
-          <Text style={styles.helper}>You have logged {currentMember?.contribution ?? 0} {data.unit}. You can submit one combined update each {data.cadence === "weekly" ? "week" : "day"}.</Text>
-          <PrimaryButton color={colors.growth} label={`Log ${numericAmount || ""} ${data.unit}`} loading={logContribution.isPending} onPress={submitProgress} />
-        </SurfaceCard>
-      ) : null}
+          {data.status === "active" && !data.targetHit && !data.awarded && !currentMember?.loggedCurrentPeriod ? (
+            <SurfaceCard style={styles.logCard}>
+              <SectionLabel action={<Text style={styles.unitChip}>{data.unit}</Text>}>Log today&apos;s progress</SectionLabel>
+              <View style={styles.counterRow}>
+                <Pressable accessibilityLabel="Decrease amount" accessibilityRole="button" style={styles.counterButton} onPress={() => setAmount((current) => Math.max(1, current - 1))}><Text style={styles.counterButtonText}>−</Text></Pressable>
+                <Text style={styles.counterValue}>{amount}</Text>
+                <Pressable accessibilityLabel="Increase amount" accessibilityRole="button" style={styles.counterButton} onPress={() => setAmount((current) => Math.min(1000, current + 1))}><Text style={styles.counterButtonText}>+</Text></Pressable>
+              </View>
+              <Text style={styles.helper}>You have logged {currentMember?.contribution ?? 0} {data.unit}. You can submit one combined update each {data.cadence === "weekly" ? "week" : "day"}.</Text>
+              <PrimaryButton color={colors.growth} label={`Log ${amount} ${data.unit}`} loading={logContribution.isPending} onPress={submitProgress} />
+            </SurfaceCard>
+          ) : null}
 
-      {data.status === "active" && !data.targetHit && currentMember?.loggedCurrentPeriod ? (
-        <SurfaceCard style={styles.loggedCard}>
-          <Text style={styles.loggedTitle}>Progress logged ✓</Text>
-          <Text style={styles.helper}>Your next {data.cadence === "weekly" ? "weekly" : "daily"} check-in opens in the next period.</Text>
-        </SurfaceCard>
-      ) : null}
+          {data.status === "active" && !data.targetHit && currentMember?.loggedCurrentPeriod ? (
+            <SurfaceCard style={styles.loggedCard}>
+              <Text style={styles.loggedTitle}>Progress logged ✓</Text>
+              <Text style={styles.helper}>Your next {data.cadence === "weekly" ? "weekly" : "daily"} check-in opens in the next period.</Text>
+            </SurfaceCard>
+          ) : null}
 
-      {data.status === "expired" ? (
-        <SurfaceCard style={styles.expiredCard}>
-          <Text style={styles.expiredTitle}>This goal ended</Text>
-          <Text style={styles.helper}>The target was not completed before the deadline. Every backed member pledge has been returned to its owner&apos;s Base Purse.</Text>
-        </SurfaceCard>
-      ) : null}
+          {data.status === "expired" ? (
+            <SurfaceCard style={styles.expiredCard}>
+              <Text style={styles.expiredTitle}>This goal ended</Text>
+              <Text style={styles.helper}>The target was not completed before the deadline. Every backed member pledge has been returned to its owner&apos;s Base Purse.</Text>
+            </SurfaceCard>
+          ) : null}
 
-      {data.targetHit && data.canAward && !data.awarded ? (
-        <PrimaryButton color={colors.gold} icon="trophy-outline" label="Choose winners" onPress={() => router.push({ pathname: "/(app)/group/[id]/winners", params: { id } })} />
-      ) : null}
-      {data.targetHit && !data.canAward && !data.awarded ? (
-        <SurfaceCard style={styles.waitingCard}><Text style={styles.waitingTitle}>Target reached</Text><Text style={styles.helper}>The group creator will announce the awards.</Text></SurfaceCard>
-      ) : null}
-      {data.awarded ? (
-        <PrimaryButton color={colors.gold} icon="trophy" label="View group results" onPress={() => router.push({ pathname: "/(app)/group/[id]/result", params: { id } })} />
-      ) : null}
+          {data.targetHit && data.canAward && !data.awarded ? (
+            <PrimaryButton color={colors.gold} icon="trophy-outline" label="Choose winners" onPress={() => router.push({ pathname: "/(app)/group/[id]/winners", params: { id } })} />
+          ) : null}
+          {data.targetHit && !data.canAward && !data.awarded ? (
+            <SurfaceCard style={styles.waitingCard}><Text style={styles.waitingTitle}>Target reached</Text><Text style={styles.helper}>The group creator will announce the awards.</Text></SurfaceCard>
+          ) : null}
+          {data.awarded ? (
+            <PrimaryButton color={colors.gold} icon="trophy" label="View group results" onPress={() => router.push({ pathname: "/(app)/group/[id]/result", params: { id } })} />
+          ) : null}
+        </>
+      ) : (
+        <>
+          <SectionLabel action={<Text style={styles.memberCount}>{data.members.length} MEMBERS</Text>}>Members & pledges</SectionLabel>
+          <SurfaceCard>
+            <View style={styles.avatarHeader}><GroupAvatars members={data.members} /></View>
+            {data.members.map((member, index) => (
+              <View key={`${member.initials}-${index}`} style={styles.memberRow}>
+                <View style={styles.memberAvatar}><Text style={styles.memberAvatarText}>{member.initials}</Text></View>
+                <View style={styles.memberCopy}>
+                  <Text style={styles.memberName}>{member.currentUser ? "You" : member.name}</Text>
+                  <Text style={styles.memberProgress}>{member.contribution} {data.unit} logged</Text>
+                </View>
+                <Text style={styles.memberPledge}>{formatRdm(member.pledgeAmount)} RDM</Text>
+              </View>
+            ))}
+            {data.status === "active" && !data.targetHit ? (
+              <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/(app)/group/[id]/invite", params: { id } })} style={styles.inviteRow}>
+                <View style={styles.inviteIcon}><MaterialCommunityIcons color={colors.plum} name="account-plus-outline" size={18} /></View>
+                <Text style={styles.inviteLabel}>Invite people</Text>
+                <MaterialCommunityIcons color={colors.inkSoft} name="chevron-right" size={20} />
+              </Pressable>
+            ) : null}
+          </SurfaceCard>
+        </>
+      )}
     </AppScreen>
   );
 }
@@ -142,13 +168,17 @@ const styles = StyleSheet.create({
   poolHero: { alignItems: "center", flexDirection: "row", gap: 11 },
   poolIcon: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 23, height: 46, justifyContent: "center", width: 46 },
   poolName: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 17 },
-  poolLabel: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.8 },
   progressCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
   metrics: { borderBottomColor: colors.line, borderBottomWidth: 1, borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingVertical: 11 },
   metricValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 14, textAlign: "center" },
   metricLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 8.5, marginTop: 3, textAlign: "center" },
   poolFooter: { flexDirection: "row", justifyContent: "space-between", width: "100%" },
   poolMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9 },
+  tabRow: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: radii.pill, borderWidth: 1, flexDirection: "row", padding: 4 },
+  tab: { alignItems: "center", borderRadius: radii.pill, flex: 1, paddingVertical: 9 },
+  tabActive: { backgroundColor: colors.plum },
+  tabLabel: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 12 },
+  tabLabelActive: { color: colors.backgroundDeep },
   descriptionCard: { alignItems: "center", flexDirection: "row", gap: 10 },
   description: { color: colors.ink, flex: 1, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
   memberCount: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 9 },
@@ -160,10 +190,15 @@ const styles = StyleSheet.create({
   memberName: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12 },
   memberProgress: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9, marginTop: 2 },
   memberPledge: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 11 },
+  inviteRow: { alignItems: "center", flexDirection: "row", gap: 10, minHeight: 52 },
+  inviteIcon: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 15, height: 30, justifyContent: "center", width: 30 },
+  inviteLabel: { color: colors.plum, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 12 },
   logCard: { gap: 12 },
-  logRow: { alignItems: "center", borderColor: colors.line, borderRadius: radii.medium, borderWidth: 1, flexDirection: "row" },
-  progressInput: { color: colors.ink, flex: 1, fontFamily: fonts.monoBold, fontSize: 24, minHeight: 54, paddingHorizontal: 14 },
-  unitLabel: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 12, paddingRight: 14 },
+  unitChip: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 9, letterSpacing: 0.6, textTransform: "uppercase" },
+  counterRow: { alignItems: "center", flexDirection: "row", gap: 20, justifyContent: "center" },
+  counterButton: { alignItems: "center", backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 12, borderWidth: 1, height: 44, justifyContent: "center", width: 44 },
+  counterButtonText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 22 },
+  counterValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 28, minWidth: 60, textAlign: "center" },
   helper: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   waitingCard: { alignItems: "center", backgroundColor: colors.goldTint, gap: 6 },
   waitingTitle: { color: colors.gold, fontFamily: fonts.display, fontSize: 17 },

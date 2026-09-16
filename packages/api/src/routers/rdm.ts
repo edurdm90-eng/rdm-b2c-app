@@ -3175,7 +3175,7 @@ export const rdmRouter = router({
         category: z.enum(groupGoalCategories),
         activityId: z.string().trim().min(1).max(80),
         name: z.string().trim().min(3).max(80),
-        description: z.string().trim().min(3).max(240),
+        description: z.string().trim().max(240),
         target: z.number().positive().max(100000),
         unit: z.string().trim().min(1).max(20),
         durationDays: z.number().int().min(1).max(365),

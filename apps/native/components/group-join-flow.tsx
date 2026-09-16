@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { router, useIsFocused } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import { GroupAvatars } from "@/components/group-goal-ui";
@@ -12,19 +12,14 @@ import {
   SectionLabel,
   SurfaceCard,
 } from "@/components/rdm-ui";
+import { formatDayRange } from "@/lib/date";
+import { groupRewardStructureDescription, groupRewardStructureTitle } from "@/lib/group-goals";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
-export function GroupJoinFlow({
-  initialCode,
-  onCreate,
-}: {
-  initialCode?: string;
-  onCreate: () => void;
-}) {
+export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
   const focused = useIsFocused();
   const [inviteCode, setInviteCode] = useState(() => String(initialCode ?? "").slice(0, 6).toUpperCase());
-  const [joinPledge, setJoinPledge] = useState("");
   const [error, setError] = useState<string | null>(null);
   const normalizedInviteCode = inviteCode.trim().toUpperCase();
   const preview = useQuery({
@@ -42,16 +37,13 @@ export function GroupJoinFlow({
     onError: (mutationError) => setError(mutationError.message),
   }));
   const joinMinimum = preview.data?.group.minimumPledge ?? 0;
-  const numericJoinPledge = Number(joinPledge);
-  const joinHasFunds = Number.isInteger(numericJoinPledge)
-    && numericJoinPledge >= joinMinimum
-    && numericJoinPledge <= (preview.data?.profile.wallet.base ?? 0);
-
-  useEffect(() => {
-    if (preview.data && !joinPledge) {
-      setJoinPledge(String(preview.data.group.minimumPledge));
-    }
-  }, [joinPledge, preview.data]);
+  const baseBalance = preview.data?.profile.wallet.base ?? 0;
+  const baseAfterJoin = baseBalance - joinMinimum;
+  const joinHasFunds = joinMinimum > 0 ? baseBalance >= joinMinimum : baseBalance >= 0;
+  // serializeGroup doesn't expose creatorId; the creator is always inserted first and
+  // only ever appended to, so members[0] is reliably the organiser.
+  const organiserName = preview.data?.group.members[0]?.name ?? "the organiser";
+  const isValidCode = !!preview.data && !preview.error;
 
   function submitJoin() {
     if (!preview.data || preview.error) {
@@ -63,13 +55,11 @@ export function GroupJoinFlow({
       return;
     }
     if (!joinHasFunds) {
-      setError(numericJoinPledge < joinMinimum
-        ? `This group requires at least ${formatRdm(joinMinimum)} RDM.`
-        : "Your Base Purse does not have enough RDM for this pledge.");
+      setError("Your Base Purse does not have enough RDM for this pledge.");
       return;
     }
     setError(null);
-    joinGroup.mutate({ inviteCode: normalizedInviteCode, pledgeAmount: numericJoinPledge });
+    joinGroup.mutate({ inviteCode: normalizedInviteCode, pledgeAmount: joinMinimum });
   }
 
   return (
@@ -79,23 +69,26 @@ export function GroupJoinFlow({
         onBack={() => router.dismissTo("/(app)/(tabs)/groups")}
         title="Join group"
       />
-      <View style={styles.intro}><Text style={styles.introTitle}>Enter invite code</Text><Text style={styles.introBody}>Ask a friend in the group for the code.</Text></View>
-      <TextInput
-        accessibilityLabel="Group invite code"
-        autoCapitalize="characters"
-        autoCorrect={false}
-        maxLength={6}
-        onChangeText={(value) => {
-          setInviteCode(value.toUpperCase());
-          setJoinPledge("");
-          setError(null);
-        }}
-        placeholder="FAM7QX"
-        placeholderTextColor={colors.inkSoft}
-        style={[styles.input, styles.codeInput]}
-        value={inviteCode}
-      />
+      <View style={styles.intro}><Text style={styles.introTitle}>Enter invite code</Text><Text style={styles.introBody}>Ask your friend for the code.</Text></View>
+      <View style={styles.codeInputWrap}>
+        <TextInput
+          accessibilityLabel="Group invite code"
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={6}
+          onChangeText={(value) => {
+            setInviteCode(value.toUpperCase());
+            setError(null);
+          }}
+          placeholder="RDM7K2"
+          placeholderTextColor={colors.inkSoft}
+          style={[styles.input, styles.codeInput, isValidCode && styles.codeInputValid]}
+          value={inviteCode}
+        />
+        {isValidCode ? <MaterialCommunityIcons color={colors.growth} name="check-circle" size={22} style={styles.codeCheck} /> : null}
+      </View>
       {preview.isFetching ? <Text style={styles.helper}>Checking invite…</Text> : null}
+      {isValidCode ? <Text style={styles.validText}>Valid group code.</Text> : null}
       {preview.error ? (
         <View>
           <Text style={styles.error}>{preview.error.message}</Text>
@@ -104,20 +97,46 @@ export function GroupJoinFlow({
       ) : null}
       {preview.data ? (
         <>
+          <SectionLabel>Group preview</SectionLabel>
           <SurfaceCard style={styles.previewCard}>
-            <View style={styles.previewTop}><View style={styles.runningIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={25} /></View><View style={styles.previewCopy}><Text style={styles.previewTitle}>{preview.data.group.name}</Text><Text style={styles.description}>{preview.data.group.description}</Text></View></View>
-            <View style={styles.previewMetrics}><Text style={styles.previewMeta}>{preview.data.group.durationDays} days</Text><Text style={styles.previewMeta}>{preview.data.group.members.length} member{preview.data.group.members.length === 1 ? "" : "s"}</Text><Text style={styles.previewMeta}>{formatRdm(preview.data.group.rewardPool)} RDM pool</Text></View>
+            <View style={styles.previewTop}>
+              <View style={styles.runningIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={25} /></View>
+              <View style={styles.previewCopy}>
+                <Text style={styles.previewTitle}>{preview.data.group.name}</Text>
+                <Text style={styles.description}>Organised by {organiserName}</Text>
+              </View>
+              <View style={styles.categoryChip}><Text style={styles.categoryChipLabel}>{preview.data.group.category}</Text></View>
+            </View>
+            <View style={styles.previewMetrics}>
+              <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="calendar-range" size={16} /><Text style={styles.previewMeta}>{formatDayRange(preview.data.group.startDayKey, preview.data.group.endDayKey)}</Text></View>
+              <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="flag-checkered" size={16} /><Text style={styles.previewMeta}>{preview.data.group.target} {preview.data.group.unit}</Text></View>
+              <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="account-group-outline" size={16} /><Text style={styles.previewMeta}>{preview.data.group.durationDays} days</Text></View>
+            </View>
             <GroupAvatars members={preview.data.group.members} />
           </SurfaceCard>
           {!preview.data.alreadyJoined ? (
             <>
-              <SectionLabel>Your pledge to join</SectionLabel>
-              <TextInput accessibilityLabel="RDM pledge to join" keyboardType="number-pad" onChangeText={(value) => setJoinPledge(value.replace(/\D/g, ""))} style={[styles.input, styles.joinPledge]} value={joinPledge} />
-              <Text style={styles.helper}>Minimum {formatRdm(joinMinimum)} RDM · deducted from your Base Purse when you join.</Text>
-              <View style={[styles.balanceCard, joinHasFunds ? styles.balanceGood : styles.balanceLow]}>
-                <View><Text style={styles.balanceLabel}>Your Base Purse</Text><Text style={styles.balanceValue}>{formatRdm(preview.data.profile.wallet.base)} RDM</Text></View>
-                <Text style={[styles.balanceState, !joinHasFunds && styles.balanceStateLow]}>{joinHasFunds ? "✓ Sufficient" : "Needs RDM"}</Text>
-              </View>
+              <SectionLabel>Your commitment</SectionLabel>
+              <SurfaceCard style={styles.commitmentCard}>
+                <View style={styles.commitmentRow}>
+                  <MaterialCommunityIcons color={colors.gold} name="hand-coin-outline" size={20} />
+                  <Text style={styles.commitmentTotal}>{formatRdm(joinMinimum)} RDM total</Text>
+                </View>
+                <Text style={styles.commitmentHint}>{formatRdm(preview.data.group.pledgePerUnit)} RDM per {preview.data.group.pledgeBasis === "per_day" ? "day" : "activity"} × {preview.data.group.durationDays} days</Text>
+              </SurfaceCard>
+              <SectionLabel>Reward rule</SectionLabel>
+              <SurfaceCard style={styles.rewardRow}>
+                <MaterialCommunityIcons color={colors.gold} name="trophy-outline" size={22} />
+                <View style={styles.activityCopy}>
+                  <Text style={styles.rewardTitle}>{groupRewardStructureTitle(preview.data.group.rewardStructure)}</Text>
+                  <Text style={styles.description}>{groupRewardStructureDescription(preview.data.group.rewardStructure)}</Text>
+                </View>
+              </SurfaceCard>
+              <SurfaceCard style={styles.balanceCard}>
+                <View style={styles.balanceBreakdownRow}><Text style={styles.balanceLabel}>Base purse available</Text><Text style={styles.balanceValue}>{formatRdm(baseBalance)} RDM</Text></View>
+                <View style={styles.balanceBreakdownRow}><Text style={styles.balanceLabel}>After joining</Text><Text style={[styles.balanceValue, !joinHasFunds && styles.balanceValueLow]}>{formatRdm(Math.max(0, baseAfterJoin))} RDM</Text></View>
+              </SurfaceCard>
+              <View style={styles.infoRow}><MaterialCommunityIcons color={colors.inkSoft} name="information-outline" size={15} /><Text style={styles.helper}>Your pledge will be deducted from your own Base Purse.</Text></View>
             </>
           ) : null}
         </>
@@ -126,14 +145,14 @@ export function GroupJoinFlow({
       <PrimaryButton
         color={colors.growth}
         disabled={!preview.data || !!preview.error || (!preview.data.alreadyJoined && !joinHasFunds)}
-        label={preview.data?.alreadyJoined ? "Open group dashboard" : `Pledge ${Number.isFinite(numericJoinPledge) ? formatRdm(numericJoinPledge) : 0} RDM & join`}
+        label={preview.data?.alreadyJoined ? "Open group dashboard" : `Pledge ${formatRdm(joinMinimum)} RDM & join`}
         loading={joinGroup.isPending}
         onPress={submitJoin}
       />
       {!joinHasFunds && preview.data && !preview.data.alreadyJoined ? (
         <PrimaryButton color={colors.gold} label="View Wallet" onPress={() => router.push("/(app)/(tabs)/wallet")} variant="outline" />
       ) : null}
-      <PrimaryButton color={colors.plum} label="Create a group instead" onPress={onCreate} variant="outline" />
+      <PrimaryButton color={colors.inkSoft} label="Cancel" onPress={() => router.dismissTo("/(app)/(tabs)/groups")} variant="outline" />
     </AppScreen>
   );
 }
@@ -142,9 +161,13 @@ const styles = StyleSheet.create({
   intro: { gap: 4 },
   introTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 26, letterSpacing: -0.5, lineHeight: 32 },
   introBody: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14 },
+  codeInputWrap: { justifyContent: "center" },
   input: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 10, borderWidth: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 14, minHeight: 52, paddingHorizontal: 14 },
-  codeInput: { borderColor: colors.growth, fontFamily: fonts.monoBold, fontSize: 25, letterSpacing: 6, textAlign: "center", textTransform: "uppercase" },
+  codeInput: { borderColor: colors.growth, fontFamily: fonts.monoBold, fontSize: 25, letterSpacing: 6, paddingRight: 44, textAlign: "center", textTransform: "uppercase" },
+  codeInputValid: { borderColor: colors.growth, borderWidth: 1.5 },
+  codeCheck: { position: "absolute", right: 14 },
   helper: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
+  validText: { color: colors.growth, fontFamily: fonts.bodyMedium, fontSize: 12, textAlign: "center" },
   error: { color: colors.coral, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
   previewCard: { gap: 12 },
   previewTop: { alignItems: "center", flexDirection: "row", gap: 11 },
@@ -152,14 +175,22 @@ const styles = StyleSheet.create({
   previewCopy: { flex: 1 },
   previewTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 16 },
   description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 16, marginTop: 3 },
+  categoryChip: { backgroundColor: colors.plumTint, borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 4 },
+  categoryChipLabel: { color: colors.plum, fontFamily: fonts.bodyMedium, fontSize: 10 },
   previewMetrics: { borderBottomColor: colors.line, borderBottomWidth: 1, borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingVertical: 9 },
-  previewMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9 },
-  joinPledge: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 24, textAlign: "center" },
-  balanceCard: { alignItems: "center", borderRadius: radii.medium, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", padding: 14 },
-  balanceGood: { backgroundColor: colors.growthTint, borderColor: "rgba(63,203,139,0.35)" },
-  balanceLow: { backgroundColor: colors.coralTint, borderColor: "rgba(226,112,90,0.35)" },
-  balanceLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10 },
-  balanceValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 16, marginTop: 2 },
-  balanceState: { color: colors.growth, fontFamily: fonts.bodyBold, fontSize: 11 },
-  balanceStateLow: { color: colors.coral },
+  previewMetric: { alignItems: "center", flexDirection: "row", gap: 5 },
+  previewMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9.5 },
+  commitmentCard: { alignItems: "center", gap: 6 },
+  commitmentRow: { alignItems: "center", flexDirection: "row", gap: 8 },
+  commitmentTotal: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 22 },
+  commitmentHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
+  rewardRow: { alignItems: "center", flexDirection: "row", gap: 10 },
+  activityCopy: { flex: 1 },
+  rewardTitle: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 13 },
+  balanceCard: { gap: 6 },
+  balanceBreakdownRow: { flexDirection: "row", justifyContent: "space-between" },
+  balanceLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11 },
+  balanceValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 13 },
+  balanceValueLow: { color: colors.coral },
+  infoRow: { alignItems: "flex-start", flexDirection: "row", gap: 8 },
 });
