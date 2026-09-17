@@ -52,18 +52,18 @@ export function FocusedButton({ label, onPress, disabled = false, loading = fals
 }
 
 export const focusedStyles = StyleSheet.create({
-  title: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 30, lineHeight: 38 },
-  body: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
-  sectionTitle: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 17, lineHeight: 24 },
-  link: { color: focusedColors.link, fontFamily: fonts.bodyMedium, fontSize: 14 },
+  title: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33 },
+  body: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 13.5, lineHeight: 20 },
+  sectionTitle: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 15.5, lineHeight: 22 },
+  link: { color: focusedColors.link, fontFamily: fonts.bodyMedium, fontSize: 13.5 },
 });
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: focusedColors.background },
   viewport: { flex: 1, width: "100%", maxWidth: 480, alignSelf: "center" },
-  content: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 28, paddingBottom: 24 },
-  button: { minHeight: 54, borderRadius: 10, backgroundColor: focusedColors.green, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
-  buttonLabel: { color: focusedColors.onGreen, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 23, textAlign: "center" },
+  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18 },
+  button: { minHeight: 44, borderRadius: 10, backgroundColor: focusedColors.green, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  buttonLabel: { color: focusedColors.onGreen, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 19, textAlign: "center" },
   disabled: { opacity: 0.48 },
   pressed: { opacity: 0.8 },
 });

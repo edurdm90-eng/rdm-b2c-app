@@ -178,7 +178,7 @@ export default function NewGroupScreen() {
                 onPress={() => selectCategory(item.id)}
                 style={[styles.categoryCard, category === item.id && styles.selectedCard]}
               >
-                <View style={styles.categoryIcon}><MaterialCommunityIcons color={category === item.id ? colors.plum : colors.ink} name={item.icon as never} size={29} /></View>
+                <View style={styles.categoryIcon}><MaterialCommunityIcons color={category === item.id ? colors.plum : colors.ink} name={item.icon as never} size={22} /></View>
                 <View style={styles.activityCopy}>
                   <Text style={styles.categoryTitle}>{item.id}</Text>
                   <Text style={styles.categoryDescription}>{item.description}</Text>
@@ -211,7 +211,7 @@ export default function NewGroupScreen() {
               onPress={() => selectActivity(activity)}
               style={[styles.activityCard, activityId === activity.id && styles.selectedCard]}
             >
-              <View style={styles.activityIcon}><MaterialCommunityIcons color={activityId === activity.id ? colors.plum : colors.ink} name={activity.icon as never} size={26} /></View>
+              <View style={styles.activityIcon}><MaterialCommunityIcons color={activityId === activity.id ? colors.plum : colors.ink} name={activity.icon as never} size={21} /></View>
               <View style={styles.activityCopy}>
                 <Text style={styles.activityTitle}>{activity.title}</Text>
                 <Text style={styles.activityDescription}>{activity.description}</Text>
@@ -233,7 +233,7 @@ export default function NewGroupScreen() {
             }}
             style={[styles.activityCard, activityId === "custom" && styles.selectedCard]}
           >
-            <View style={styles.activityIcon}><MaterialCommunityIcons color={activityId === "custom" ? colors.plum : colors.ink} name="pencil-outline" size={26} /></View>
+            <View style={styles.activityIcon}><MaterialCommunityIcons color={activityId === "custom" ? colors.plum : colors.ink} name="pencil-outline" size={21} /></View>
             <View style={styles.activityCopy}>
               <Text style={styles.activityTitle}>Create a custom activity</Text>
               <Text style={styles.activityDescription}>Define something meaningful for your group.</Text>
@@ -377,17 +377,17 @@ export default function NewGroupScreen() {
 
 const styles = StyleSheet.create({
   modeRow: { flexDirection: "row", gap: 8 },
-  intro: { gap: 4, marginTop: 2 },
-  introTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 27, letterSpacing: -0.6, lineHeight: 33 },
-  introBody: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
-  categoryGrid: { gap: 10 },
-  categoryCard: { alignItems: "center", backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: radii.medium, borderWidth: 1, flexDirection: "row", gap: 13, minHeight: 94, padding: 14 },
+  intro: { gap: 3, marginTop: 2 },
+  introTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 22, letterSpacing: -0.4, lineHeight: 28 },
+  introBody: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  categoryGrid: { gap: 9 },
+  categoryCard: { alignItems: "center", backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: radii.medium, borderWidth: 1, flexDirection: "row", gap: 12, minHeight: 74, padding: 12 },
   selectedCard: { borderColor: colors.plum, backgroundColor: "rgba(179, 154, 232, 0.09)" },
-  categoryIcon: { alignItems: "center", backgroundColor: colors.background, borderRadius: 22, height: 45, justifyContent: "center", width: 45 },
-  categoryTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 17 },
-  categoryDescription: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 3 },
-  activityCard: { alignItems: "center", backgroundColor: colors.panelRaised, flexDirection: "row", gap: 12 },
-  activityIcon: { alignItems: "center", backgroundColor: colors.background, borderRadius: 12, height: 48, justifyContent: "center", width: 48 },
+  categoryIcon: { alignItems: "center", backgroundColor: colors.background, borderRadius: 19, height: 38, justifyContent: "center", width: 38 },
+  categoryTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 15 },
+  categoryDescription: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11.5, marginTop: 2 },
+  activityCard: { alignItems: "center", backgroundColor: colors.panelRaised, flexDirection: "row", gap: 11 },
+  activityIcon: { alignItems: "center", backgroundColor: colors.background, borderRadius: 11, height: 40, justifyContent: "center", width: 40 },
   activityCopy: { flex: 1 },
   activityTitle: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 13 },
   activityDescription: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 16, marginTop: 3 },

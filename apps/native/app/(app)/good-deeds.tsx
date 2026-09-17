@@ -72,7 +72,7 @@ export default function GoodDeedsScreen() {
         <FocusedButton disabled={selectedDeeds.length === 0 || dayChanged} label="Submit today’s good deeds" loading={busy} onPress={submit} />
       </View>}>
         <View style={styles.hero}>
-          <MaterialCommunityIcons name="white-balance-sunny" color={palette.gold} size={63} />
+          <MaterialCommunityIcons name="white-balance-sunny" color={palette.gold} size={46} />
           <View style={styles.heroCopy}><Text accessibilityRole="header" style={styles.title}>A little kindness goes a long way.</Text><Text style={styles.date}>Today · {formatTreeDay(data.dayKey, true)}</Text></View>
         </View>
         <Text style={styles.intro}>These actions reward kindness in your community. Each deed can be recorded once per day.</Text>
@@ -97,19 +97,19 @@ export default function GoodDeedsScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { flexDirection: "row", alignItems: "center", gap: 18, paddingBottom: 7 },
-  heroCopy: { flex: 1, gap: 8 },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 23, lineHeight: 30 },
+  hero: { flexDirection: "row", alignItems: "center", gap: 15, paddingBottom: 6 },
+  heroCopy: { flex: 1, gap: 6 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 20, lineHeight: 26 },
   date: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   intro: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20 },
   deeds: { gap: 7 },
-  deed: { minHeight: 61, paddingHorizontal: 12, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel },
-  deedCopy: { flex: 1, minWidth: 0, gap: 4 },
+  deed: { minHeight: 56, paddingHorizontal: 12, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 14, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel },
+  deedCopy: { flex: 1, minWidth: 0, gap: 3 },
   deedTitle: { color: palette.text, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   deedReward: { color: palette.gold, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
   completed: { color: palette.green, fontFamily: fonts.body, fontSize: 10, lineHeight: 15 },
-  footer: { gap: 16 },
-  selectionSummary: { minHeight: 54, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel },
+  footer: { gap: 13 },
+  selectionSummary: { minHeight: 48, paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel },
   selectedCount: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
   selectedReward: { color: palette.gold, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22 },
   savedSummary: { color: palette.green, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },

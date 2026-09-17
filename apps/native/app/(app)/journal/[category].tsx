@@ -103,7 +103,7 @@ function JournalForm({ detail, onRefresh }: { detail: JournalDetail; onRefresh: 
         <FocusedButton disabled={saved || dayChanged} label={saved ? "Saved for this day" : "Save entry"} loading={busy} onPress={submit} />
         {history}
       </View>}>
-        <View style={styles.categoryRow}><View style={styles.categoryIcon}><MaterialCommunityIcons name={category.id === "life" ? "star" : category.icon as IconName} size={28} color={palette.link} /></View><Text style={styles.categoryLabel}>{category.journalSubtitle}</Text></View>
+        <View style={styles.categoryRow}><View style={styles.categoryIcon}><MaterialCommunityIcons name={category.id === "life" ? "star" : category.icon as IconName} size={22} color={palette.link} /></View><Text style={styles.categoryLabel}>{category.journalSubtitle}</Text></View>
         <View style={styles.heading}><Text accessibilityRole="header" style={styles.question}>{category.prompt}</Text><Text style={styles.date}>{dateLabel(formDayKey)}</Text></View>
         {dayChanged ? <View style={styles.dayNotice}><Text style={styles.dayNoticeText}>The care day has changed to {dateLabel(detail.dayKey)}. Your text is kept; review it before saving with today’s date.</Text><Pressable accessibilityRole="button" disabled={busy} onPress={useCurrentDay} style={styles.useDayButton}><Text style={styles.link}>Use today’s date</Text></Pressable></View> : null}
         <View style={[styles.journalBox, inputFocused && styles.journalFocused]}>
@@ -130,15 +130,15 @@ export default function JournalEntryScreen() {
 }
 
 const styles = StyleSheet.create({
-  categoryRow: { flexDirection: "row", alignItems: "center", gap: 14 },
-  categoryIcon: { width: 48, height: 48, borderRadius: 20, backgroundColor: "#1C3650", alignItems: "center", justifyContent: "center" },
+  categoryRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  categoryIcon: { width: 40, height: 40, borderRadius: 16, backgroundColor: "#1C3650", alignItems: "center", justifyContent: "center" },
   categoryLabel: { flex: 1, color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 19 },
-  heading: { gap: 14 },
-  question: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 27, lineHeight: 35 },
-  date: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
-  journalBox: { minHeight: 310, padding: 16, borderWidth: 1, borderColor: palette.line, borderRadius: 10, backgroundColor: palette.panel, gap: 12 },
+  heading: { gap: 11 },
+  question: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 28 },
+  date: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  journalBox: { minHeight: 260, padding: 14, borderWidth: 1, borderColor: palette.line, borderRadius: 10, backgroundColor: palette.panel, gap: 10 },
   journalFocused: { borderColor: palette.link },
-  journalInput: { minHeight: 257, color: palette.text, fontFamily: fonts.body, fontSize: 16, lineHeight: 25, padding: 0 },
+  journalInput: { minHeight: 210, color: palette.text, fontFamily: fonts.body, fontSize: 15, lineHeight: 23, padding: 0 },
   webInput: { outlineStyle: "solid", outlineWidth: 0, outlineColor: "transparent" },
   savedInput: { color: palette.muted },
   characterCount: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, textAlign: "right" },

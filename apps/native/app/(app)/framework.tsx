@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   templateSubtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
   check: { width: 24, height: 24, borderRadius: 12, backgroundColor: focusedColors.green, alignItems: "center", justifyContent: "center" },
   actions: { gap: 10, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20, backgroundColor: focusedColors.background },
-  customButton: { minHeight: 46, borderWidth: 1, borderColor: focusedColors.line, borderRadius: 10, backgroundColor: focusedColors.panel, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
+  customButton: { minHeight: 44, borderWidth: 1, borderColor: focusedColors.line, borderRadius: 10, backgroundColor: focusedColors.panel, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
   customLabel: { color: focusedColors.muted, fontFamily: fonts.bodyMedium, fontSize: 13.5, lineHeight: 19 },
   status: { alignItems: "center", gap: 14, paddingVertical: 24 },
   statusText: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },

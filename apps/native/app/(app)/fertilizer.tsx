@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   viewButton: { borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel },
   cardButtonLabel: { color: palette.onGreen, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20, textAlign: "center" },
   viewButtonLabel: { color: palette.text },
-  addButton: { minHeight: 54, padding: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line, borderRadius: 9 },
+  addButton: { minHeight: 48, padding: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 11, backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line, borderRadius: 9 },
   addLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 15, lineHeight: 22 },
   errorPanel: { gap: 4 },
   loading: { alignItems: "center", paddingVertical: 28, gap: 12 },

@@ -57,12 +57,12 @@ function NoHabitsYet() {
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={styles.title}>Habits</Text>
         <Pressable accessibilityLabel="Create a habit" accessibilityRole="button" onPress={() => router.push("/(app)/framework")} style={({ pressed }) => [styles.plusButton, pressed && styles.pressed]}>
-          <MaterialCommunityIcons color={palette.text} name="plus" size={30} />
+          <MaterialCommunityIcons color={palette.text} name="plus" size={24} />
         </Pressable>
       </View>
       <View style={styles.emptyState}>
         <LinearGradient colors={["rgba(56, 214, 147, 0.2)", "rgba(56, 214, 147, 0.03)"]} style={styles.emptyIcon}>
-          <MaterialCommunityIcons color={palette.green} name="sprout" size={56} />
+          <MaterialCommunityIcons color={palette.green} name="sprout" size={44} />
         </LinearGradient>
         <Text accessibilityRole="header" style={styles.emptyTitle}>Your first small step starts here.</Text>
         <Text style={styles.emptySubtitle}>Choose one habit you can return to each day.</Text>
@@ -131,7 +131,7 @@ export default function HabitsScreen() {
         onPress={() => canOpenToday ? openHabit(habit) : setHistorySelection({ habitId: habit.id, dayKey: rowDay })}
         style={({ pressed }) => [styles.habitRow, pressed && styles.pressed]}
       >
-        <MaterialCommunityIcons color={habitColor(habit)} name={habit.icon as IconName} size={31} />
+        <MaterialCommunityIcons color={habitColor(habit)} name={habit.icon as IconName} size={26} />
         <View style={styles.habitCopy}>
           <Text style={styles.habitTitle}>{habit.title}</Text>
           <Text style={styles.habitMeta}>{habit.rdmPledge ? `${formatRdm(habit.rdmPledge.perDay)} RDM${habit.rdmPledge.weekdays.length < 7 ? "/scheduled day" : " per day"} · ` : ""}{habit.streak} day streak</Text>
@@ -146,7 +146,7 @@ export default function HabitsScreen() {
             })}
           </View>
           {!all && state === "completed"
-            ? <MaterialCommunityIcons color={palette.green} name="check-circle" size={27} />
+            ? <MaterialCommunityIcons color={palette.green} name="check-circle" size={23} />
             : <MaterialCommunityIcons color={palette.muted} name="chevron-right" size={21} />}
         </View>
       </Pressable>
@@ -168,7 +168,7 @@ export default function HabitsScreen() {
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={styles.title}>Habits</Text>
         <Pressable accessibilityLabel="Create a habit" accessibilityRole="button" onPress={() => router.push("/(app)/framework")} style={({ pressed }) => [styles.plusButton, pressed && styles.pressed]}>
-          <MaterialCommunityIcons color={palette.text} name="plus" size={30} />
+          <MaterialCommunityIcons color={palette.text} name="plus" size={24} />
         </Pressable>
       </View>
 
@@ -209,7 +209,7 @@ export default function HabitsScreen() {
 
       <View style={styles.footer}>
         <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/framework")} style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}>
-          <MaterialCommunityIcons color={palette.muted} name="plus-circle-outline" size={23} />
+          <MaterialCommunityIcons color={palette.muted} name="plus-circle-outline" size={20} />
           <Text style={styles.createLabel}>Create a habit</Text>
         </Pressable>
       </View>
@@ -240,38 +240,38 @@ export default function HabitsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16 },
-  emptyScreenContent: { flex: 1, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16 },
-  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 8 },
-  emptyIcon: { width: 132, height: 132, borderRadius: 34, borderWidth: 1, borderColor: "rgba(56, 214, 147, 0.28)", alignItems: "center", justifyContent: "center" },
-  emptyTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33, textAlign: "center", marginTop: 6 },
-  emptySubtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, textAlign: "center", maxWidth: 270 },
-  emptyActions: { gap: 12, paddingTop: 12 },
-  emptySecondary: { minHeight: 54, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, alignItems: "center", justifyContent: "center" },
-  emptySecondaryLabel: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 23 },
-  heading: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 40 },
-  plusButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  toggle: { minHeight: 44, flexDirection: "row", borderWidth: 1, borderColor: palette.line, borderRadius: 11, padding: 3 },
-  toggleOption: { flex: 1, minHeight: 38, justifyContent: "center", alignItems: "center", borderRadius: 8 },
+  content: { paddingTop: 16, paddingHorizontal: 20, paddingBottom: 14 },
+  emptyScreenContent: { flex: 1, paddingTop: 16, paddingHorizontal: 20, paddingBottom: 14 },
+  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 8 },
+  emptyIcon: { width: 104, height: 104, borderRadius: 28, borderWidth: 1, borderColor: "rgba(56, 214, 147, 0.28)", alignItems: "center", justifyContent: "center" },
+  emptyTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 28, textAlign: "center", marginTop: 5 },
+  emptySubtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, textAlign: "center", maxWidth: 260 },
+  emptyActions: { gap: 10, paddingTop: 10 },
+  emptySecondary: { minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, alignItems: "center", justifyContent: "center" },
+  emptySecondaryLabel: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 19 },
+  heading: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33 },
+  plusButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  toggle: { minHeight: 40, flexDirection: "row", borderWidth: 1, borderColor: palette.line, borderRadius: 11, padding: 3 },
+  toggleOption: { flex: 1, minHeight: 34, justifyContent: "center", alignItems: "center", borderRadius: 8 },
   toggleActive: { backgroundColor: "#273642" },
-  toggleLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 14 },
+  toggleLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 13 },
   toggleLabelActive: { color: palette.text, fontFamily: fonts.bodyBold },
-  week: { flexDirection: "row", paddingTop: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: palette.line },
-  day: { flex: 1, minHeight: 58, alignItems: "center", gap: 3 },
+  week: { flexDirection: "row", paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: palette.line },
+  day: { flex: 1, minHeight: 50, alignItems: "center", gap: 3 },
   weekday: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   todayLabel: { color: palette.green, fontFamily: fonts.bodyMedium },
-  dayNumber: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "transparent" },
+  dayNumber: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "transparent" },
   selectedDay: { backgroundColor: palette.green },
   todayOutline: { borderColor: palette.green },
-  dayNumberLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 17 },
+  dayNumberLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 15 },
   selectedDayLabel: { color: palette.onGreen, fontFamily: fonts.bodyBold },
-  calendarNotice: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, marginTop: 12 },
+  calendarNotice: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, marginTop: 10 },
   allSections: { paddingTop: 2 },
-  section: { marginTop: 20, borderBottomWidth: 1, borderBottomColor: palette.line },
-  sectionTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 26, paddingBottom: 8 },
-  habitRow: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 12, borderTopWidth: 1, borderTopColor: palette.line, paddingVertical: 13 },
-  habitCopy: { flex: 1, minWidth: 0, gap: 4 },
+  section: { marginTop: 16, borderBottomWidth: 1, borderBottomColor: palette.line },
+  sectionTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22, paddingBottom: 7 },
+  habitRow: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 11, borderTopWidth: 1, borderTopColor: palette.line, paddingVertical: 11 },
+  habitCopy: { flex: 1, minWidth: 0, gap: 3 },
   habitTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20 },
   habitMeta: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16 },
   status: { color: palette.link, fontFamily: fonts.body, fontSize: 10, lineHeight: 15 },
@@ -282,10 +282,10 @@ const styles = StyleSheet.create({
   completedDot: { backgroundColor: palette.green },
   missedDot: { backgroundColor: palette.coral },
   restDot: { backgroundColor: "transparent", borderWidth: 1, borderColor: palette.line },
-  emptyCopy: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 21, borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 17, paddingBottom: 12 },
-  footer: { marginTop: "auto", paddingTop: 28 },
-  createButton: { minHeight: 56, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line, borderRadius: 9 },
-  createLabel: { color: palette.muted, fontFamily: fonts.bodyMedium, fontSize: 14 },
+  emptyCopy: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 21, borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 14, paddingBottom: 10 },
+  footer: { marginTop: "auto", paddingTop: 20 },
+  createButton: { minHeight: 44, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line, borderRadius: 9 },
+  createLabel: { color: palette.muted, fontFamily: fonts.bodyMedium, fontSize: 13 },
   pressed: { opacity: 0.75 },
   dialogOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center", padding: 20 },
   dialog: { backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line, borderRadius: 16, width: "100%", maxWidth: 400, maxHeight: "80%", padding: 20, gap: 16 },

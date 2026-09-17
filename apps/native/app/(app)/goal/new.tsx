@@ -245,9 +245,9 @@ export default function NewGoalScreen() {
 const styles = StyleSheet.create({
   screen: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 },
   flex: { flex: 1 },
-  header: { minHeight: 62, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 15, paddingTop: 6, paddingBottom: 8 },
-  back: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 31 },
+  header: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 8 },
+  back: { minWidth: 40, minHeight: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 20, lineHeight: 26 },
   content: { paddingHorizontal: 20, paddingTop: 5, paddingBottom: 14, gap: 11 },
   field: { gap: 6 },
   label: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19 },

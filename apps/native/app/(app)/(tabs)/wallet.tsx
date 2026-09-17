@@ -51,7 +51,7 @@ export default function WalletScreen() {
         <Text style={styles.balanceLabel}>Total RDM</Text>
         <View style={styles.totalBalance}>
           <Text style={styles.balance}>{formatRdm(data.wallet.balance)}</Text>
-          <RdmLogo width={76} height={37} />
+          <RdmLogo width={62} height={30} />
         </View>
         <View accessibilityLabel={purses.map((purse) => `${purse.title}: ${formatRdm(data.wallet[purse.id])} RDM`).join(", ")} style={styles.purseMeter}>
           {purses.filter((purse) => data.wallet[purse.id] > 0).map((purse) => <View key={purse.id} style={[styles.purseSegment, { backgroundColor: purse.color, flex: purseTotal > 0 ? data.wallet[purse.id] / purseTotal : 0 }]} />)}
@@ -89,7 +89,7 @@ export default function WalletScreen() {
             const directionLabel = transaction.purse && transaction.direction ? `${incoming ? "to" : "from"} ${purseNames[transaction.purse]}` : "RDM activity";
             return (
               <View key={transaction.id} style={styles.transactionRow}>
-                <MaterialCommunityIcons name={transactionIcons[transaction.kind] ?? "swap-horizontal"} size={27} color={palette.muted} />
+                <MaterialCommunityIcons name={transactionIcons[transaction.kind] ?? "swap-horizontal"} size={22} color={palette.muted} />
                 <View style={styles.rowCopy}><Text style={styles.transactionTitle}>{transaction.title}</Text><Text style={styles.caption}>{formatTransactionDate(transaction.createdAt)}</Text></View>
                 <View style={styles.transactionValue}>
                   <Text style={[styles.transactionAmount, { color: outgoing ? palette.coral : incoming ? palette.green : palette.muted }]}>{sign}{formatRdm(Math.abs(transaction.amount))} RDM</Text>
@@ -110,7 +110,7 @@ export default function WalletScreen() {
           { title: "Sponsor a student's school supplies", icon: "school-outline" as const },
           { title: "Donate for lake/river cleanup", icon: "waves" as const },
         ].map((cause) => <View key={cause.title} style={styles.donationCard}>
-          <MaterialCommunityIcons name={cause.icon} size={27} color={palette.coral} />
+          <MaterialCommunityIcons name={cause.icon} size={22} color={palette.coral} />
           <View style={styles.rowCopy}><Text style={styles.purseTitle}>{cause.title}</Text><Text style={styles.caption}>Remorse Purse only</Text></View>
           <Pressable accessibilityRole="button" accessibilityLabel={`Donate 5 RDM: ${cause.title}`} accessibilityState={{ disabled: true }} disabled style={styles.donateButton}><Text style={styles.donateLabel}>5 RDM</Text></Pressable>
         </View>)}
@@ -121,37 +121,37 @@ export default function WalletScreen() {
 }
 
 const styles = StyleSheet.create({
-  screenContent: { gap: 16 },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 28, lineHeight: 36 },
+  screenContent: { gap: 14 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 31 },
   balanceSection: { gap: 3 },
-  balanceLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
-  totalBalance: { flexDirection: "row", alignItems: "center", gap: 16 },
-  balance: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 52, lineHeight: 64 },
-  purseMeter: { minHeight: 19, marginTop: 4, borderRadius: 12, flexDirection: "row", overflow: "hidden", backgroundColor: palette.line, gap: 2 },
+  balanceLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
+  totalBalance: { flexDirection: "row", alignItems: "center", gap: 14 },
+  balance: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 46, lineHeight: 56 },
+  purseMeter: { minHeight: 16, marginTop: 4, borderRadius: 10, flexDirection: "row", overflow: "hidden", backgroundColor: palette.line, gap: 2 },
   purseSegment: { minWidth: 0 },
   purseList: { borderTopWidth: 1, borderTopColor: palette.line },
   purseSection: { borderBottomWidth: 1, borderBottomColor: palette.line },
-  purseRow: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
-  purseDot: { width: 27, height: 27, borderRadius: 14 },
-  rowCopy: { flex: 1, minWidth: 0, gap: 4 },
+  purseRow: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 10 },
+  purseDot: { width: 22, height: 22, borderRadius: 11 },
+  rowCopy: { flex: 1, minWidth: 0, gap: 3 },
   purseTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 18 },
   caption: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16 },
-  purseAmount: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 19, lineHeight: 26, flexShrink: 1 },
-  purseDetail: { marginLeft: 39, paddingBottom: 15, gap: 8 },
+  purseAmount: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 17, lineHeight: 23, flexShrink: 1 },
+  purseDetail: { marginLeft: 33, paddingBottom: 13, gap: 7 },
   detailCopy: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
   activitySection: { gap: 0 },
-  sectionHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44, borderBottomWidth: 1, borderBottomColor: palette.line },
-  sectionTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22 },
-  transactionRow: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 13, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: palette.line },
+  sectionHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 42, borderBottomWidth: 1, borderBottomColor: palette.line },
+  sectionTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 14.5, lineHeight: 20 },
+  transactionRow: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: palette.line },
   transactionTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
   transactionValue: { alignItems: "flex-end", gap: 4, maxWidth: "42%" },
   transactionAmount: { fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19, textAlign: "right" },
-  emptyActivity: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, paddingVertical: 16 },
-  noteRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginVertical: 5 },
+  emptyActivity: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, paddingVertical: 14 },
+  noteRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginVertical: 4 },
   note: { flex: 1, color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
-  donationSection: { gap: 10, borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 18 },
-  donationCard: { minHeight: 85, flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 12 },
-  donateButton: { minHeight: 44, paddingHorizontal: 9, borderWidth: 1, borderColor: palette.coral, borderRadius: 8, alignItems: "center", justifyContent: "center", opacity: 0.5 },
+  donationSection: { gap: 9, borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 14 },
+  donationCard: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 11 },
+  donateButton: { minHeight: 40, paddingHorizontal: 9, borderWidth: 1, borderColor: palette.coral, borderRadius: 8, alignItems: "center", justifyContent: "center", opacity: 0.5 },
   donateLabel: { color: palette.coral, fontFamily: fonts.bodyMedium, fontSize: 12 },
   pressed: { opacity: 0.72 },
 });

@@ -78,5 +78,5 @@ const styles = StyleSheet.create({
   before: { color: palette.muted, fontFamily: fonts.body, fontSize: 13 },
   after: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13 },
   support: { padding: 12, gap: 14, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: palette.line, borderRadius: 8 },
-  secondary: { minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 9, borderWidth: 1, borderColor: palette.line },
+  secondary: { minHeight: 46, alignItems: "center", justifyContent: "center", borderRadius: 9, borderWidth: 1, borderColor: palette.line },
 });

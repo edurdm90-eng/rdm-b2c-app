@@ -41,7 +41,7 @@ function GoalCard({ goal, now, allowReflection }: { goal: Goal; now: Date; allow
         style={({ pressed }) => [styles.overview, pressed && styles.pressed]}
       >
         <View style={styles.goalHeader}>
-          <MaterialCommunityIcons name={presentation.icon} size={38} color={presentation.color} />
+          <MaterialCommunityIcons name={presentation.icon} size={28} color={presentation.color} />
           <View style={styles.goalCopy}>
             <Text style={styles.goalTitle}>{goal.title}</Text>
             <Text numberOfLines={2} style={styles.target}>{goal.target}</Text>
@@ -100,7 +100,7 @@ export default function GoalsScreen() {
       <View style={styles.header}>
         <Text accessibilityRole="header" style={styles.title}>Goals</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Create a goal" onPress={() => router.push("/(app)/goal/new")} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
-          <MaterialCommunityIcons name="plus" size={29} color={palette.text} />
+          <MaterialCommunityIcons name="plus" size={24} color={palette.text} />
         </Pressable>
       </View>
       <View accessibilityRole="tablist" style={styles.tabs}>
@@ -119,7 +119,7 @@ export default function GoalsScreen() {
       <View style={styles.goalList}>
         {visibleGoals.map((goal) => <GoalCard key={goal.id} goal={goal} now={now} allowReflection={!goals.error} />)}
         {visibleGoals.length === 0 ? <View style={styles.emptyCard}>
-          <MaterialCommunityIcons name={view === "active" ? "bullseye-arrow" : "check-circle-outline"} size={35} color={palette.muted} />
+          <MaterialCommunityIcons name={view === "active" ? "bullseye-arrow" : "check-circle-outline"} size={28} color={palette.muted} />
           <Text style={styles.emptyTitle}>{view === "active" ? "Give your next step a goal" : "No completed goals yet"}</Text>
           <Text style={styles.emptyCopy}>{view === "active" ? "Choose what matters, set your dates, and make a little progress each day." : "Your completed goals will be saved here. Every honest reflection counts along the way."}</Text>
           {view === "active" ? <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/goal/new")} style={styles.emptyAction}><Text style={styles.link}>Create a goal</Text><MaterialCommunityIcons name="arrow-right" size={19} color={palette.link} /></Pressable> : null}
@@ -134,33 +134,33 @@ export default function GoalsScreen() {
       </View>
 
       <Pressable accessibilityRole="button" accessibilityLabel="Need direction? Plan a goal with Medaa Ai" onPress={() => router.push("/(app)/ai-coach")} style={({ pressed }) => [styles.aiCard, pressed && styles.pressed]}>
-        <MaterialCommunityIcons name="creation" size={34} color={palette.link} />
+        <MaterialCommunityIcons name="creation" size={26} color={palette.link} />
         <View style={styles.aiCopy}>
           <Text style={styles.aiTitle}>Need direction?</Text>
           <Text style={styles.aiDescription}>Plan a goal with Medaa Ai</Text>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={26} color={palette.link} />
+        <MaterialCommunityIcons name="chevron-right" size={21} color={palette.link} />
       </Pressable>
     </FocusedScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 18, paddingTop: 22, paddingBottom: 30 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 15 },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 31, lineHeight: 39 },
-  addButton: { width: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
-  tabs: { flexDirection: "row", padding: 3, borderWidth: 1, borderColor: palette.line, borderRadius: 10, marginBottom: 19 },
-  tab: { flex: 1, minHeight: 36, borderRadius: 7, alignItems: "center", justifyContent: "center" },
+  content: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 24 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 13 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33 },
+  addButton: { width: 40, minHeight: 40, alignItems: "center", justifyContent: "center" },
+  tabs: { flexDirection: "row", padding: 3, borderWidth: 1, borderColor: palette.line, borderRadius: 10, marginBottom: 16 },
+  tab: { flex: 1, minHeight: 34, borderRadius: 7, alignItems: "center", justifyContent: "center" },
   selectedTab: { backgroundColor: "#263541" },
-  tabLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
+  tabLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   selectedTabLabel: { color: palette.text, fontFamily: fonts.bodyMedium },
-  goalList: { gap: 16 },
+  goalList: { gap: 14 },
   goalCard: { borderWidth: 1, borderColor: palette.line, borderRadius: 9, overflow: "hidden" },
-  overview: { paddingHorizontal: 15, paddingTop: 17, paddingBottom: 16, gap: 20 },
-  goalHeader: { flexDirection: "row", gap: 15, alignItems: "center" },
+  overview: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 13, gap: 15 },
+  goalHeader: { flexDirection: "row", gap: 13, alignItems: "center" },
   goalCopy: { flex: 1, gap: 3 },
-  goalTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 24 },
+  goalTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22 },
   target: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   progressSection: { gap: 9 },
   progressLabels: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },

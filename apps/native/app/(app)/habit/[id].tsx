@@ -55,7 +55,7 @@ function HabitSteps({ stage }: { stage: "act" | "reflect" }) {
 function AllocationCard({ amount, title, description, reward = false }: { amount?: number; title: string; description: string; reward?: boolean }) {
   return (
     <View style={[styles.allocation, reward && styles.rewardAllocation]}>
-      <MaterialCommunityIcons name="database-outline" size={31} color={reward ? palette.gold : palette.link} />
+      <MaterialCommunityIcons name="database-outline" size={26} color={reward ? palette.gold : palette.link} />
       <View style={styles.flex}>
         <Text style={styles.allocationTitle}>{title}</Text>
         {amount !== undefined ? <Text style={styles.allocationAmount}>{formatRdm(amount)} RDM</Text> : null}
@@ -68,7 +68,7 @@ function AllocationCard({ amount, title, description, reward = false }: { amount
 function Metric({ icon, label, value, hint, color = palette.muted }: { icon: IconName; label: string; value: string; hint: string; color?: string }) {
   return (
     <View style={styles.metric}>
-      <MaterialCommunityIcons name={icon} size={28} color={color} />
+      <MaterialCommunityIcons name={icon} size={24} color={color} />
       <View style={styles.flex}>
         <View style={styles.metricHeading}><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricValue}>{value}</Text></View>
         <Text style={styles.smallCopy}>{hint}</Text>
@@ -219,11 +219,11 @@ export default function HabitDetailScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <Pressable accessibilityLabel={historyOpen ? "Back to today's habit" : "Go back"} accessibilityRole="button" disabled={busy} onPress={back} style={styles.iconButton}><MaterialCommunityIcons name="arrow-left" size={28} color={palette.text} /></Pressable>
+            <Pressable accessibilityLabel={historyOpen ? "Back to today's habit" : "Go back"} accessibilityRole="button" disabled={busy} onPress={back} style={styles.iconButton}><MaterialCommunityIcons name="arrow-left" size={24} color={palette.text} /></Pressable>
             <Text accessibilityRole="header" style={styles.headerTitle}>{data.title}</Text>
-            {!historyOpen ? <Pressable accessibilityLabel="View habit history" accessibilityRole="button" disabled={busy} onPress={openHistory} style={styles.iconButton}><MaterialCommunityIcons name="history" size={23} color={palette.muted} /></Pressable> : null}
+            {!historyOpen ? <Pressable accessibilityLabel="View habit history" accessibilityRole="button" disabled={busy} onPress={openHistory} style={styles.iconButton}><MaterialCommunityIcons name="history" size={20} color={palette.muted} /></Pressable> : null}
           </View>
-          <View style={styles.headerMeta}><Text style={styles.subtitle}>{wisdom ? "Japanese Wisdom · Daily practice" : `${data.category} · ${data.cadence}`}</Text><MaterialCommunityIcons name={icon} size={32} color={wisdom ? palette.purple : palette.text} /></View>
+          <View style={styles.headerMeta}><Text style={styles.subtitle}>{wisdom ? "Japanese Wisdom · Daily practice" : `${data.category} · ${data.cadence}`}</Text><MaterialCommunityIcons name={icon} size={26} color={wisdom ? palette.purple : palette.text} /></View>
         </View>
 
         <ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={[styles.content, resultScreen && !historyOpen && styles.resultContent]} keyboardShouldPersistTaps="handled">
@@ -273,7 +273,7 @@ export default function HabitDetailScreen() {
                     <Pressable accessibilityRole="button" accessibilityLabel="View your saved action" accessibilityState={{ expanded: actionExpanded }} aria-expanded={actionExpanded} onPress={() => setActionExpanded(!actionExpanded)} style={styles.actionReview}>
                       <View style={styles.flex}>
                         <Text style={styles.label}>Your action</Text>
-                        <View style={styles.actionPreview}><MaterialCommunityIcons name={icon} size={32} color={palette.text} /><Text numberOfLines={actionExpanded ? undefined : 2} style={[styles.smallCopy, styles.flex]}>{data.lastAction}</Text></View>
+                        <View style={styles.actionPreview}><MaterialCommunityIcons name={icon} size={26} color={palette.text} /><Text numberOfLines={actionExpanded ? undefined : 2} style={[styles.smallCopy, styles.flex]}>{data.lastAction}</Text></View>
                         {actionExpanded ? <Text style={styles.smallCopy}>Saved for today. Continue with your reflection below.</Text> : null}
                       </View>
                       <MaterialCommunityIcons name={actionExpanded ? "chevron-up" : "chevron-right"} size={22} color={palette.muted} />
@@ -287,7 +287,7 @@ export default function HabitDetailScreen() {
           ) : resultScreen ? (
             <>
               <View style={styles.resultHero}>
-                <MaterialCommunityIcons name={completed ? "check-circle-outline" : "close-circle-outline"} size={88} color={completed ? palette.green : palette.coral} />
+                <MaterialCommunityIcons name={completed ? "check-circle-outline" : "close-circle-outline"} size={68} color={completed ? palette.green : palette.coral} />
                 <Text accessibilityRole="header" style={styles.resultTitle}>{completed ? "You showed up today." : "Today is recorded."}</Text>
                 <Text style={styles.subtitle}>{completed ? data.title : "A missed day is part of the journey."}</Text>
               </View>
@@ -309,12 +309,12 @@ export default function HabitDetailScreen() {
                 </View>
               ) : null}
               <WeekProgress habit={data} todayDayKey={presentation.todayDayKey} />
-              {pledge ? <View style={styles.nextCard}><MaterialCommunityIcons name="calendar-month-outline" size={27} color={palette.text} /><View style={styles.flex}><Text style={styles.label}>{nextDayCopy(presentation.todayDayKey, presentation.nextDayKey)}</Text><Text style={styles.smallCopy}>{presentation.nextDayKey ? "Small steps, steady progress." : "Your history stays available below."}</Text></View></View> : <Text style={styles.smallCopy}>Come back on the next day to continue your routine.</Text>}
+              {pledge ? <View style={styles.nextCard}><MaterialCommunityIcons name="calendar-month-outline" size={23} color={palette.text} /><View style={styles.flex}><Text style={styles.label}>{nextDayCopy(presentation.todayDayKey, presentation.nextDayKey)}</Text><Text style={styles.smallCopy}>{presentation.nextDayKey ? "Small steps, steady progress." : "Your history stays available below."}</Text></View></View> : <Text style={styles.smallCopy}>Come back on the next day to continue your routine.</Text>}
               {wisdom ? <Text style={styles.smallCopy}>Your practice progress is in History → Insights. Consistency is assessed across the full schedule; bonus payouts remain disabled.</Text> : null}
             </>
           ) : (
             <View style={styles.neutral}>
-              <MaterialCommunityIcons name={state === "finished" ? "check-all" : "calendar-blank-outline"} size={65} color={palette.green} />
+              <MaterialCommunityIcons name={state === "finished" ? "check-all" : "calendar-blank-outline"} size={50} color={palette.green} />
               <Text accessibilityRole="header" style={styles.resultTitle}>{state === "upcoming" ? "Your habit starts soon." : state === "rest" ? "A rest day for your habit." : state === "finished" ? "Commitment complete." : legacyNext ? "Ready for your next cycle?" : "Your progress is saved."}</Text>
               <Text style={styles.neutralCopy}>{state === "upcoming" ? "Your first scheduled day is " + formatDay(presentation.nextDayKey ?? pledge?.startDayKey ?? presentation.todayDayKey) + ". No daily RDM moves before then." : state === "rest" ? "No reflection or RDM settlement is due today. Rest days preserve your streak." : state === "finished" ? "Every scheduled day is settled. View your completed and missed reflections in History." : legacyNext ? "Start the next cycle when you are ready to log today's action." : "View your records and commitment details in History."}</Text>
               {state === "rest" && presentation.nextDayKey ? <Text style={styles.subtitle}>{nextDayCopy(presentation.todayDayKey, presentation.nextDayKey)}</Text> : null}
@@ -345,7 +345,7 @@ export default function HabitDetailScreen() {
           <View accessibilityViewIsModal role="dialog" aria-modal style={styles.missSheet}>
             <ScrollView style={styles.sheetScroll} contentContainerStyle={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, 16) }]} keyboardShouldPersistTaps="handled">
             <View style={styles.sheetHandle} />
-            <MaterialCommunityIcons name="close-circle" size={40} color={palette.coral} />
+            <MaterialCommunityIcons name="close-circle" size={34} color={palette.coral} />
             <Text accessibilityRole="header" style={styles.sheetTitle}>{wisdom ? "Record a missed check-in?" : "Mark today as missed?"}</Text>
             <View style={styles.sheetDivider} />
             <View style={styles.sheetRows}>
@@ -378,13 +378,13 @@ export default function HabitDetailScreen() {
 const styles = StyleSheet.create({
   screen: { paddingTop: 0, paddingBottom: 0, paddingHorizontal: 0 },
   flex: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, gap: 3 },
+  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 3 },
   headerTop: { flexDirection: "row", alignItems: "center", gap: 4 },
   iconButton: { minWidth: 40, minHeight: 40, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 19, lineHeight: 26 },
   headerMeta: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 2, paddingRight: 2 },
   subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
-  content: { paddingHorizontal: 18, paddingBottom: 16, gap: 18 },
+  content: { paddingHorizontal: 18, paddingBottom: 14, gap: 15 },
   resultContent: { gap: 10, paddingBottom: 8 },
   steps: { flexDirection: "row", paddingTop: 10, paddingBottom: 22, borderBottomWidth: 1, borderBottomColor: palette.line },
   step: { flex: 1, alignItems: "center" },
@@ -406,19 +406,19 @@ const styles = StyleSheet.create({
   label: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19 },
   dateLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, flexShrink: 1, textAlign: "right" },
   field: { gap: 9 },
-  prompt: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 27 },
-  textArea: { minHeight: 174, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel, padding: 12, gap: 8 },
-  reflectionArea: { minHeight: 160 },
+  prompt: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 24 },
+  textArea: { minHeight: 150, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel, padding: 12, gap: 8 },
+  reflectionArea: { minHeight: 138 },
   focusedTextArea: { borderColor: palette.link },
   webInput: { outlineStyle: "solid", outlineWidth: 0, outlineColor: "transparent" },
-  input: { flex: 1, minHeight: 110, padding: 0, color: palette.text, fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
+  input: { flex: 1, minHeight: 95, padding: 0, color: palette.text, fontFamily: fonts.body, fontSize: 14.5, lineHeight: 21 },
   counter: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, textAlign: "right" },
   smallCopy: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   linkColor: { color: palette.link },
-  allocation: { minHeight: 72, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel, flexDirection: "row", alignItems: "center", padding: 14, gap: 18 },
+  allocation: { minHeight: 60, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel, flexDirection: "row", alignItems: "center", padding: 12, gap: 14 },
   rewardAllocation: { borderColor: "#8F7631", backgroundColor: "#22251F" },
-  allocationTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19, marginBottom: 3 },
-  allocationAmount: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 28, marginBottom: 3 },
+  allocationTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 12.5, lineHeight: 18, marginBottom: 2 },
+  allocationAmount: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 24, marginBottom: 2 },
   actionReviewSection: { borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 12 },
   actionReview: { minHeight: 80, padding: 12, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel, flexDirection: "row", alignItems: "center", gap: 8 },
   actionPreview: { flexDirection: "row", alignItems: "center", gap: 18, paddingTop: 8, paddingBottom: 3 },
@@ -427,8 +427,8 @@ const styles = StyleSheet.create({
   link: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
   outlineButton: { width: "100%", minHeight: 44, borderWidth: 1, borderColor: "#46515F", borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   outlineLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19, textAlign: "center" },
-  resultHero: { alignItems: "center", paddingTop: 0, paddingBottom: 5, gap: 2 },
-  resultTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 28, textAlign: "center", marginTop: 4 },
+  resultHero: { alignItems: "center", paddingTop: 0, paddingBottom: 4, gap: 2 },
+  resultTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 19, lineHeight: 25, textAlign: "center", marginTop: 3 },
   commitmentBreakdown: { gap: 10, paddingTop: 4, paddingBottom: 4 },
   breakdownRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   breakdownValue: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 20 },
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   sheetScroll: { width: "100%", flexShrink: 1 },
   sheetContent: { paddingHorizontal: 18, paddingTop: 12, alignItems: "center", gap: 10 },
   sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: "#40505E", marginBottom: 4 },
-  sheetTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 28, textAlign: "center" },
+  sheetTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 19, lineHeight: 25, textAlign: "center" },
   sheetDivider: { width: "100%", height: 1, backgroundColor: palette.line, marginTop: 4 },
   sheetRows: { width: "100%", gap: 4 },
   sheetRow: { width: "100%", flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: palette.line },

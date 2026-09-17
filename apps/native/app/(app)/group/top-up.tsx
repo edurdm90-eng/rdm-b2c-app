@@ -32,7 +32,7 @@ export default function GroupTopUpScreen() {
         onBack={() => router.dismissTo("/(app)/group/settings")}
         title="Top up RDM"
       />
-      <View style={styles.hero}><View style={styles.walletIcon}><MaterialCommunityIcons color={colors.inkSoft} name="wallet-outline" size={58} /></View><Text style={styles.heroTitle}>Payments aren&apos;t{`\n`}available yet.</Text><Text style={styles.helper}>RDM top ups will be available in a future version. You can still track your balance and progress.</Text></View>
+      <View style={styles.hero}><View style={styles.walletIcon}><MaterialCommunityIcons color={colors.inkSoft} name="wallet-outline" size={44} /></View><Text style={styles.heroTitle}>Payments aren&apos;t{`\n`}available yet.</Text><Text style={styles.helper}>RDM top ups will be available in a future version. You can still track your balance and progress.</Text></View>
       <GroupSurfaceCard style={styles.balanceCard}>
         <View style={styles.balanceMark} /><View style={styles.balanceCopy}><Text style={styles.balanceLabel}>BASE PURSE</Text><Text style={styles.balanceValue}>{formatRdm(wallet.data.wallet.base)} RDM</Text><Text style={styles.balanceHint}>Available to pledge</Text></View></GroupSurfaceCard>
       <GroupSectionLabel>Select amount (RDM)</GroupSectionLabel>
@@ -51,9 +51,9 @@ export default function GroupTopUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: "flex-start", gap: 12, paddingVertical: 10 },
-  walletIcon: { alignSelf: "flex-end", marginBottom: -18, opacity: 0.72 },
-  heroTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 29, letterSpacing: -0.8, lineHeight: 34 },
+  hero: { alignItems: "flex-start", gap: 10, paddingVertical: 8 },
+  walletIcon: { alignSelf: "flex-end", marginBottom: -14, opacity: 0.72 },
+  heroTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 22, letterSpacing: -0.5, lineHeight: 28 },
   helper: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   balanceCard: { alignItems: "center", backgroundColor: colors.panelRaised, flexDirection: "row", gap: 12 },
   balanceMark: { backgroundColor: colors.growth, borderRadius: 15, height: 30, width: 30 },

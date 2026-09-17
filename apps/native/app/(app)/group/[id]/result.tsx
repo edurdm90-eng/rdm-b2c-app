@@ -52,7 +52,7 @@ export default function GroupResultScreen() {
         title="Group result"
       />
       <View style={styles.hero}>
-        <View style={styles.trophy}><MaterialCommunityIcons color={colors.gold} name="trophy-outline" size={58} /></View>
+        <View style={styles.trophy}><MaterialCommunityIcons color={colors.gold} name="trophy-outline" size={44} /></View>
         <Text style={styles.heroTitle}>Better, together.</Text>
         <Text style={styles.heroGroupName}>{data.name}</Text>
         <View style={styles.completePill}><MaterialCommunityIcons color={colors.growth} name="check-circle" size={13} /><Text style={styles.completePillText}>Complete</Text></View>
@@ -101,9 +101,9 @@ export default function GroupResultScreen() {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background },
-  hero: { alignItems: "center", gap: 5, paddingVertical: 12 },
-  trophy: { alignItems: "center", backgroundColor: colors.goldTint, borderRadius: 42, height: 84, justifyContent: "center", width: 84, marginBottom: 4 },
-  heroTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 25 },
+  hero: { alignItems: "center", gap: 4, paddingVertical: 8 },
+  trophy: { alignItems: "center", backgroundColor: colors.goldTint, borderRadius: 33, height: 66, justifyContent: "center", width: 66, marginBottom: 3 },
+  heroTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 21 },
   heroGroupName: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 13 },
   completePill: { alignItems: "center", backgroundColor: colors.growthTint, borderRadius: 999, flexDirection: "row", gap: 5, marginTop: 2, paddingHorizontal: 10, paddingVertical: 4 },
   completePillText: { color: colors.growth, fontFamily: fonts.bodyBold, fontSize: 10 },

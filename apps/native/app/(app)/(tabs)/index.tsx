@@ -70,7 +70,7 @@ export default function HomeScreen() {
 
       <View style={styles.progressRow}>
         <View accessibilityLabel={`${today.completed} of ${today.total} daily reflections done`} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: today.total || 1, now: today.completed }} aria-valuemin={0} aria-valuemax={today.total || 1} aria-valuenow={today.completed} aria-valuetext={`${today.completed} of ${today.total} daily reflections done`} style={styles.ring}>
-          <ProgressCircle animated={false} borderWidth={0} color={today.completed === 0 ? palette.line : palette.green} direction="clockwise" progress={today.total > 0 ? today.completed / today.total : 0} size={128} strokeCap="round" thickness={10} unfilledColor={palette.line} />
+          <ProgressCircle animated={false} borderWidth={0} color={today.completed === 0 ? palette.line : palette.green} direction="clockwise" progress={today.total > 0 ? today.completed / today.total : 0} size={108} strokeCap="round" thickness={9} unfilledColor={palette.line} />
           <View pointerEvents="none" style={styles.ringCopy}>
             <Text style={styles.progressCount}>{today.completed} of {today.total}</Text>
             <Text style={styles.progressLabel}>daily reflections{"\n"}done</Text>
@@ -85,7 +85,7 @@ export default function HomeScreen() {
         {firstItem ? (
           <View style={styles.nextCard}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open ${firstItem.title}`} onPress={() => openCommitment(firstItem)} style={({ pressed }) => [styles.nextCardHeading, pressed && styles.pressed]}>
-              <MaterialCommunityIcons name={firstItem.icon as IconName} size={38} color={palette.text} />
+              <MaterialCommunityIcons name={firstItem.icon as IconName} size={30} color={palette.text} />
               <View style={styles.itemCopy}>
                 <Text style={styles.itemTitle}>{firstItem.title}</Text>
                 <Text style={styles.caption}>{firstItem.perDay === null ? "Keep moving toward your goal" : `${formatRdm(firstItem.perDay)} RDM allocated today`}</Text>
@@ -98,7 +98,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={styles.emptyCard}>
-            <MaterialCommunityIcons name={allReflected ? "check-circle-outline" : "sprout-outline"} size={28} color={palette.green} />
+            <MaterialCommunityIcons name={allReflected ? "check-circle-outline" : "sprout-outline"} size={24} color={palette.green} />
             <View style={styles.itemCopy}>
               <Text style={styles.itemTitle}>{allReflected ? "Today's reflections are complete" : "Room for one small step"}</Text>
               <Text style={styles.caption}>{allReflected ? "Your progress is saved. Keep growing tomorrow." : "No daily reflections are pending. Browse habits or plan a goal with Medaa Ai."}</Text>
@@ -107,7 +107,7 @@ export default function HomeScreen() {
         )}
         {today.items.slice(1, 3).map((item) => (
           <Pressable accessibilityRole="button" accessibilityLabel={`Open ${item.title}`} key={`${item.kind}:${item.id}`} onPress={() => openCommitment(item)} style={({ pressed }) => [styles.compactItem, pressed && styles.pressed]}>
-            <MaterialCommunityIcons name={item.kind === "goal" ? "bullseye-arrow" : item.icon as IconName} size={32} color={item.kind === "goal" ? palette.gold : palette.green} />
+            <MaterialCommunityIcons name={item.kind === "goal" ? "bullseye-arrow" : item.icon as IconName} size={26} color={item.kind === "goal" ? palette.gold : palette.green} />
             <View style={styles.itemCopy}>
               <Text style={styles.itemTitle}>{item.title}</Text>
               <Text style={styles.caption}>{item.kind === "goal" ? "Goal" : "Habit"}</Text>
@@ -119,7 +119,7 @@ export default function HomeScreen() {
       </View>
 
       <Pressable accessibilityRole="button" accessibilityLabel={profile.tree.pledgedAt ? "Tend your tree" : "Plant your tree"} onPress={() => router.push("/(app)/tree")} style={({ pressed }) => [styles.treeCard, pressed && styles.pressed]}>
-        <MaterialCommunityIcons name="tree-outline" size={43} color={palette.green} />
+        <MaterialCommunityIcons name="tree-outline" size={32} color={palette.green} />
         <View style={styles.itemCopy}>
           <Text style={styles.cardTitle}>{profile.tree.pledgedAt ? `Your tree · Day ${profile.tree.dayNumber}` : "Grow your tree"}</Text>
           <Text style={styles.caption}>{profile.tree.pledgedAt ? "A brighter you grows here." : "Start with one promise to yourself."}</Text>
@@ -137,7 +137,7 @@ export default function HomeScreen() {
       </View>
 
       <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/(tabs)/japanese-wisdom")} style={({ pressed }) => [styles.wisdomCard, pressed && styles.pressed]}>
-        <MaterialCommunityIcons name="bowl-mix-outline" size={28} color={palette.purple} />
+        <MaterialCommunityIcons name="bowl-mix-outline" size={24} color={palette.purple} />
         <View style={styles.itemCopy}><Text style={styles.cardTitle}>Japanese Wisdom</Text><Text style={styles.caption}>Hara Hachi Bu · a mindful daily moment</Text></View>
         <MaterialCommunityIcons name="chevron-right" size={22} color={palette.muted} />
       </Pressable>
@@ -166,37 +166,37 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  screenContent: { gap: 16 },
-  heading: { gap: 7 },
-  date: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 28, lineHeight: 36 },
-  progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14, paddingVertical: 3 },
-  ring: { width: 128, height: 128 },
-  ringCopy: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", gap: 3 },
-  progressCount: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 20 },
-  progressLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, textAlign: "center" },
-  progressDivider: { width: 1, height: 76, backgroundColor: palette.line },
-  encouragement: { flex: 1, color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
-  nextSection: { borderTopWidth: 1, borderColor: palette.line, paddingTop: 12, gap: 10 },
-  sectionTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 21 },
-  nextCard: { borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, borderRadius: 10, padding: 8, gap: 10 },
-  nextCardHeading: { flexDirection: "row", alignItems: "center", gap: 13, padding: 6, minHeight: 54 },
-  itemCopy: { flex: 1, gap: 4 },
-  itemTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 15, lineHeight: 21 },
+  screenContent: { gap: 14 },
+  heading: { gap: 5 },
+  date: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 31 },
+  progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14, paddingVertical: 2 },
+  ring: { width: 108, height: 108 },
+  ringCopy: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", gap: 2 },
+  progressCount: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 17 },
+  progressLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 15, textAlign: "center" },
+  progressDivider: { width: 1, height: 64, backgroundColor: palette.line },
+  encouragement: { flex: 1, color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  nextSection: { borderTopWidth: 1, borderColor: palette.line, paddingTop: 10, gap: 9 },
+  sectionTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 14.5, lineHeight: 19 },
+  nextCard: { borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, borderRadius: 10, padding: 7, gap: 8 },
+  nextCardHeading: { flexDirection: "row", alignItems: "center", gap: 12, padding: 5, minHeight: 46 },
+  itemCopy: { flex: 1, gap: 3 },
+  itemTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20 },
   cardTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 18 },
-  caption: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
-  primaryButton: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 9, backgroundColor: palette.green, alignItems: "center", justifyContent: "center" },
-  primaryLabel: { color: palette.onGreen, fontFamily: fonts.bodyBold, fontSize: 15, textAlign: "center" },
-  compactItem: { flexDirection: "row", alignItems: "center", gap: 15, borderBottomWidth: 1, borderColor: palette.line, minHeight: 66, paddingVertical: 10, paddingHorizontal: 2 },
-  emptyCard: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 15 },
+  caption: { color: palette.muted, fontFamily: fonts.body, fontSize: 11.5, lineHeight: 16 },
+  primaryButton: { minHeight: 42, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 9, backgroundColor: palette.green, alignItems: "center", justifyContent: "center" },
+  primaryLabel: { color: palette.onGreen, fontFamily: fonts.bodyBold, fontSize: 14, textAlign: "center" },
+  compactItem: { flexDirection: "row", alignItems: "center", gap: 13, borderBottomWidth: 1, borderColor: palette.line, minHeight: 56, paddingVertical: 8, paddingHorizontal: 2 },
+  emptyCard: { flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 13 },
   moreDue: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
-  treeCard: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 12, minHeight: 76 },
-  treeAction: { minHeight: 40, minWidth: 52, borderWidth: 1, borderColor: "#245a48", borderRadius: 9, backgroundColor: "#17362c", alignItems: "center", justifyContent: "center", paddingHorizontal: 11 },
-  treeActionLabel: { color: palette.green, fontFamily: fonts.bodyMedium, fontSize: 13 },
+  treeCard: { flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 11, minHeight: 64 },
+  treeAction: { minHeight: 36, minWidth: 48, borderWidth: 1, borderColor: "#245a48", borderRadius: 9, backgroundColor: "#17362c", alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  treeActionLabel: { color: palette.green, fontFamily: fonts.bodyMedium, fontSize: 12.5 },
   exploreLinks: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 8 },
-  link: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 3 },
-  linkLabel: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 13 },
-  wisdomCard: { minHeight: 64, borderWidth: 1, borderColor: palette.line, borderRadius: 10, flexDirection: "row", alignItems: "center", padding: 12, gap: 12 },
+  link: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 3 },
+  linkLabel: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 12.5 },
+  wisdomCard: { minHeight: 56, borderWidth: 1, borderColor: palette.line, borderRadius: 10, flexDirection: "row", alignItems: "center", padding: 11, gap: 11 },
   moreSection: { borderTopWidth: 1, borderColor: palette.line },
   moreHeading: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   moreLabel: { color: palette.muted, fontFamily: fonts.bodyMedium, fontSize: 12 },

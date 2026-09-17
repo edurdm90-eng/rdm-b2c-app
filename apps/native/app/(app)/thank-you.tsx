@@ -27,16 +27,16 @@ export default function ThankYouScreen() {
   return (
     <TreePage title="Say Thank You" footer={<View style={styles.footer}><Text style={styles.footerText}>A few honest words are enough.</Text></View>}>
       <View style={styles.intro}>
-        <View style={styles.hero}><MaterialCommunityIcons name="water-outline" size={60} color={palette.link} /><Text accessibilityRole="header" style={styles.title}>Who or what made today better?</Text></View>
+        <View style={styles.hero}><MaterialCommunityIcons name="water-outline" size={44} color={palette.link} /><Text accessibilityRole="header" style={styles.title}>Who or what made today better?</Text></View>
         <Text style={styles.subtitle}>Gratitude helps you see the good, and adds water to your tree.</Text>
       </View>
       <View style={styles.list}>
         {categories.data.map((category) => {
           const visual = categoryPresentation[category.id];
           return <Pressable key={category.id} accessibilityRole="button" accessibilityLabel={category.title} accessibilityHint="Open this gratitude journal" onPress={() => router.push({ pathname: "/(app)/journal/[category]", params: { category: category.id } })} style={({ pressed }) => [styles.option, pressed && styles.pressed]}>
-            <MaterialCommunityIcons name={visual.icon} color={visual.color} size={35} />
+            <MaterialCommunityIcons name={visual.icon} color={visual.color} size={26} />
             <View style={styles.copy}><Text style={styles.optionTitle}>{category.title}</Text><Text style={styles.optionDescription}>{visual.description}</Text></View>
-            <MaterialCommunityIcons name="chevron-right" color={palette.muted} size={24} />
+            <MaterialCommunityIcons name="chevron-right" color={palette.muted} size={20} />
           </Pressable>;
         })}
       </View>
@@ -45,12 +45,12 @@ export default function ThankYouScreen() {
 }
 
 const styles = StyleSheet.create({
-  intro: { gap: 12, paddingBottom: 7 },
-  hero: { flexDirection: "row", alignItems: "center", gap: 20 },
-  title: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 25, lineHeight: 31 },
-  subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 15, lineHeight: 23 },
-  list: { gap: 9 },
-  option: { minHeight: 83, paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel },
+  intro: { gap: 10, paddingBottom: 6 },
+  hero: { flexDirection: "row", alignItems: "center", gap: 16 },
+  title: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 27 },
+  subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
+  list: { gap: 8 },
+  option: { minHeight: 68, paddingHorizontal: 14, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 14, borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel },
   copy: { flex: 1, minWidth: 0, gap: 4 },
   optionTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20 },
   optionDescription: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
