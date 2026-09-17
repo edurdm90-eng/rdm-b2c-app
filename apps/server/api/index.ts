@@ -15,5 +15,5 @@ export default async function handler(
   }
 
   const { default: app } = await import("../dist/vercel.mjs");
-  await sendWebResponse(await app.fetch(toWebRequest(request, pathname)), response);
+  await sendWebResponse(await app.fetch(await toWebRequest(request, pathname)), response);
 }

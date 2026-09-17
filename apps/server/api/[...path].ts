@@ -7,5 +7,5 @@ export default async function handler(
   response: ServerResponse,
 ) {
   const pathname = request.url?.split("?", 1)[0]?.slice("/api".length) || "/";
-  await sendWebResponse(await app.fetch(toWebRequest(request, pathname)), response);
+  await sendWebResponse(await app.fetch(await toWebRequest(request, pathname)), response);
 }

@@ -1,11 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { Readable } from "node:stream";
 
 type VercelRequest = IncomingMessage & {
   url?: string;
 };
 
-export function toWebRequest(request: VercelRequest, pathname?: string) {
+export async function toWebRequest(request: VercelRequest, pathname?: string) {
   const protocol = getHeader(request, "x-forwarded-proto") ?? "https";
   const host =
     getHeader(request, "x-forwarded-host") ?? getHeader(request, "host");
@@ -33,7 +32,7 @@ export function toWebRequest(request: VercelRequest, pathname?: string) {
   const method = request.method ?? "GET";
   const body = method === "GET" || method === "HEAD"
     ? undefined
-    : Readable.toWeb(request as Readable) as ReadableStream;
+    : await readBody(request);
 
   return new Request(url, {
     method,
@@ -41,6 +40,14 @@ export function toWebRequest(request: VercelRequest, pathname?: string) {
     body,
     duplex: "half",
   } as RequestInit & { duplex: "half" });
+}
+
+async function readBody(request: VercelRequest) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request as AsyncIterable<Buffer | string>) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
 }
 
 export async function sendWebResponse(

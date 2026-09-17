@@ -7,5 +7,5 @@ export default async function handler(
   request: Parameters<typeof toWebRequest>[0],
   response: ServerResponse,
 ) {
-  await sendWebResponse(await app.fetch(toWebRequest(request)), response);
+  await sendWebResponse(await app.fetch(await toWebRequest(request)), response);
 }
