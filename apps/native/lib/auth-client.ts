@@ -13,19 +13,28 @@ import { getStoredToken, setStoredToken } from "@/lib/auth-token";
 // where the Expo client's cookie-based capture silently fails.
 const bearerTokenCapture = {
   id: "bearer-token-capture",
-  name: "Bearer Token Capture",
-  hooks: {
-    async onSuccess(context: { response: Response; request: { url: string } }) {
-      if (Platform.OS === "web") return;
-      const token = context.response.headers.get("set-auth-token");
-      if (token) {
-        await setStoredToken(token);
-      }
-      if (context.request.url.toString().includes("/sign-out")) {
-        await setStoredToken(null);
-      }
+  // better-auth's client only wires up a plugin's `fetchPlugins` array into
+  // the underlying better-fetch instance (see client/config.mjs), so the
+  // actual better-fetch plugin (id/name/hooks) must be nested here rather
+  // than placed on this outer object directly.
+  fetchPlugins: [
+    {
+      id: "bearer-token-capture",
+      name: "Bearer Token Capture",
+      hooks: {
+        async onSuccess(context: { response: Response; request: { url: string } }) {
+          if (Platform.OS === "web") return;
+          const token = context.response.headers.get("set-auth-token");
+          if (token) {
+            await setStoredToken(token);
+          }
+          if (context.request.url.toString().includes("/sign-out")) {
+            await setStoredToken(null);
+          }
+        },
+      },
     },
-  },
+  ],
 };
 
 const baseAuthClient = createAuthClient({
