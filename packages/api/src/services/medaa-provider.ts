@@ -18,6 +18,13 @@ import { medaaInstructions } from "./medaa-prompt";
 const requestTimeoutMs = 30_000;
 const maximumResponseCharacters = 128_000;
 
+type UpstreamResponse = {
+  readonly ok: boolean;
+  readonly body: { cancel(): Promise<void> } | null;
+  readonly status: number;
+  text(): Promise<string>;
+};
+
 // The request schema constrains new outputs; shared domain validation also
 // checks action semantics, affordability, and safe goal content after parsing.
 const responseJsonSchema = (maxAffordableDays: number) => ({
@@ -185,7 +192,7 @@ export const medaaProvider: MedaaProvider = {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
     try {
-      const response = await fetch("https://api.openai.com/v1/responses", {
+      const response = (await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${env.OPENAI_API_KEY}`,
@@ -204,7 +211,7 @@ export const medaaProvider: MedaaProvider = {
               schema: responseJsonSchema(snapshot.budget.maxAffordableDays) },
           },
         }),
-      });
+      })) as UpstreamResponse;
       if (!response.ok) {
         await response.body?.cancel();
         throw new MedaaProviderError(response.status === 429 ? "busy" : "unavailable");
