@@ -51,7 +51,7 @@ export default function WalletScreen() {
         <Text style={styles.balanceLabel}>Total RDM</Text>
         <View style={styles.totalBalance}>
           <Text style={styles.balance}>{formatRdm(data.wallet.balance)}</Text>
-          <RdmLogo width={62} height={30} />
+          <RdmLogo width={96} height={45} />
         </View>
         <View accessibilityLabel={purses.map((purse) => `${purse.title}: ${formatRdm(data.wallet[purse.id])} RDM`).join(", ")} style={styles.purseMeter}>
           {purses.filter((purse) => data.wallet[purse.id] > 0).map((purse) => <View key={purse.id} style={[styles.purseSegment, { backgroundColor: purse.color, flex: purseTotal > 0 ? data.wallet[purse.id] / purseTotal : 0 }]} />)}
