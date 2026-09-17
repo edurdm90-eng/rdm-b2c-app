@@ -2,25 +2,27 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
 import { router, useIsFocused } from "expo-router";
 import { useState } from "react";
-import { Image, Modal, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { ProgressCircle } from "react-native-progress/Circle";
 
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
-import { ActionDialog, ErrorState, LoadingState } from "@/components/rdm-ui";
-import { authClient } from "@/lib/auth-client";
+import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { fonts, formatRdm } from "@/lib/theme";
-import { queryClient, trpc } from "@/utils/trpc";
+import { trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 function openCommitment(item: { id: string; kind: "habit" | "goal" }) {
   router.push({ pathname: item.kind === "habit" ? "/(app)/habit/[id]" : "/(app)/goal/[id]", params: { id: item.id } });
 }
 
+function getGreeting(hour: number) {
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function HomeScreen() {
   const focused = useIsFocused();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [signOutOpen, setSignOutOpen] = useState(false);
-  const [accountError, setAccountError] = useState("");
   const dashboard = useQuery({
     ...trpc.rdm.dashboard.queryOptions(),
     enabled: focused,
@@ -34,44 +36,20 @@ export default function HomeScreen() {
   }
 
   const { user, profile, today, serverTime } = dashboard.data;
-  const firstName = user.name.trim().split(/\s+/)[0] || "there";
   const firstItem = today.items[0];
   const allReflected = today.total > 0 && today.completed === today.total;
   const dateLabel = new Date(serverTime).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-  const invitesRemaining = profile.unlockedBadges.includes("golden-bloom") ? 0 : Math.max(0, 3 - profile.weeklyInvites);
-
-  async function inviteFriend() {
-    if (invitesRemaining === 0) return;
-    setAccountError("");
-    try {
-      await Share.share({ message: `Join me on RDM and build one promise at a time. Use invite code ${profile.referralCode}.` });
-    } catch {
-      setAccountError("Sharing is unavailable right now. Your invite code is shown below.");
-    }
-  }
-
-  async function signOut() {
-    setSignOutOpen(false);
-    try {
-      const result = await authClient.signOut();
-      if (result.error) throw new Error(result.error.message ?? "Please try signing out again.");
-      queryClient.clear();
-      router.replace("/login");
-    } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Please try signing out again.");
-    }
-  }
 
   return (
     <FocusedScreen contentStyle={styles.screenContent}>
       <View style={styles.headingRow}>
         <View style={styles.heading}>
           <Text style={styles.date}>{dateLabel}</Text>
-          <Text accessibilityRole="header" style={styles.title}>Good morning, {firstName}.</Text>
+          <Text accessibilityRole="header" style={styles.title}>{getGreeting(new Date().getHours())}, {user.name}.</Text>
           <Text style={styles.greeting}>Make today count.</Text>
         </View>
-        <Pressable accessibilityLabel="Open menu" accessibilityRole="button" onPress={() => setMenuOpen(true)} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
-          <MaterialCommunityIcons name="menu" size={25} color={palette.text} />
+        <Pressable accessibilityLabel="Open account" accessibilityRole="button" onPress={() => router.push("/(app)/account")} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
+          <MaterialCommunityIcons name="account-circle-outline" size={27} color={palette.text} />
         </Pressable>
       </View>
 
@@ -151,29 +129,6 @@ export default function HomeScreen() {
         <MaterialCommunityIcons name="chevron-right" size={22} color={palette.muted} />
       </Pressable>
 
-      <Modal animationType="fade" transparent visible={menuOpen} onRequestClose={() => setMenuOpen(false)}>
-        <View style={styles.menuOverlay}>
-          <Pressable accessibilityLabel="Close menu" accessibilityRole="button" onPress={() => setMenuOpen(false)} style={StyleSheet.absoluteFill} />
-          <View style={styles.menuCard}>
-            <View style={styles.menuHeader}>
-              <View style={styles.menuAvatar}><Text style={styles.menuAvatarText}>{firstName.slice(0, 1).toUpperCase()}</Text></View>
-              <View style={styles.itemCopy}><Text style={styles.accountName}>{user.name}</Text><Text style={styles.caption}>Current streak: {profile.streak} days</Text></View>
-              <Pressable accessibilityLabel="Close menu" accessibilityRole="button" onPress={() => setMenuOpen(false)} style={styles.menuClose}><MaterialCommunityIcons name="close" size={20} color={palette.muted} /></Pressable>
-            </View>
-            <Text style={styles.menuInvite}>Invite code · {profile.referralCode}</Text>
-            <View style={styles.menuLinks}>
-              <Pressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.push("/(app)/leaderboard"); }} style={styles.menuLink}><MaterialCommunityIcons name="podium" size={20} color={palette.purple} /><Text style={styles.menuLinkLabel}>Leaderboard</Text><MaterialCommunityIcons name="chevron-right" size={19} color={palette.muted} /></Pressable>
-              <Pressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.push("/(app)/badges"); }} style={styles.menuLink}><MaterialCommunityIcons name="medal-outline" size={20} color={palette.gold} /><Text style={styles.menuLinkLabel}>Badges</Text><MaterialCommunityIcons name="chevron-right" size={19} color={palette.muted} /></Pressable>
-              <Pressable accessibilityRole="button" onPress={() => { setMenuOpen(false); router.push("/(app)/(tabs)/games"); }} style={styles.menuLink}><MaterialCommunityIcons name="gamepad-variant-outline" size={20} color={palette.link} /><Text style={styles.menuLinkLabel}>Responsible games</Text><MaterialCommunityIcons name="chevron-right" size={19} color={palette.muted} /></Pressable>
-              {invitesRemaining > 0 ? <Pressable accessibilityRole="button" onPress={() => { setMenuOpen(false); void inviteFriend(); }} style={styles.menuLink}><MaterialCommunityIcons name="account-plus-outline" size={20} color={palette.green} /><Text style={styles.menuLinkLabel}>Invite a friend</Text><MaterialCommunityIcons name="chevron-right" size={19} color={palette.muted} /></Pressable> : null}
-            </View>
-            <Text style={styles.caption}>{invitesRemaining > 0 ? `${invitesRemaining} invites to Golden Bloom this week.` : "Your Golden Bloom skin is unlocked."}</Text>
-            {accountError ? <Text accessibilityRole="alert" style={styles.error}>{accountError}</Text> : null}
-            <Pressable accessibilityRole="button" onPress={() => { setMenuOpen(false); setSignOutOpen(true); }} style={styles.signOut}><MaterialCommunityIcons name="logout" size={18} color={palette.muted} /><Text style={styles.moreLabel}>Sign out</Text></Pressable>
-          </View>
-        </View>
-      </Modal>
-      <ActionDialog cancelLabel="Stay signed in" confirmColor={palette.coral} confirmLabel="Sign out" message="Your progress is safely stored and will be here when you return." onCancel={() => setSignOutOpen(false)} onConfirm={() => void signOut()} title="Sign out?" visible={signOutOpen} />
     </FocusedScreen>
   );
 }
@@ -214,19 +169,5 @@ const styles = StyleSheet.create({
   link: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 3 },
   linkLabel: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 12.5 },
   wisdomCard: { minHeight: 56, borderWidth: 1, borderColor: palette.line, borderRadius: 10, flexDirection: "row", alignItems: "center", padding: 11, gap: 11 },
-  menuOverlay: { backgroundColor: "rgba(5, 10, 15, 0.68)", flex: 1 },
-  menuCard: { backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 14, borderWidth: 1, elevation: 8, gap: 12, marginHorizontal: 16, marginTop: 62, padding: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 18 },
-  menuHeader: { alignItems: "center", flexDirection: "row", gap: 10 },
-  menuAvatar: { alignItems: "center", backgroundColor: palette.green, borderRadius: 22, height: 44, justifyContent: "center", width: 44 },
-  menuAvatarText: { color: palette.onGreen, fontFamily: fonts.bodyBold, fontSize: 18 },
-  menuClose: { alignItems: "center", height: 32, justifyContent: "center", width: 32 },
-  menuInvite: { borderBottomColor: palette.line, borderBottomWidth: 1, color: palette.muted, fontFamily: fonts.mono, fontSize: 10, paddingBottom: 12 },
-  menuLinks: { gap: 2 },
-  menuLink: { alignItems: "center", borderBottomColor: palette.line, borderBottomWidth: 1, flexDirection: "row", gap: 10, minHeight: 47 },
-  menuLinkLabel: { color: palette.text, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 13 },
-  moreLabel: { color: palette.muted, fontFamily: fonts.bodyMedium, fontSize: 12 },
-  accountName: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14 },
-  signOut: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8 },
-  error: { color: palette.coral, fontFamily: fonts.body, fontSize: 12 },
   pressed: { opacity: 0.72 },
 });
