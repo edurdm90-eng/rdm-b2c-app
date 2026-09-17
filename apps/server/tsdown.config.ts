@@ -1,7 +1,10 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: "./src/server.ts",
+  entry: {
+    server: "./src/server.ts",
+    vercel: "./src/index.ts",
+  },
   format: "esm",
   outDir: "./dist",
   clean: true,
