@@ -3,5 +3,9 @@
   "framework": null,
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install --frozen-lockfile",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/", "destination": "/api" },
+    { "source": "/trpc/:path*", "destination": "/api/trpc/:path*" }
+  ]
 }
