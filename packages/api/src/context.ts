@@ -7,7 +7,9 @@ export type CreateContextOptions = {
 
 export async function createContext({ context }: CreateContextOptions) {
   const session = await auth.api.getSession({
-    headers: context.req.raw.headers,
+    // Use Hono's request API instead of the raw Web Request. This keeps the
+    // workspace build independent of which Request type Vercel resolves.
+    headers: context.req.header(),
   });
   return {
     auth: null,
