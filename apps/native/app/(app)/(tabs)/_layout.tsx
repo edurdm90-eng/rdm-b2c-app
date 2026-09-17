@@ -1,7 +1,6 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Tabs } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { focusedColors } from "@/components/focused-ui";
@@ -23,29 +22,10 @@ type AppTabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>["
 
 function AppTabBar({ state, descriptors, navigation }: AppTabBarProps) {
   const insets = useSafeAreaInsets();
-  const scrollView = useRef<ScrollView>(null);
-  const [availableWidth, setAvailableWidth] = useState(0);
-  const itemWidth = Math.max(64, availableWidth / state.routes.length);
-  const overflowing = availableWidth > 0 && itemWidth * state.routes.length > availableWidth;
-
-  useEffect(() => {
-    scrollView.current?.scrollTo({
-      x: Math.max(0, state.index * itemWidth - (availableWidth - itemWidth) / 2),
-      animated: true,
-    });
-  }, [availableWidth, itemWidth, state.index]);
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 6), paddingLeft: insets.left, paddingRight: insets.right }]}>
-      {overflowing ? <Text style={styles.scrollHint}>Swipe for all tabs ↔</Text> : null}
-      <ScrollView
-        horizontal
-        onLayout={(event) => setAvailableWidth(event.nativeEvent.layout.width)}
-        ref={scrollView}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.items}
-        style={styles.scroll}
-      >
+      <View style={styles.items}>
         {state.routes.map((route, index) => {
           const options = descriptors[route.key]?.options;
           const focused = state.index === index;
@@ -63,14 +43,14 @@ function AppTabBar({ state, descriptors, navigation }: AppTabBarProps) {
                 if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
               }}
               onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
-              style={({ pressed }) => [styles.item, { width: itemWidth }, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.item, pressed && styles.pressed]}
             >
               <MaterialCommunityIcons name={focused && route.name === "index" ? "home-variant" : focused && route.name === "wallet" ? "wallet" : icons[route.name] ?? "circle-outline"} size={21} color={color} />
               <Text style={[styles.label, { color }]}>{label}</Text>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -95,10 +75,8 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   bar: { backgroundColor: focusedColors.background, borderTopWidth: 1, borderTopColor: focusedColors.line, paddingTop: 3 },
-  items: { alignItems: "center" },
-  scroll: { height: 44, flexGrow: 0 },
-  item: { minHeight: 44, alignItems: "center", justifyContent: "center", gap: 1, paddingHorizontal: 3 },
+  items: { alignItems: "center", flexDirection: "row", width: "100%" },
+  item: { flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", gap: 1, paddingHorizontal: 1 },
   label: { fontFamily: fonts.bodyMedium, fontSize: 8, textAlign: "center" },
-  scrollHint: { fontFamily: fonts.body, fontSize: 10, color: focusedColors.muted, textAlign: "right", paddingHorizontal: 12, paddingBottom: 2 },
   pressed: { opacity: 0.7 },
 });
