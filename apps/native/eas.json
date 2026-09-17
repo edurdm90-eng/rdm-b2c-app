@@ -1,0 +1,14 @@
+{
+  "build": {
+    "production": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SERVER_URL": "https://rdm-b2c-server-rho.vercel.app"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

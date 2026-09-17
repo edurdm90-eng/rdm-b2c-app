@@ -48,7 +48,7 @@ export default function HomeScreen() {
           <Text accessibilityRole="header" style={styles.title}>{getGreeting(new Date().getHours())}, {user.name}.</Text>
           <Text style={styles.greeting}>Make today count.</Text>
         </View>
-        <Pressable accessibilityLabel="Open account" accessibilityRole="button" onPress={() => router.push("/(app)/account")} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
+        <Pressable accessibilityLabel="Open account" accessibilityRole="button" onPress={() => router.push("../account")} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
           <MaterialCommunityIcons name="account-circle-outline" size={27} color={palette.text} />
         </Pressable>
       </View>

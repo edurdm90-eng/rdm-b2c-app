@@ -54,7 +54,7 @@ export default function TreeScreen() {
   return <TreePage title="Grow Every Day" busy={working} onBack={() => router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)")}
     footer={profile && !missedDayKey ? planted ? <>
       <Text style={[ui.small, styles.center]}>Care your way. Every positive action helps.</Text>
-      <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/tree-history")} style={ui.textButton}><Text style={ui.link}>View care history →</Text></Pressable>
+      <Pressable accessibilityRole="button" onPress={() => router.push("./tree-history")} style={ui.textButton}><Text style={ui.link}>View care history →</Text></Pressable>
     </> : <>
       {notice ? <Text accessibilityRole="alert" style={ui.error}>{notice}</Text> : null}
       <FocusedButton label={valid ? `Pledge ${formatRdm(parsedAmount)} RDM & plant` : "Enter a pledge of at least 10 RDM"} disabled={!affordable || Boolean(missedDayKey)} loading={working} onPress={() => void plant()} />
@@ -84,7 +84,7 @@ export default function TreeScreen() {
       </View>
       <View style={styles.growth}><Text style={ui.section}>Growing with your care</Text><View style={styles.growthRow}><View accessibilityRole="progressbar" accessibilityLabel="Growth within the current tree stage" accessibilityValue={{ min: 0, max: 100, now: Math.round(profile.tree.growth.progress * 100) }} style={styles.track}><View style={[styles.fill, { width: `${Math.round(profile.tree.growth.progress * 100)}%` }]} /></View><Text style={ui.small}>{profile.tree.growth.points} growth</Text></View></View>
       <View style={styles.actions}>
-        <CareRow title="Add Fertilizer" subtitle="Your habits & goals" icon="leaf" color={palette.green} done={profile.tree.todayCare.fertilizerCount > 0} onPress={() => router.push("/(app)/fertilizer")} />
+        <CareRow title="Add Fertilizer" subtitle="Your habits & goals" icon="leaf" color={palette.green} done={profile.tree.todayCare.fertilizerCount > 0} onPress={() => router.push("./fertilizer")} />
         <CareRow title="Add Water" subtitle="Say thank you" icon="water" color={palette.link} done={profile.tree.todayCare.waterCount > 0} onPress={() => router.push("/(app)/thank-you")} />
         <CareRow title="Add Sunlight" subtitle="Good deeds register" icon="white-balance-sunny" color={palette.gold} done={profile.tree.todayCare.sunlightCount > 0} onPress={() => router.push("/(app)/good-deeds")} />
       </View>
