@@ -6,11 +6,14 @@
       "dependsOn": ["^build"],
       "env": [
         "DATABASE_URL",
+        "BETTER_AUTH_SECRET",
         "OPENAI_API_KEY",
         "OPENAI_MODEL",
         "MEDAA_DAILY_REQUEST_LIMIT",
         "BETTER_AUTH_URL",
-        "CORS_ORIGIN"
+        "CORS_ORIGIN",
+        "PORT",
+        "NODE_ENV"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
