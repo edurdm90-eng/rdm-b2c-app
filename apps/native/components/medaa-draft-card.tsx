@@ -43,7 +43,7 @@ function TextButton({ label, disabled = false, onPress }: { label: string; disab
 }
 
 function InfoNote({ children }: { children: React.ReactNode }) {
-  return <View style={styles.infoNote}><MaterialCommunityIcons name="information-outline" size={21} color={palette.muted} /><Text style={styles.infoText}>{children}</Text></View>;
+  return <View style={styles.infoNote}><MaterialCommunityIcons name="information-outline" size={18} color={palette.muted} /><Text style={styles.infoText}>{children}</Text></View>;
 }
 
 export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, initialEditing = false, aiDisabled = false, onConversation, onRefine, onClose, onMore, onFinish, onBusyChange }: {
@@ -246,7 +246,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
   function goalSummary(compact = false, saved = false) {
     const source = saved ? draft.content : displayContent;
     return <View style={styles.goalSummary}>
-      <MaterialCommunityIcons name={categoryIcons[source.category]} size={compact ? 28 : 34} color={compact ? palette.link : palette.text} />
+      <MaterialCommunityIcons name={categoryIcons[source.category]} size={compact ? 24 : 27} color={compact ? palette.link : palette.text} />
       <View style={styles.goalCopy}>
         <View style={styles.savedHeading}>
           <Text style={[styles.goalTitle, compact && styles.compactTitle]}>{source.title}</Text>
@@ -265,7 +265,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
         {isCreated ? (
           <>
             <View style={styles.successIntro}>
-              <View style={styles.successCircle}><MaterialCommunityIcons name="check" size={48} color={palette.link} /></View>
+              <View style={styles.successCircle}><MaterialCommunityIcons name="check" size={40} color={palette.link} /></View>
               <Text accessibilityRole="header" style={styles.successTitle}>Your {isHabit ? "habit" : "goal"} is ready.</Text>
               <Text style={styles.subtitle}>A small plan for your bigger picture.</Text>
             </View>
@@ -276,13 +276,13 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>RDM reservation</Text>
               <View style={styles.reservation}>
-                <MaterialCommunityIcons name="database-outline" size={28} color={palette.text} />
+                <MaterialCommunityIcons name="database-outline" size={24} color={palette.text} />
                 <View style={styles.goalCopy}><Text style={styles.label}>{savedReview ? `${formatRdm(savedReview.totalPledge)} RDM reserved` : "Commitment saved"}</Text><Text style={styles.caption}>from Base at creation</Text></View>
                 <View style={styles.reservationBalance}><Text style={styles.label}>{availableBase === undefined ? "Checking…" : `${formatRdm(availableBase)} RDM`}</Text><Text style={styles.caption}>currently available</Text></View>
               </View>
               {createdWallet.error ? <TextButton label="Retry current balance" onPress={() => void createdWallet.refetch()} /> : null}
             </View>
-            <View style={styles.infoNote}><MaterialCommunityIcons name="book-open-variant-outline" size={27} color={palette.muted} /><Text style={styles.infoText}>Reflect daily in your {isHabit ? "Habits" : "Goals"} tab.</Text></View>
+            <View style={styles.infoNote}><MaterialCommunityIcons name="book-open-variant-outline" size={22} color={palette.muted} /><Text style={styles.infoText}>Reflect daily in your {isHabit ? "Habits" : "Goals"} tab.</Text></View>
           </>
         ) : archivedHabit ? (
           <>
@@ -293,7 +293,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
         ) : lowBalance ? (
           <>
             <View style={styles.notice}>
-              <MaterialCommunityIcons name="information" size={28} color={palette.link} />
+              <MaterialCommunityIcons name="information" size={23} color={palette.link} />
               <View style={styles.goalCopy}><Text style={styles.noticeTitle}>{review ? "Your balance has changed" : "This goal needs more RDM"}</Text><Text style={styles.body}>This goal needs {formatRdm(requiredTotal ?? 0)} RDM. {formatRdm(availableBase ?? 0)} RDM is available in Base.</Text></View>
             </View>
             <View style={styles.section}>
@@ -307,7 +307,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>A smaller first step</Text>
               <Text style={styles.body}>Ask Medaa to suggest a smaller goal that fits your balance. Your original target and dates will not change until a new suggestion is ready.</Text>
-              <View style={styles.card}><View style={styles.infoNote}><MaterialCommunityIcons name="auto-fix" size={26} color={palette.link} /><Text style={styles.infoText}>{budget.data?.maxAffordableDays ? `At ${formatRdm(numericDailyPledge)} RDM/day, up to ${budget.data.maxAffordableDays} days fit after other selected goals. Review any new suggestion before setting it.` : "No days fit at this daily pledge. Lower the rate if possible, or keep your saved draft and return when you have Base RDM."}</Text></View></View>
+              <View style={styles.card}><View style={styles.infoNote}><MaterialCommunityIcons name="auto-fix" size={22} color={palette.link} /><Text style={styles.infoText}>{budget.data?.maxAffordableDays ? `At ${formatRdm(numericDailyPledge)} RDM/day, up to ${budget.data.maxAffordableDays} days fit after other selected goals. Review any new suggestion before setting it.` : "No days fit at this daily pledge. Lower the rate if possible, or keep your saved draft and return when you have Base RDM."}</Text></View></View>
               {hasUnsavedChanges ? <Text style={styles.caption}>Review or discard your local target/date edits before asking AI to refine the saved plan.</Text> : null}
               {aiDisabled ? <Text style={styles.caption}>AI help is currently unavailable. Your saved draft is still accessible.</Text> : null}
             </View>
@@ -375,7 +375,7 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
               <Text style={styles.error}>{isHabit || dailyReview ? "The original start date has passed. Recovery keeps the same dates and pledge; missed scheduled reflection days settle to Remorse."
                 : review.endDayKey <= reviewedToday ? "The original deadline has passed. Recovery can lock the original pledge and immediately settle it to Remorse." : "The original start date has passed. Recovery keeps the same deadline and pledge, not a new goal period."}</Text>
               <Pressable accessibilityRole="checkbox" accessibilityLabel="Confirm recovery with the original dates and RDM pledge" accessibilityState={{ checked: confirmElapsedDates, disabled: disabled || busy }} aria-checked={confirmElapsedDates} disabled={disabled || busy} onPress={() => setConfirmElapsedDates((value) => !value)} style={styles.checkboxRow}>
-                <MaterialCommunityIcons name={confirmElapsedDates ? "checkbox-marked" : "checkbox-blank-outline"} size={26} color={palette.link} /><Text style={styles.infoText}>I confirm the original dates, RDM pledge, and any missed-day settlement.</Text>
+                <MaterialCommunityIcons name={confirmElapsedDates ? "checkbox-marked" : "checkbox-blank-outline"} size={22} color={palette.link} /><Text style={styles.infoText}>I confirm the original dates, RDM pledge, and any missed-day settlement.</Text>
               </Pressable>
             </View> : null}
             {setting ? <InfoNote>This exact commitment has already been submitted. Retry to confirm its result safely; its approved details cannot be edited.</InfoNote> : null}
@@ -418,64 +418,64 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
 const styles = StyleSheet.create({
   screen: { flex: 1, minHeight: 0 },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20, gap: 18 },
-  intro: { gap: 7, paddingBottom: 2 },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33 },
-  subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 22 },
+  content: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 16, gap: 15 },
+  intro: { gap: 5, paddingBottom: 1 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 27 },
+  subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   body: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20 },
   caption: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   label: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
-  sectionTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 21 },
-  section: { borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 16, gap: 12 },
-  card: { padding: 14, borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel, gap: 12 },
-  goalSummary: { flexDirection: "row", alignItems: "flex-start", gap: 15 },
-  goalCopy: { flex: 1, minWidth: 0, gap: 5 },
-  goalTitle: { flex: 1, color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 15, lineHeight: 21 },
+  sectionTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13.5, lineHeight: 20 },
+  section: { borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 13, gap: 10 },
+  card: { padding: 12, borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel, gap: 10 },
+  goalSummary: { flexDirection: "row", alignItems: "flex-start", gap: 13 },
+  goalCopy: { flex: 1, minWidth: 0, gap: 4 },
+  goalTitle: { flex: 1, color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20 },
   compactTitle: { fontSize: 13, lineHeight: 19 },
   savedHeading: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  dateRow: { borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+  dateRow: { borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
   rowLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, flex: 1 },
   dateField: { flex: 2.3, minWidth: 0 },
-  reviewRow: { minHeight: 46, borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+  reviewRow: { minHeight: 42, borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
   reviewValue: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18, textAlign: "right" },
-  stepper: { flex: 2.3, minWidth: 0, minHeight: 46, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: palette.line, borderRadius: 8 },
-  stepButton: { minHeight: 44, minWidth: 38, alignItems: "center", justifyContent: "center" },
-  pledgeInput: { flex: 1, minWidth: 0, color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 15, minHeight: 44, paddingHorizontal: 0, paddingVertical: 5, textAlign: "center" },
-  balanceCard: { borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel, padding: 16, flexDirection: "row", gap: 20 },
-  balanceCell: { flex: 1, minWidth: 0, gap: 6 },
-  balanceDivider: { borderLeftWidth: 1, borderLeftColor: palette.muted, paddingLeft: 20 },
-  balanceValue: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 23, lineHeight: 31 },
-  infoNote: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  stepper: { flex: 2.3, minWidth: 0, minHeight: 42, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: palette.line, borderRadius: 8 },
+  stepButton: { minHeight: 40, minWidth: 34, alignItems: "center", justifyContent: "center" },
+  pledgeInput: { flex: 1, minWidth: 0, color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, minHeight: 40, paddingHorizontal: 0, paddingVertical: 5, textAlign: "center" },
+  balanceCard: { borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel, padding: 13, flexDirection: "row", gap: 16 },
+  balanceCell: { flex: 1, minWidth: 0, gap: 5 },
+  balanceDivider: { borderLeftWidth: 1, borderLeftColor: palette.muted, paddingLeft: 16 },
+  balanceValue: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 19, lineHeight: 25 },
+  infoNote: { flexDirection: "row", alignItems: "flex-start", gap: 11 },
   infoText: { flex: 1, color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 19 },
-  notice: { flexDirection: "row", gap: 12, padding: 14, borderWidth: 1, borderColor: "#274766", borderRadius: 9, backgroundColor: "#172735" },
-  noticeTitle: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 21 },
-  breakdownRow: { minHeight: 35, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: palette.line, paddingBottom: 8 },
-  createdContent: { paddingTop: 24, gap: 23 },
-  successIntro: { alignItems: "center", paddingTop: 14, paddingBottom: 8, gap: 10 },
-  successCircle: { width: 88, height: 88, borderRadius: 44, borderWidth: 6, borderColor: palette.link, alignItems: "center", justifyContent: "center", marginBottom: 17 },
-  successTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33, textAlign: "center" },
+  notice: { flexDirection: "row", gap: 11, padding: 12, borderWidth: 1, borderColor: "#274766", borderRadius: 9, backgroundColor: "#172735" },
+  noticeTitle: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 13.5, lineHeight: 20 },
+  breakdownRow: { minHeight: 32, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: palette.line, paddingBottom: 7 },
+  createdContent: { paddingTop: 18, gap: 18 },
+  successIntro: { alignItems: "center", paddingTop: 10, paddingBottom: 6, gap: 8 },
+  successCircle: { width: 68, height: 68, borderRadius: 34, borderWidth: 5, borderColor: palette.link, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  successTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 27, textAlign: "center" },
   createdBadge: { borderWidth: 1, borderColor: palette.green, borderRadius: 14, paddingHorizontal: 7, paddingVertical: 1 },
   createdBadgeText: { color: palette.green, fontFamily: fonts.bodyMedium, fontSize: 10, lineHeight: 16 },
-  reservation: { borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
-  reservationBalance: { maxWidth: "39%", borderLeftWidth: 1, borderLeftColor: palette.line, paddingLeft: 12, gap: 4 },
-  footer: { paddingHorizontal: 20, paddingTop: 10, gap: 9, backgroundColor: palette.background },
-  outlineButton: { minHeight: 48, borderWidth: 1, borderColor: palette.line, borderRadius: 9, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", backgroundColor: palette.panel },
-  outlineLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 21, textAlign: "center" },
-  textButton: { minHeight: 36, alignItems: "center", justifyContent: "center" },
+  reservation: { borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel, padding: 12, flexDirection: "row", alignItems: "center", gap: 11 },
+  reservationBalance: { maxWidth: "39%", borderLeftWidth: 1, borderLeftColor: palette.line, paddingLeft: 11, gap: 4 },
+  footer: { paddingHorizontal: 18, paddingTop: 9, gap: 8, backgroundColor: palette.background },
+  outlineButton: { minHeight: 44, borderWidth: 1, borderColor: palette.line, borderRadius: 9, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", backgroundColor: palette.panel },
+  outlineLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13.5, lineHeight: 20, textAlign: "center" },
+  textButton: { minHeight: 34, alignItems: "center", justifyContent: "center" },
   link: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 19 },
   errorBlock: { gap: 3 },
   error: { color: palette.coral, fontFamily: fonts.body, fontSize: 12, lineHeight: 19 },
   coral: { color: palette.coral },
-  editor: { gap: 9 },
-  input: { minHeight: 44, borderWidth: 1, borderColor: palette.line, borderRadius: 8, padding: 10, color: palette.text, backgroundColor: palette.background, fontFamily: fonts.body, fontSize: 13, lineHeight: 20 },
-  multiline: { minHeight: 76, textAlignVertical: "top" },
-  categoryButton: { flexDirection: "row", minHeight: 44, alignItems: "center", justifyContent: "space-between", gap: 12 },
-  editDetails: { flexDirection: "row", minHeight: 32, alignItems: "center", justifyContent: "flex-end", gap: 5 },
-  recovery: { gap: 12 },
-  checkboxRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 8 },
+  editor: { gap: 8 },
+  input: { minHeight: 40, borderWidth: 1, borderColor: palette.line, borderRadius: 8, padding: 9, color: palette.text, backgroundColor: palette.background, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  multiline: { minHeight: 66, textAlignVertical: "top" },
+  categoryButton: { flexDirection: "row", minHeight: 40, alignItems: "center", justifyContent: "space-between", gap: 12 },
+  editDetails: { flexDirection: "row", minHeight: 30, alignItems: "center", justifyContent: "flex-end", gap: 5 },
+  recovery: { gap: 11 },
+  checkboxRow: { flexDirection: "row", alignItems: "flex-start", gap: 9, paddingVertical: 7 },
   approach: { borderTopWidth: 1, borderTopColor: palette.line },
-  approachHeader: { minHeight: 44, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
-  approachBody: { gap: 10 },
+  approachHeader: { minHeight: 40, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  approachBody: { gap: 9 },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.75 },
 });

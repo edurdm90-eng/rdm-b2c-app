@@ -201,17 +201,17 @@ export default function AiCoachScreen() {
     <FocusedScreen scroll={false} contentStyle={styles.screen}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         {showHeader ? <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel={historyOpen ? "Back from saved journeys" : "Go back"} disabled={navigationLocked} onPress={back} style={styles.back}><MaterialCommunityIcons name="arrow-left" size={26} color={palette.text} /></Pressable>
-          {!simpleHeader ? <MaterialCommunityIcons name="creation" size={27} color={palette.link} /> : null}
+          <Pressable accessibilityRole="button" accessibilityLabel={historyOpen ? "Back from saved journeys" : "Go back"} disabled={navigationLocked} onPress={back} style={styles.back}><MaterialCommunityIcons name="arrow-left" size={22} color={palette.text} /></Pressable>
+          {!simpleHeader ? <MaterialCommunityIcons name="creation" size={22} color={palette.link} /> : null}
           <Text accessibilityRole="header" style={[styles.brand, simpleHeader && styles.simpleBrand]}>Medaa Ai</Text>
           {!simpleHeader ? <View accessibilityLabel={availableBase === undefined ? "Checking Base RDM" : formatRdm(availableBase) + " Base RDM available"} style={styles.balance}>
-            <MaterialCommunityIcons name="wallet-outline" size={21} color={palette.text} /><View><Text style={styles.balanceValue}>{availableBase === undefined ? "…" : formatRdm(availableBase) + " RDM"}</Text><Text style={styles.small}>available</Text></View>
+            <MaterialCommunityIcons name="wallet-outline" size={17} color={palette.text} /><View><Text style={styles.balanceValue}>{availableBase === undefined ? "…" : formatRdm(availableBase) + " RDM"}</Text><Text style={styles.small}>available</Text></View>
           </View> : null}
         </View> : null}
         {!historyOpen && !selectedDraft && (!data || journey) ? <View accessibilityLabel={["Direction", "Plan", "Review"][progressStep] + ", step " + (progressStep + 1) + " of 3"} style={styles.progress}>
           {["Direction", "Plan", "Review"].map((label, index) => <View key={label} style={styles.step}>
             {index < 2 ? <View style={[styles.connector, index < progressStep && styles.activeConnector]} /> : null}
-            <MaterialCommunityIcons name={index < progressStep ? "check-circle" : index === progressStep ? "radiobox-marked" : "checkbox-blank-circle-outline"} size={22} color={index <= progressStep ? palette.link : palette.line} style={styles.stepIcon} />
+            <MaterialCommunityIcons name={index < progressStep ? "check-circle" : index === progressStep ? "radiobox-marked" : "checkbox-blank-circle-outline"} size={19} color={index <= progressStep ? palette.link : palette.line} style={styles.stepIcon} />
             <Text style={[styles.stepLabel, index <= progressStep && styles.activeLabel]}>{label}</Text>
           </View>)}
         </View> : null}
@@ -236,12 +236,12 @@ export default function AiCoachScreen() {
             {history.error ? <Pressable accessibilityRole="button" onPress={() => void history.refetch()} style={styles.textButton}><Text style={styles.error}>Couldn't load saved journeys. Tap to retry.</Text></Pressable> : null}
             {history.data?.length === 0 ? <Text style={styles.helper}>No saved journeys yet. Start with a direction that matters to you.</Text> : null}
             {history.data?.map((item) => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={"Resume journey: " + item.title} disabled={navigationLocked} onPress={() => selectJourney(item.id)} style={styles.historyItem}>
-              <MaterialCommunityIcons name="book-open-variant-outline" size={32} color={palette.link} />
+              <MaterialCommunityIcons name="book-open-variant-outline" size={26} color={palette.link} />
               <View style={styles.flex}><Text style={styles.itemTitle}>{item.title}</Text>
                 <View style={styles.historyMeta}><Text style={styles.helper}>{item.horizonYears ? item.horizonYears + " year horizon" : "Saved conversation"}</Text>
                   <Text style={[styles.badge, item.createdGoalCount > 0 && styles.createdBadge]}>{item.createdGoalCount > 0 ? "Created" : item.settingGoalCount > 0 ? "Recover" : "Draft"}</Text></View>
                 <Text style={styles.small}>Updated {new Date(item.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {item.createdGoalCount > 0 ? item.createdGoalCount + (item.createdGoalCount === 1 ? " goal created" : " goals created") : "Draft saved"}</Text>
-              </View><MaterialCommunityIcons name="chevron-right" size={21} color={palette.muted} />
+              </View><MaterialCommunityIcons name="chevron-right" size={18} color={palette.muted} />
             </Pressable>)}
           </ScrollView>
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}><FocusedButton label="New journey" disabled={navigationLocked} onPress={() => selectJourney("")} style={styles.blueButton} /><Text style={styles.footnote}>Existing plans remain accessible here.</Text></View>
@@ -253,7 +253,7 @@ export default function AiCoachScreen() {
             : data && !journey ? <ScrollView contentContainerStyle={styles.historyContent}>
               <Text accessibilityRole="header" style={styles.hero}>Your previous conversation is preserved</Text><Text style={styles.helper}>Medaa now guides you toward practical goals. You can still open your saved records.</Text>
               <FocusedButton label="Start a guided journey" onPress={() => selectJourney("")} />
-              {data.drafts.map((draft) => <Pressable key={draft.id} accessibilityRole="button" onPress={() => openDraft(draft.id)} style={styles.historyItem}><View style={styles.flex}><Text style={styles.itemTitle}>{draft.content.title}</Text><Text style={styles.small}>{draft.status === "created" ? "Created · Open" : "Saved draft · Review"}</Text></View><MaterialCommunityIcons name="chevron-right" size={21} color={palette.muted} /></Pressable>)}
+              {data.drafts.map((draft) => <Pressable key={draft.id} accessibilityRole="button" onPress={() => openDraft(draft.id)} style={styles.historyItem}><View style={styles.flex}><Text style={styles.itemTitle}>{draft.content.title}</Text><Text style={styles.small}>{draft.status === "created" ? "Created · Open" : "Saved draft · Review"}</Text></View><MaterialCommunityIcons name="chevron-right" size={18} color={palette.muted} /></Pressable>)}
               {data.messages.map((item) => <View key={item.id} style={styles.legacyMessage}><Text style={styles.small}>{item.role === "user" ? "YOU" : "MEDAA AI"}</Text><Text style={styles.helper}>{item.text}</Text></View>)}
             </ScrollView> : !conversationId || data ? <MedaaJourneyStep key={conversationId + ":" + stage} data={data ?? null} disabled={locked} aiDisabled={aiDisabled} attemptsRemaining={attemptsRemaining} budget={planBudget}
               onHistory={() => { if (!navigationLocked) setHistoryOpen(true); }} onFinish={finish}
@@ -269,37 +269,37 @@ export default function AiCoachScreen() {
 
 const styles = StyleSheet.create({
   screen: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }, flex: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, minHeight: 72 },
-  back: { minHeight: 44, minWidth: 32, justifyContent: "center" },
-  brand: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 25 },
-  simpleBrand: { fontFamily: fonts.bodyMedium, fontSize: 16, color: palette.muted },
-  balance: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: palette.line, borderRadius: 10, backgroundColor: palette.panel },
-  balanceValue: { fontFamily: fonts.bodyBold, fontSize: 12, lineHeight: 16, color: palette.text },
-  small: { fontFamily: fonts.body, fontSize: 11, lineHeight: 17, color: palette.muted },
-  progress: { flexDirection: "row", paddingHorizontal: 18, paddingTop: 3, paddingBottom: 24 },
-  step: { flex: 1, alignItems: "center", gap: 5 },
+  header: { flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, minHeight: 56 },
+  back: { minHeight: 40, minWidth: 30, justifyContent: "center" },
+  brand: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22 },
+  simpleBrand: { fontFamily: fonts.bodyMedium, fontSize: 14.5, color: palette.muted },
+  balance: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel },
+  balanceValue: { fontFamily: fonts.bodyBold, fontSize: 11.5, lineHeight: 15, color: palette.text },
+  small: { fontFamily: fonts.body, fontSize: 11, lineHeight: 16, color: palette.muted },
+  progress: { flexDirection: "row", paddingHorizontal: 18, paddingTop: 2, paddingBottom: 16 },
+  step: { flex: 1, alignItems: "center", gap: 4 },
   stepIcon: { backgroundColor: palette.background },
-  connector: { position: "absolute", left: "50%", width: "100%", top: 10, height: 1, backgroundColor: palette.line },
+  connector: { position: "absolute", left: "50%", width: "100%", top: 9, height: 1, backgroundColor: palette.line },
   activeConnector: { backgroundColor: palette.link },
-  stepLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
+  stepLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 15 },
   activeLabel: { color: palette.link },
-  notices: { flexGrow: 0, maxHeight: 160 }, noticeContent: { paddingHorizontal: 18, paddingBottom: 10, gap: 10 },
-  alert: { padding: 10, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel },
-  noticeActions: { gap: 4 }, saving: { flexDirection: "row", alignItems: "center", gap: 10 },
-  helper: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: palette.muted },
-  error: { fontFamily: fonts.body, fontSize: 12, lineHeight: 18, color: palette.coral },
-  textButton: { minHeight: 38, justifyContent: "center" }, link: { fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20, color: palette.link },
-  historyContent: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 24, gap: 14, flexGrow: 1 },
-  hero: { fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33, color: palette.text },
-  sectionTitle: { fontFamily: fonts.bodyBold, fontSize: 15, lineHeight: 22, color: palette.text, paddingTop: 20, marginTop: 8, borderTopWidth: 1, borderColor: palette.line },
-  historyItem: { flexDirection: "row", gap: 14, alignItems: "center", padding: 14, borderWidth: 1, borderColor: palette.line, borderRadius: 8 },
-  itemTitle: { fontFamily: fonts.bodyMedium, fontSize: 15, lineHeight: 22, color: palette.text },
-  historyMeta: { flexDirection: "row", gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", marginTop: 5, marginBottom: 8 },
-  badge: { borderWidth: 1, borderColor: palette.line, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 2, color: palette.muted, fontFamily: fonts.body, fontSize: 11 },
+  notices: { flexGrow: 0, maxHeight: 150 }, noticeContent: { paddingHorizontal: 18, paddingBottom: 8, gap: 8 },
+  alert: { padding: 9, borderWidth: 1, borderColor: palette.line, borderRadius: 8, backgroundColor: palette.panel },
+  noticeActions: { gap: 4 }, saving: { flexDirection: "row", alignItems: "center", gap: 9 },
+  helper: { fontFamily: fonts.body, fontSize: 13, lineHeight: 19, color: palette.muted },
+  error: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: palette.coral },
+  textButton: { minHeight: 36, justifyContent: "center" }, link: { fontFamily: fonts.bodyMedium, fontSize: 12.5, lineHeight: 18, color: palette.link },
+  historyContent: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 20, gap: 12, flexGrow: 1 },
+  hero: { fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 27, color: palette.text },
+  sectionTitle: { fontFamily: fonts.bodyBold, fontSize: 13.5, lineHeight: 19, color: palette.text, paddingTop: 14, marginTop: 4, borderTopWidth: 1, borderColor: palette.line },
+  historyItem: { flexDirection: "row", gap: 12, alignItems: "center", padding: 11, borderWidth: 1, borderColor: palette.line, borderRadius: 8 },
+  itemTitle: { fontFamily: fonts.bodyMedium, fontSize: 13.5, lineHeight: 19, color: palette.text },
+  historyMeta: { flexDirection: "row", gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", marginTop: 4, marginBottom: 6 },
+  badge: { borderWidth: 1, borderColor: palette.line, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, color: palette.muted, fontFamily: fonts.body, fontSize: 10.5 },
   createdBadge: { color: palette.green, borderColor: "#2B7A59" },
-  footer: { paddingHorizontal: 18, paddingTop: 12, gap: 10 },
+  footer: { paddingHorizontal: 18, paddingTop: 10, gap: 8 },
   blueButton: { backgroundColor: palette.link },
-  footnote: { textAlign: "center", fontFamily: fonts.body, fontSize: 11, lineHeight: 17, color: palette.muted },
-  loading: { flex: 1, gap: 14, padding: 18, alignItems: "center", justifyContent: "center" },
-  legacyMessage: { gap: 6, padding: 14, borderRadius: 8, backgroundColor: palette.panel },
+  footnote: { textAlign: "center", fontFamily: fonts.body, fontSize: 10.5, lineHeight: 16, color: palette.muted },
+  loading: { flex: 1, gap: 12, padding: 18, alignItems: "center", justifyContent: "center" },
+  legacyMessage: { gap: 5, padding: 12, borderRadius: 8, backgroundColor: palette.panel },
 });

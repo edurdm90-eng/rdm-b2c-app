@@ -82,7 +82,7 @@ export default function FrameworkScreen() {
                     onPress={() => setSelectedTemplateId(template.id)}
                     style={({ pressed }) => [styles.templateCard, selected && styles.selectedCard, pressed && styles.pressed]}
                   >
-                    <MaterialCommunityIcons name={template.icon as IconName} size={42} color={categoryColor(template.category)} />
+                    <MaterialCommunityIcons name={template.icon as IconName} size={30} color={categoryColor(template.category)} />
                     <View style={styles.templateCopy}>
                       <Text style={styles.templateTitle}>{template.title}</Text>
                       <Text style={styles.templateCategory}>{template.category}</Text>
@@ -124,32 +124,32 @@ export default function FrameworkScreen() {
 }
 
 const styles = StyleSheet.create({
-  screenContent: { paddingHorizontal: 0, paddingTop: 20, paddingBottom: 0 },
-  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingBottom: 12 },
-  backButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
-  title: { flex: 1, color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 23, lineHeight: 30 },
+  screenContent: { paddingHorizontal: 0, paddingTop: 16, paddingBottom: 0 },
+  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingBottom: 10 },
+  backButton: { minWidth: 40, minHeight: 40, alignItems: "center", justifyContent: "center" },
+  title: { flex: 1, color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 20, lineHeight: 26 },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 22, paddingTop: 8, paddingBottom: 24 },
-  subtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 16, lineHeight: 24, marginBottom: 20 },
-  categories: { gap: 8, paddingBottom: 4 },
-  category: { minHeight: 44, paddingHorizontal: 22, borderRadius: 24, borderWidth: 1, borderColor: focusedColors.line, backgroundColor: focusedColors.panel, alignItems: "center", justifyContent: "center" },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 20 },
+  subtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, marginBottom: 14 },
+  categories: { gap: 7, paddingBottom: 4 },
+  category: { minHeight: 36, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: focusedColors.line, backgroundColor: focusedColors.panel, alignItems: "center", justifyContent: "center" },
   activeCategory: { borderColor: focusedColors.link, backgroundColor: "#243A4B" },
-  categoryLabel: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
+  categoryLabel: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 12.5, lineHeight: 18 },
   activeCategoryLabel: { color: focusedColors.text },
-  sectionTitle: { color: focusedColors.text, fontFamily: fonts.bodyMedium, fontSize: 17, lineHeight: 24, marginTop: 27, marginBottom: 12 },
-  list: { gap: 12 },
-  templateCard: { flexDirection: "row", alignItems: "center", gap: 16, minHeight: 112, paddingVertical: 17, paddingHorizontal: 14, borderBottomWidth: 1, borderColor: focusedColors.line },
-  selectedCard: { borderWidth: 1.5, borderColor: focusedColors.green, borderRadius: 12, backgroundColor: focusedColors.panel },
-  templateCopy: { flex: 1, gap: 3 },
-  templateTitle: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 23 },
-  templateCategory: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
-  templateSubtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
-  check: { width: 30, height: 30, borderRadius: 15, backgroundColor: focusedColors.green, alignItems: "center", justifyContent: "center" },
-  actions: { gap: 12, paddingHorizontal: 22, paddingTop: 12, paddingBottom: 24, backgroundColor: focusedColors.background },
-  customButton: { minHeight: 54, borderWidth: 1, borderColor: focusedColors.line, borderRadius: 10, backgroundColor: focusedColors.panel, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
-  customLabel: { color: focusedColors.muted, fontFamily: fonts.bodyMedium, fontSize: 15, lineHeight: 22 },
-  status: { alignItems: "center", gap: 18, paddingVertical: 32 },
-  statusText: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
+  sectionTitle: { color: focusedColors.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20, marginTop: 18, marginBottom: 9 },
+  list: { gap: 9 },
+  templateCard: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 68, paddingVertical: 11, paddingHorizontal: 12, borderWidth: 1, borderColor: focusedColors.line, borderRadius: 10, backgroundColor: focusedColors.panel },
+  selectedCard: { borderColor: focusedColors.green },
+  templateCopy: { flex: 1, gap: 2 },
+  templateTitle: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 19 },
+  templateCategory: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 11.5, lineHeight: 16 },
+  templateSubtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
+  check: { width: 24, height: 24, borderRadius: 12, backgroundColor: focusedColors.green, alignItems: "center", justifyContent: "center" },
+  actions: { gap: 10, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20, backgroundColor: focusedColors.background },
+  customButton: { minHeight: 46, borderWidth: 1, borderColor: focusedColors.line, borderRadius: 10, backgroundColor: focusedColors.panel, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
+  customLabel: { color: focusedColors.muted, fontFamily: fonts.bodyMedium, fontSize: 13.5, lineHeight: 19 },
+  status: { alignItems: "center", gap: 14, paddingVertical: 24 },
+  statusText: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   retryButton: { alignSelf: "stretch" },
   pressed: { opacity: 0.8 },
 });
