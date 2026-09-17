@@ -87,8 +87,8 @@ export default function TabLayout() {
       <Tabs.Screen name="goals" options={{ title: "Goals" }} />
       <Tabs.Screen name="groups" options={{ title: "Groups" }} />
       <Tabs.Screen name="games" options={{ title: "Games" }} />
-      <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />
       <Tabs.Screen name="japanese-wisdom" options={{ title: "Japanese Wisdom", tabBarAccessibilityLabel: "Japanese Wisdom" }} />
+      <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />
     </Tabs>
   );
 }
