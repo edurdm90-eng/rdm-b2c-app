@@ -1,15 +1,177 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
+import type { ReactNode } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AppScreen, ErrorState, PageHeader } from "@/components/rdm-ui";
+import { ErrorState } from "@/components/rdm-ui";
+import { focusedColors } from "@/components/focused-ui";
 import { colors, fonts, radii } from "@/lib/theme";
+
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+
+export function GroupScreen({ children, scroll = true, contentStyle }: {
+  children: ReactNode;
+  scroll?: boolean;
+  contentStyle?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <SafeAreaView edges={["top", "left", "right"]} style={groupStyles.safeArea}>
+      {scroll ? (
+        <ScrollView
+          contentContainerStyle={[groupStyles.content, contentStyle]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          style={groupStyles.viewport}
+        >
+          {children}
+        </ScrollView>
+      ) : <View style={[groupStyles.viewport, groupStyles.content, contentStyle]}>{children}</View>}
+    </SafeAreaView>
+  );
+}
+
+export function GroupPageHeader({ title, subtitle, back = false, onBack, trailing }: {
+  title: string;
+  subtitle?: string;
+  back?: boolean;
+  onBack?: () => void;
+  trailing?: ReactNode;
+}) {
+  // A trailing element (e.g. a settings icon) always shares the title row with
+  // the back button, so a subtitle can't also go inline there without the two
+  // colliding. When both are present, the subtitle drops to its own row below
+  // instead of being silently discarded; otherwise it keeps its original
+  // placement (inline "step" text for back headers, or under the title).
+  const subtitleBelow = !!subtitle && (!back || !!trailing);
+  const subtitleInline = !!subtitle && back && !trailing;
+  return (
+    <View style={groupStyles.headerStack}>
+      <View style={[groupStyles.header, !back && groupStyles.headerWithoutBack]}>
+        {back ? (
+          <Pressable
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={onBack ?? (() => router.back())}
+            style={({ pressed }) => [groupStyles.backButton, pressed && groupStyles.pressed]}
+          >
+            <MaterialCommunityIcons color={focusedColors.text} name="arrow-left" size={27} />
+          </Pressable>
+        ) : null}
+        <View style={groupStyles.headerCopy}>
+          <Text style={groupStyles.headerTitle}>{title}</Text>
+          {!back && subtitleBelow ? <Text style={groupStyles.headerSubtitle}>{subtitle}</Text> : null}
+        </View>
+        {trailing ?? (subtitleInline ? <Text style={groupStyles.headerStep}>{subtitle}</Text> : null)}
+      </View>
+      {back && subtitleBelow ? <Text style={groupStyles.headerSubtitleBelow}>{subtitle}</Text> : null}
+    </View>
+  );
+}
+
+export function GroupSurfaceCard({ children, onPress, style }: {
+  children: ReactNode;
+  onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [groupStyles.card, style, pressed && groupStyles.pressed]}
+      >
+        {children}
+      </Pressable>
+    );
+  }
+  return <View style={[groupStyles.card, style]}>{children}</View>;
+}
+
+export function GroupPrimaryButton({
+  label,
+  onPress,
+  color = focusedColors.green,
+  textColor = focusedColors.onGreen,
+  icon,
+  disabled = false,
+  loading = false,
+  variant = "solid",
+  style,
+}: {
+  label: string;
+  onPress: () => void;
+  color?: string;
+  textColor?: string;
+  icon?: IconName;
+  disabled?: boolean;
+  loading?: boolean;
+  variant?: "solid" | "outline";
+  style?: StyleProp<ViewStyle>;
+}) {
+  const unavailable = disabled || loading;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: unavailable }}
+      disabled={unavailable}
+      onPress={onPress}
+      style={({ pressed }) => [
+        groupStyles.primaryButton,
+        variant === "solid" ? { backgroundColor: color, borderColor: color } : { borderColor: color },
+        unavailable && groupStyles.disabled,
+        pressed && groupStyles.pressed,
+        style,
+      ]}
+    >
+      {loading ? <ActivityIndicator color={variant === "solid" ? textColor : color} /> : (
+        <>
+          {icon ? <MaterialCommunityIcons color={variant === "solid" ? textColor : color} name={icon} size={21} /> : null}
+          <Text style={[groupStyles.primaryButtonLabel, { color: variant === "solid" ? textColor : color }]}>{label}</Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
+export function GroupSectionLabel({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  return <View style={groupStyles.sectionRow}><Text style={groupStyles.sectionLabel}>{children}</Text>{action}</View>;
+}
+
+export function GroupPill({ label, active = false, color = focusedColors.link, onPress }: {
+  label: string;
+  active?: boolean;
+  color?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => [groupStyles.pill, active && { borderColor: color, backgroundColor: "rgba(102, 199, 255, 0.08)" }, pressed && groupStyles.pressed]}
+    >
+      <Text style={[groupStyles.pillLabel, active && groupStyles.pillLabelActive]}>{label}</Text>
+    </Pressable>
+  );
+}
 
 export function GroupErrorState({ message, onBack, onRetry }: { message: string; onBack: () => void; onRetry?: () => void }) {
   return (
-    <AppScreen scroll={false}>
-      <PageHeader back onBack={onBack} title="Group goal" />
+    <GroupScreen scroll={false}>
+      <GroupPageHeader back onBack={onBack} title="Group goal" />
       <ErrorState message={message} onRetry={onRetry} />
-    </AppScreen>
+    </GroupScreen>
   );
 }
 
@@ -90,7 +252,7 @@ const styles = StyleSheet.create({
   avatar: {
     alignItems: "center",
     backgroundColor: colors.plum,
-    borderColor: colors.panel,
+    borderColor: focusedColors.panel,
     borderRadius: 16,
     borderWidth: 2,
     height: 32,
@@ -98,6 +260,31 @@ const styles = StyleSheet.create({
     width: 32,
   },
   overlap: { marginLeft: -8 },
-  moreAvatar: { backgroundColor: colors.panelRaised },
+  moreAvatar: { backgroundColor: focusedColors.line },
   avatarText: { color: colors.backgroundDeep, fontFamily: fonts.bodyBold, fontSize: 9 },
+});
+
+const groupStyles = StyleSheet.create({
+  safeArea: { backgroundColor: focusedColors.background, flex: 1 },
+  viewport: { alignSelf: "center", flex: 1, maxWidth: 480, width: "100%" },
+  content: { flexGrow: 1, gap: 12, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 16 },
+  headerStack: { gap: 4 },
+  header: { alignItems: "center", flexDirection: "row", minHeight: 42 },
+  headerWithoutBack: { alignItems: "flex-start" },
+  backButton: { alignItems: "center", height: 38, justifyContent: "center", marginLeft: -7, marginRight: 5, width: 38 },
+  headerCopy: { flex: 1 },
+  headerTitle: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 24 },
+  headerSubtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  headerSubtitleBelow: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17, marginLeft: 40 },
+  headerStep: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 12 },
+  card: { backgroundColor: focusedColors.panel, borderColor: focusedColors.line, borderRadius: 9, borderWidth: 1, padding: 12 },
+  primaryButton: { alignItems: "center", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 48, paddingHorizontal: 12 },
+  primaryButtonLabel: { fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 19, textAlign: "center" },
+  disabled: { opacity: 0.46 },
+  pressed: { opacity: 0.78 },
+  sectionRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: 2 },
+  sectionLabel: { color: focusedColors.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 18 },
+  pill: { alignItems: "center", backgroundColor: focusedColors.panel, borderColor: focusedColors.line, borderRadius: 8, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 38, paddingHorizontal: 8 },
+  pillLabel: { color: focusedColors.muted, fontFamily: fonts.bodyMedium, fontSize: 12, textAlign: "center" },
+  pillLabelActive: { color: focusedColors.text },
 });

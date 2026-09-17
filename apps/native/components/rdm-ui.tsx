@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -234,10 +235,15 @@ export function ProgressBar({ progress, color = colors.growth }: { progress: num
 export function LoadingState({ label = "Growing your dashboard…" }: { label?: string }) {
   return (
     <View style={styles.centerState}>
+      <RdmLogo width={132} height={64} />
       <ActivityIndicator color={colors.growth} size="large" />
       <Text style={styles.stateLabel}>{label}</Text>
     </View>
   );
+}
+
+export function RdmLogo({ width = 48, height = 24 }: { width?: number; height?: number }) {
+  return <Image accessible={false} source={require("@/assets/rdm/rdm-logo.png")} resizeMode="contain" style={{ width, height }} />;
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {

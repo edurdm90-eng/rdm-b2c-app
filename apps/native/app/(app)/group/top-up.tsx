@@ -1,24 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import {
-  AppScreen,
   ErrorState,
   LoadingState,
-  PageHeader,
-  Pill,
-  PrimaryButton,
-  SectionLabel,
-  SurfaceCard,
 } from "@/components/rdm-ui";
+import {
+  GroupPageHeader,
+  GroupPrimaryButton,
+  GroupScreen,
+  GroupSectionLabel,
+  GroupSurfaceCard,
+} from "@/components/group-goal-ui";
 import { colors, fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
 export default function GroupTopUpScreen() {
-  const [amount, setAmount] = useState(100);
-  const [paymentMethod, setPaymentMethod] = useState<"upi" | "card">("upi");
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions());
 
   if (wallet.isLoading) return <LoadingState label="Checking your Base Purse…" />;
@@ -27,45 +26,51 @@ export default function GroupTopUpScreen() {
   }
 
   return (
-    <AppScreen>
-      <PageHeader
+    <GroupScreen>
+      <GroupPageHeader
         back
         onBack={() => router.dismissTo("/(app)/group/settings")}
         title="Top up RDM"
-        subtitle={`BASE PURSE: ${formatRdm(wallet.data.wallet.base)} RDM`}
       />
-      <SurfaceCard style={styles.hero}>
-        <Text style={styles.eyebrow}>YOU&apos;RE ADDING</Text>
-        <Text style={styles.amount}>{formatRdm(amount)} RDM</Text>
-        <Text style={styles.helper}>Choose an amount now. A verified payment provider must be connected before money can be accepted or RDM issued.</Text>
-      </SurfaceCard>
-      <SectionLabel>Choose amount</SectionLabel>
+      <View style={styles.hero}><View style={styles.walletIcon}><MaterialCommunityIcons color={colors.inkSoft} name="wallet-outline" size={44} /></View><Text style={styles.heroTitle}>Payments aren&apos;t{`\n`}available yet.</Text><Text style={styles.helper}>RDM top ups will be available in a future version. You can still track your balance and progress.</Text></View>
+      <GroupSurfaceCard style={styles.balanceCard}>
+        <View style={styles.balanceMark} /><View style={styles.balanceCopy}><Text style={styles.balanceLabel}>BASE PURSE</Text><Text style={styles.balanceValue}>{formatRdm(wallet.data.wallet.base)} RDM</Text><Text style={styles.balanceHint}>Available to pledge</Text></View></GroupSurfaceCard>
+      <GroupSectionLabel>Select amount (RDM)</GroupSectionLabel>
       <View style={styles.options}>
-        {[50, 100, 250].map((option) => (
-          <Pill key={option} active={amount === option} color={colors.gold} label={`${option} RDM`} onPress={() => setAmount(option)} />
-        ))}
+        {[100, 250, 500].map((option) => <View key={option} style={styles.disabledOption}><Text style={styles.disabledOptionText}>{option} RDM</Text></View>)}
       </View>
-      <SectionLabel>Pay with</SectionLabel>
-      <View style={styles.options}>
-        <Pill active={paymentMethod === "upi"} color={colors.ai} label="UPI · instant" onPress={() => setPaymentMethod("upi")} />
-        <Pill active={paymentMethod === "card"} color={colors.ai} label="Debit / credit card" onPress={() => setPaymentMethod("card")} />
-      </View>
-      <SurfaceCard style={styles.notice}>
-        <Text style={styles.noticeTitle}>Payments are not connected yet</Text>
-        <Text style={styles.helper}>This screen never changes your balance without a completed, verified payment. You can still review your existing RDM in Wallet.</Text>
-      </SurfaceCard>
-      <PrimaryButton color={colors.gold} disabled label="Payment setup required" onPress={() => undefined} />
-      <PrimaryButton color={colors.plum} label="Open Wallet" onPress={() => router.replace("/(app)/(tabs)/wallet")} variant="outline" />
-    </AppScreen>
+      <GroupSectionLabel>Payment method</GroupSectionLabel>
+      <View style={styles.paymentRows}><View style={styles.paymentRow}><MaterialCommunityIcons color={colors.inkSoft} name="cellphone-wireless" size={24} /><View><Text style={styles.paymentTitle}>UPI</Text><Text style={styles.paymentHint}>Not available</Text></View><View style={styles.radio} /></View><View style={styles.paymentRow}><MaterialCommunityIcons color={colors.inkSoft} name="credit-card-outline" size={24} /><View><Text style={styles.paymentTitle}>Card</Text><Text style={styles.paymentHint}>Not available</Text></View><View style={styles.radio} /></View></View>
+      <GroupSurfaceCard style={styles.notice}>
+        <MaterialCommunityIcons color={colors.ai} name="information-outline" size={25} /><View style={styles.noticeCopy}><Text style={styles.noticeTitle}>Payment setup required.</Text><Text style={styles.noticeBody}>You can&apos;t purchase RDM in this version.</Text></View>
+      </GroupSurfaceCard>
+      <GroupPrimaryButton color={colors.growth} disabled label="Top up unavailable" onPress={() => undefined} />
+      <GroupPrimaryButton color={colors.growth} label="Open wallet" onPress={() => router.replace("/(app)/(tabs)/wallet")} />
+    </GroupScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: "center", gap: 6, paddingVertical: 22 },
-  eyebrow: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.8 },
-  amount: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 30 },
-  helper: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, textAlign: "center" },
+  hero: { alignItems: "flex-start", gap: 10, paddingVertical: 8 },
+  walletIcon: { alignSelf: "flex-end", marginBottom: -14, opacity: 0.72 },
+  heroTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 22, letterSpacing: -0.5, lineHeight: 28 },
+  helper: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  balanceCard: { alignItems: "center", backgroundColor: colors.panelRaised, flexDirection: "row", gap: 12 },
+  balanceMark: { backgroundColor: colors.growth, borderRadius: 15, height: 30, width: 30 },
+  balanceCopy: { flex: 1 },
+  balanceLabel: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 10 },
+  balanceValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 26, marginTop: 2 },
+  balanceHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, marginTop: 2 },
   options: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  notice: { backgroundColor: colors.goldTint, gap: 6 },
-  noticeTitle: { color: colors.gold, fontFamily: fonts.bodyBold, fontSize: 12, textAlign: "center" },
+  disabledOption: { alignItems: "center", backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 9, borderWidth: 1, flex: 1, minHeight: 52, justifyContent: "center", opacity: 0.5 },
+  disabledOptionText: { color: colors.inkSoft, fontFamily: fonts.bodyBold, fontSize: 12 },
+  paymentRows: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 11, borderWidth: 1 },
+  paymentRow: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", gap: 11, minHeight: 60, paddingHorizontal: 13 },
+  paymentTitle: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 13 },
+  paymentHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, marginTop: 2 },
+  radio: { borderColor: colors.inkSoft, borderRadius: 12, borderWidth: 1, height: 21, marginLeft: "auto", width: 21 },
+  notice: { alignItems: "center", backgroundColor: colors.aiTint, borderColor: "rgba(95, 166, 237, 0.25)", flexDirection: "row", gap: 10 },
+  noticeCopy: { flex: 1 },
+  noticeTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 },
+  noticeBody: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
 });

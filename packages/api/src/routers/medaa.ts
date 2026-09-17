@@ -217,8 +217,21 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
 
     conversations: protectedProcedure.query(async ({ ctx }) => {
       const stored = await MedaaConversation.find({ userId: ctx.session.user.id })
-        .sort({ updatedAt: -1 }).limit(50).select("title updatedAt").lean();
-      return stored.map((item) => ({ id: String(item._id), title: item.title, updatedAt: item.updatedAt.toISOString() }));
+        .sort({ updatedAt: -1 }).limit(50)
+        .select("title updatedAt journey.horizonYears journey.category drafts.status drafts.content.type").lean();
+      return stored.map((item) => {
+        const goals = item.drafts.filter((draft) => draft.content.type === "goal");
+        return {
+          id: String(item._id),
+          title: item.title,
+          updatedAt: item.updatedAt.toISOString(),
+          horizonYears: item.journey?.horizonYears ?? null,
+          category: item.journey?.category ? z.enum(goalCategories).parse(item.journey.category) : null,
+          createdGoalCount: goals.filter((draft) => draft.status === "created").length,
+          draftGoalCount: goals.filter((draft) => draft.status === "draft").length,
+          settingGoalCount: goals.filter((draft) => draft.status === "setting").length,
+        };
+      });
     }),
 
     start: protectedProcedure.input(z.object({ creationId: z.string().uuid(), timeZone: medaaTimeZoneSchema }))

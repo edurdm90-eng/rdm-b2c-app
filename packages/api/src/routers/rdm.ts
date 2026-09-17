@@ -25,6 +25,8 @@ import { hasMedaaCommitmentApproval } from "../services/medaa-commitment-approva
 import { dailyGoalView, reconcileDailyGoal, reflectDailyGoal } from "../services/daily-goals";
 import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitment-input";
 import { wisdomHabitView, wisdomDisabledBonusPolicy } from "../domain/wisdom";
+import { dailyFocus } from "../domain/daily-focus";
+import { walletActivity } from "../domain/wallet-activity";
 import {
   awardSplitIsValid,
   badgeCatalog,
@@ -259,19 +261,25 @@ function serializeHabit(habit: any) {
   };
 }
 
-async function serializeProfile(profile: any) {
+async function savedTreeCare(profile: any) {
   await reconcileTreeCareRecords(profile);
-  const timeZone = String(profile.treeTimeZone ?? "Asia/Kolkata");
   const care = profile.treePledgedAt
     ? await TreeCareActivity.find({ userId: profile.userId, occurredAt: { $gte: profile.treePledgedAt } })
       .select("kind dayKey occurredAt operationId").lean()
     : [];
   // Legacy retries can have different operation IDs for the same habit/day.
-  const uniqueCare = [...new Map(care.map((entry) => {
+  return [...new Map(care.map((entry) => {
     const habitId = String(entry.operationId).match(/^habit(?:-pledge)?:([^:]+):/u)?.[1];
     return [habitId ? `habit:${habitId}:${entry.dayKey}` : entry.operationId, entry];
   })).values()];
-  const { streak, fertilizerCount, waterCount, sunlightCount } = treeCareProgress(uniqueCare, dayKeyForTimeZone(new Date(), timeZone));
+}
+
+async function serializeProfile(profile: any) {
+  const timeZone = String(profile.treeTimeZone ?? "Asia/Kolkata");
+  const uniqueCare = await savedTreeCare(profile);
+  const todayDayKey = dayKeyForTimeZone(new Date(), timeZone);
+  const { streak, fertilizerCount, waterCount, sunlightCount } = treeCareProgress(uniqueCare, todayDayKey);
+  const todayCare = uniqueCare.filter((entry) => entry.dayKey === todayDayKey);
   const growth = treeGrowthFor(fertilizerCount, waterCount + sunlightCount);
   const lastCareAt = (kind: string) => {
     const dates = uniqueCare.filter((entry) => entry.kind === kind).map((entry) => new Date(entry.occurredAt).getTime());
@@ -288,6 +296,14 @@ async function serializeProfile(profile: any) {
       pledgeAmount: Number(profile.treePledgeAmount ?? 0),
       pledgedAt: profile.treePledgedAt ? new Date(profile.treePledgedAt).toISOString() : null,
       timeZone,
+      careDays: new Set(uniqueCare.map((entry) => entry.dayKey)).size,
+      todayCare: {
+        dayKey: todayDayKey,
+        fertilizerCount: todayCare.filter((entry) => entry.kind === "fertilizer").length,
+        waterCount: todayCare.filter((entry) => entry.kind === "water").length,
+        sunlightCount: todayCare.filter((entry) => entry.kind === "sunlight").length,
+        caredFor: todayCare.length > 0,
+      },
       dayNumber: profile.treePledgedAt
         ? Math.max(1, Math.round((Date.parse(`${dayKeyForTimeZone(new Date(), timeZone)}T00:00:00Z`) - Date.parse(`${dayKeyForTimeZone(new Date(profile.treePledgedAt), timeZone)}T00:00:00Z`)) / 86_400_000) + 1)
         : 0,
@@ -321,6 +337,7 @@ async function serializeProfile(profile: any) {
       title: String(transaction.title),
       amount: Number(transaction.amount),
       kind: String(transaction.kind),
+      ...walletActivity(String(transaction.kind), Number(transaction.amount)),
       createdAt: new Date(transaction.createdAt).toISOString(),
     })),
   };
@@ -408,6 +425,7 @@ function serializeGroup(group: any, currentUserId: string) {
       pledgeAmount: Number(member.pledgeAmount ?? 0),
       award: Number(member.award),
       currentUser: member.userId ? String(member.userId) === currentUserId : false,
+      lastNote: String(member.lastNote ?? ""),
     })),
   };
 }
@@ -415,8 +433,21 @@ function serializeGroup(group: any, currentUserId: string) {
 function serializeGoal(goal: any) {
   const status = String(goal.status ?? "active") as PersonalGoalStatus;
   const currentDayKey = dayKeyForTimeZone(new Date(), String(goal.timeZone));
+  const dailyView = dailyGoalView(goal);
+  let streak: number | null = null;
+  if (dailyView.fundingMode === "daily") {
+    streak = 0;
+    const completed = new Set(dailyView.dayEntries.filter((entry) => entry.outcome === "completed").map((entry) => entry.dayKey));
+    const cursor = new Date(`${currentDayKey}T00:00:00Z`);
+    if (!completed.has(currentDayKey)) cursor.setUTCDate(cursor.getUTCDate() - 1);
+    while (dailyView.todayStatus !== "missed" && completed.has(cursor.toISOString().slice(0, 10))) {
+      streak += 1;
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
+    }
+  }
   return {
-    ...dailyGoalView(goal),
+    ...dailyView,
+    streak,
     id: String(goal._id),
     title: String(goal.title),
     category: String(goal.category) as (typeof goalCategories)[number],
@@ -802,10 +833,10 @@ async function debitMissedPledge({
 
 type TreeCareKind = (typeof treeCareKinds)[number];
 
-async function careDayKey(userId: string, requestedTimeZone: string) {
+async function careDayContext(userId: string, requestedTimeZone: string) {
   const profile = await RdmProfile.findOne({ userId }).select("treePledgedAt treeTimeZone");
   const timeZone = profile?.treePledgedAt ? String(profile.treeTimeZone) : requestedTimeZone;
-  return dayKeyForTimeZone(new Date(), timeZone);
+  return { dayKey: dayKeyForTimeZone(new Date(), timeZone), timeZone };
 }
 
 async function recordTreeCareActivity({
@@ -1876,10 +1907,15 @@ export const rdmRouter = router({
       ctx.session.user.id,
       String(currentProfile.treeTimeZone ?? "Asia/Kolkata"),
     );
+    const [focusHabits, focusGoals] = await Promise.all([
+      Habit.find({ userId: ctx.session.user.id, rdmPledgeFundingStatus: { $ne: "pending" } }),
+      Goal.find({ userId: ctx.session.user.id, fundingStatus: "funded" }),
+    ]);
     return {
       user: { name: ctx.session.user.name, email: ctx.session.user.email },
       profile: await serializeProfile(profile),
       habits: habits.map(serializeHabit),
+      today: dailyFocus(focusHabits.map(serializeHabit), focusGoals.map(serializeGoal), new Date()),
       groups: groups.map((group) => serializeGroup(group, ctx.session.user.id)),
       games: gameCatalog,
       serverTime: nowIso(),
@@ -1892,6 +1928,48 @@ export const rdmRouter = router({
   })),
 
   tree: router({
+    history: protectedProcedure
+      .input(z.object({ limit: z.number().int().min(1).max(50).default(20), beforeDayKey: dayKeySchema.optional() }))
+      .query(async ({ ctx, input }) => {
+        const profile = await getProfile(ctx.session.user.id);
+        const timeZone = String(profile.treeTimeZone ?? "Asia/Kolkata");
+        type HistoryDay = {
+          dayKey: string; fertilizerCount: number; waterCount: number; sunlightCount: number;
+          status: "cared" | "missed"; transferredToRemorse: number | null;
+        };
+        const days = new Map<string, HistoryDay>();
+        for (const entry of await savedTreeCare(profile)) {
+          const day = days.get(entry.dayKey) ?? {
+            dayKey: entry.dayKey, fertilizerCount: 0, waterCount: 0, sunlightCount: 0,
+            status: "cared" as const, transferredToRemorse: null,
+          };
+          if (entry.kind === "fertilizer") day.fertilizerCount += 1;
+          if (entry.kind === "water") day.waterCount += 1;
+          if (entry.kind === "sunlight") day.sunlightCount += 1;
+          days.set(entry.dayKey, day);
+        }
+        const pledgedAt = profile.treePledgedAt;
+        if (pledgedAt) {
+          const firstDay = dayKeyForTimeZone(new Date(pledgedAt), timeZone);
+          const receipts = z.array(z.object({
+            operationId: z.string().nullish(), amount: z.number(), createdAt: z.date(),
+          })).parse(profile.transactions);
+          for (const transaction of receipts) {
+            const dayKey = String(transaction.operationId ?? "").match(/^tree-miss:(\d{4}-\d{2}-\d{2})$/u)?.[1];
+            if (!dayKey || dayKey < firstDay || transaction.createdAt < pledgedAt) continue;
+            const day = days.get(dayKey) ?? {
+              dayKey, fertilizerCount: 0, waterCount: 0, sunlightCount: 0,
+              status: "missed" as const, transferredToRemorse: null,
+            };
+            day.transferredToRemorse = Math.max(0, -Number(transaction.amount));
+            days.set(dayKey, day);
+          }
+        }
+        const eligible = [...days.values()].filter((day) => !input.beforeDayKey || day.dayKey < input.beforeDayKey)
+          .sort((left, right) => right.dayKey.localeCompare(left.dayKey));
+        const entries = eligible.slice(0, input.limit);
+        return { timeZone, entries, nextBeforeDayKey: eligible.length > input.limit ? entries.at(-1)!.dayKey : null };
+      }),
     overview: protectedProcedure
       .input(z.object({ timeZone: timeZoneSchema }))
       .query(async ({ ctx, input }) => {
@@ -2003,7 +2081,7 @@ export const rdmRouter = router({
       .input(z.object({ timeZone: timeZoneSchema }))
       .query(async ({ ctx, input }) => {
         await ensureUserData(ctx.session.user.id, ctx.session.user.name);
-        const dayKey = await careDayKey(ctx.session.user.id, input.timeZone);
+        const { dayKey, timeZone } = await careDayContext(ctx.session.user.id, input.timeZone);
         const entries = await GoodDeedEntry.find({
           userId: ctx.session.user.id,
           dayKey,
@@ -2014,6 +2092,7 @@ export const rdmRouter = router({
 
         return {
           dayKey,
+          timeZone,
           earnedToday: entries.reduce(
             (total, entry) => total + (entry.processedAt ? Number(entry.reward) : 0),
             0,
@@ -2031,10 +2110,13 @@ export const rdmRouter = router({
         };
       }),
     submit: protectedProcedure
-      .input(z.object({ deedIds: goodDeedSelection, timeZone: timeZoneSchema }))
+      .input(z.object({ deedIds: goodDeedSelection, timeZone: timeZoneSchema, expectedDayKey: dayKeySchema.optional() }))
       .mutation(async ({ ctx, input }) => {
         await ensureUserData(ctx.session.user.id, ctx.session.user.name);
-        const dayKey = await careDayKey(ctx.session.user.id, input.timeZone);
+        const { dayKey, timeZone } = await careDayContext(ctx.session.user.id, input.timeZone);
+        if (input.expectedDayKey && input.expectedDayKey !== dayKey) {
+          throw new TRPCError({ code: "CONFLICT", message: "The care day has changed. Refresh the day and confirm your good deeds again." });
+        }
         const submissionActions: Array<{ completedNow: boolean; reward: number }> = [];
         const entries: Array<ReturnType<typeof serializeGoodDeedEntry>> = [];
 
@@ -2129,6 +2211,7 @@ export const rdmRouter = router({
 
         return {
           dayKey,
+          timeZone,
           entries,
           ...submissionResult,
           rewardMessage: goodDeedRewardMessage,
@@ -2149,14 +2232,19 @@ export const rdmRouter = router({
         if (!category) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Gratitude category not found" });
         }
-        const entry = await GratitudeEntry.findOne({
-          userId: ctx.session.user.id,
-          category: input.category,
-          dayKey: await careDayKey(ctx.session.user.id, input.timeZone),
-        });
+        const { dayKey, timeZone } = await careDayContext(ctx.session.user.id, input.timeZone);
+        const filter = { userId: ctx.session.user.id, category: input.category };
+        const [entry, previousEntries] = await Promise.all([
+          GratitudeEntry.findOne({ ...filter, dayKey }),
+          GratitudeEntry.find({ ...filter, dayKey: { $lt: dayKey }, processedAt: { $exists: true } })
+            .sort({ dayKey: -1, _id: -1 }).limit(20),
+        ]);
         return {
           category,
+          dayKey,
+          timeZone,
           todayEntry: entry ? serializeGratitudeEntry(entry) : null,
+          previousEntries: previousEntries.map(serializeGratitudeEntry),
         };
       }),
     save: protectedProcedure
@@ -2164,6 +2252,7 @@ export const rdmRouter = router({
         category: z.enum(gratitudeCategoryIds),
         body: z.string().trim().min(4).max(1000),
         timeZone: timeZoneSchema,
+        expectedDayKey: dayKeySchema.optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         await ensureUserData(ctx.session.user.id, ctx.session.user.name);
@@ -2172,7 +2261,10 @@ export const rdmRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: "Gratitude category not found" });
         }
 
-        const dayKey = await careDayKey(ctx.session.user.id, input.timeZone);
+        const { dayKey, timeZone } = await careDayContext(ctx.session.user.id, input.timeZone);
+        if (input.expectedDayKey && input.expectedDayKey !== dayKey) {
+          throw new TRPCError({ code: "CONFLICT", message: "The care day has changed. Refresh the day and confirm your reflection again." });
+        }
         let entry = await GratitudeEntry.findOne({
           userId: ctx.session.user.id,
           category: input.category,
@@ -2260,6 +2352,8 @@ export const rdmRouter = router({
 
         return {
           category,
+          dayKey,
+          timeZone,
           entry: serializeGratitudeEntry(entry),
           profile: await serializeProfile(await getProfile(ctx.session.user.id)),
           reward: processedNow ? entry.reward : 0,
@@ -3082,7 +3176,7 @@ export const rdmRouter = router({
         category: z.enum(groupGoalCategories),
         activityId: z.string().trim().min(1).max(80),
         name: z.string().trim().min(3).max(80),
-        description: z.string().trim().min(3).max(240),
+        description: z.string().trim().max(240),
         target: z.number().positive().max(100000),
         unit: z.string().trim().min(1).max(20),
         durationDays: z.number().int().min(1).max(365),
@@ -3256,6 +3350,7 @@ export const rdmRouter = router({
         id: mongoId,
         operationId: z.string().uuid(),
         amount: z.number().positive().max(1000),
+        note: z.string().trim().max(100).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const fundedMembership = {
@@ -3356,6 +3451,7 @@ export const rdmRouter = router({
                                   [currentPeriodKey],
                                 ],
                               },
+                              lastNote: input.note ?? "",
                             },
                           ],
                         },

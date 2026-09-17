@@ -1,76 +1,60 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import type { GratitudeCategoryId } from "@rdm-b2c/api/domain/rdm";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { AppScreen, ErrorState, LoadingState, PageHeader, SurfaceCard } from "@/components/rdm-ui";
-import { colors, fonts } from "@/lib/theme";
+import { focusedColors as palette } from "@/components/focused-ui";
+import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { TreePage } from "@/components/tree-ui";
+import { fonts } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+const categoryPresentation: Record<GratitudeCategoryId, { icon: IconName; color: string; description: string }> = {
+  life: { icon: "star", color: palette.gold, description: "Big or small, it all counts" },
+  helper: { icon: "account-group-outline", color: palette.link, description: "A kind word goes a long way" },
+  "loved-ones": { icon: "heart-outline", color: palette.coral, description: "Family and the people closest to you" },
+  friends: { icon: "account-group-outline", color: palette.link, description: "Support, fun and everyday moments" },
+  colleagues: { icon: "briefcase-outline", color: palette.muted, description: "Teamwork and shared progress" },
+};
 
 export default function ThankYouScreen() {
   const categories = useQuery(trpc.rdm.gratitude.categories.queryOptions());
-
   if (categories.isLoading) return <LoadingState label="Loading your gratitude prompts…" />;
-  if (categories.error || !categories.data) {
-    return (
-      <ErrorState
-        message={categories.error?.message ?? "Gratitude prompts are unavailable."}
-        onRetry={() => void categories.refetch()}
-      />
-    );
-  }
+  if (categories.error || !categories.data) return <ErrorState message={categories.error?.message ?? "Gratitude prompts are unavailable."} onRetry={() => void categories.refetch()} />;
 
   return (
-    <AppScreen contentStyle={styles.content}>
-      <PageHeader back subtitle="GIVE THANKS TO —" title="Say Thank You" />
-
-      <View style={styles.optionList}>
-        {categories.data.map((option) => (
-          <SurfaceCard
-            key={option.id}
-            onPress={() => router.push({
-              pathname: "/(app)/journal/[category]",
-              params: { category: option.id },
-            })}
-            style={styles.optionCard}
-          >
-            <View style={styles.optionIcon}>
-              <MaterialCommunityIcons color={colors.ai} name={option.icon as IconName} size={20} />
-            </View>
-            <View style={styles.optionCopy}>
-              <Text style={styles.optionTitle}>{option.title}</Text>
-              <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
-            </View>
-            <MaterialCommunityIcons color={colors.inkSoft} name="arrow-right" size={19} />
-          </SurfaceCard>
-        ))}
+    <TreePage title="Say Thank You" footer={<View style={styles.footer}><Text style={styles.footerText}>A few honest words are enough.</Text></View>}>
+      <View style={styles.intro}>
+        <View style={styles.hero}><MaterialCommunityIcons name="water-outline" size={44} color={palette.link} /><Text accessibilityRole="header" style={styles.title}>Who or what made today better?</Text></View>
+        <Text style={styles.subtitle}>Gratitude helps you see the good, and adds water to your tree.</Text>
       </View>
-    </AppScreen>
+      <View style={styles.list}>
+        {categories.data.map((category) => {
+          const visual = categoryPresentation[category.id];
+          return <Pressable key={category.id} accessibilityRole="button" accessibilityLabel={category.title} accessibilityHint="Open this gratitude journal" onPress={() => router.push({ pathname: "/(app)/journal/[category]", params: { category: category.id } })} style={({ pressed }) => [styles.option, pressed && styles.pressed]}>
+            <MaterialCommunityIcons name={visual.icon} color={visual.color} size={26} />
+            <View style={styles.copy}><Text style={styles.optionTitle}>{category.title}</Text><Text style={styles.optionDescription}>{visual.description}</Text></View>
+            <MaterialCommunityIcons name="chevron-right" color={palette.muted} size={20} />
+          </Pressable>;
+        })}
+      </View>
+    </TreePage>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { gap: 14 },
-  optionList: { gap: 10 },
-  optionCard: {
-    minHeight: 68,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  optionIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 20,
-    backgroundColor: colors.aiTint,
-  },
-  optionCopy: { flex: 1, gap: 3 },
-  optionTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
-  optionSubtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10 },
+  intro: { gap: 10, paddingBottom: 6 },
+  hero: { flexDirection: "row", alignItems: "center", gap: 16 },
+  title: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 27 },
+  subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
+  list: { gap: 8 },
+  option: { minHeight: 68, paddingHorizontal: 14, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 14, borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel },
+  copy: { flex: 1, minWidth: 0, gap: 4 },
+  optionTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20 },
+  optionDescription: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
+  footer: { paddingTop: 16, paddingBottom: 5, borderTopWidth: 1, borderTopColor: palette.line },
+  footerText: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, textAlign: "center" },
+  pressed: { opacity: 0.75 },
 });

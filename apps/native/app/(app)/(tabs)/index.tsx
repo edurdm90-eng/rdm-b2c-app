@@ -1,193 +1,173 @@
-import { gameDurationLabel } from "@rdm-b2c/api/domain/rdm";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
-import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import { useState } from "react";
-import { Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ProgressCircle } from "react-native-progress/Circle";
 
-import { ActionDialog, AppScreen, ErrorState, IconBubble, LoadingState, SectionLabel, SurfaceCard, rdmStyles } from "@/components/rdm-ui";
-import { authClient } from "@/lib/auth-client";
-import { colors, fonts, formatRdm, radii } from "@/lib/theme";
-import { queryClient, trpc } from "@/utils/trpc";
+import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
+import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { fonts, formatRdm } from "@/lib/theme";
+import { trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+function openCommitment(item: { id: string; kind: "habit" | "goal" }) {
+  router.push({ pathname: item.kind === "habit" ? "/(app)/habit/[id]" : "/(app)/goal/[id]", params: { id: item.id } });
+}
+
+function getGreeting(hour: number) {
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 export default function HomeScreen() {
-  const [signOutOpen, setSignOutOpen] = useState(false);
-  const dashboard = useQuery(trpc.rdm.dashboard.queryOptions());
+  const focused = useIsFocused();
+  const dashboard = useQuery({
+    ...trpc.rdm.dashboard.queryOptions(),
+    enabled: focused,
+    refetchInterval: focused ? 30_000 : false,
+    refetchIntervalInBackground: false,
+  });
 
   if (dashboard.isLoading) return <LoadingState />;
   if (dashboard.error || !dashboard.data) {
     return <ErrorState message={dashboard.error?.message ?? "The dashboard is unavailable."} onRetry={() => void dashboard.refetch()} />;
   }
 
-  const { user, profile, games } = dashboard.data;
-  const firstName = user.name.split(" ")[0] || user.name;
-  const dateLabel = new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }).toUpperCase();
-  const goldenBloomUnlocked = profile.unlockedBadges.includes("golden-bloom");
-  const invitesRemaining = goldenBloomUnlocked ? 0 : Math.max(0, 3 - profile.weeklyInvites);
-
-  async function inviteFriend() {
-    if (invitesRemaining === 0) return;
-    await Share.share({ message: `Join me on RDM and build one promise at a time. Use invite code ${profile.referralCode}.` });
-  }
-
-  async function signOut() {
-    await authClient.signOut();
-    queryClient.clear();
-    router.replace("/login");
-  }
+  const { user, profile, today, serverTime } = dashboard.data;
+  const firstItem = today.items[0];
+  const allReflected = today.total > 0 && today.completed === today.total;
+  const dateLabel = new Date(serverTime).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <AppScreen>
-      <Pressable
-        accessibilityRole="button"
-        disabled={invitesRemaining === 0}
-        onPress={() => void inviteFriend()}
-      >
-        <LinearGradient colors={[colors.plumTint, colors.growthTint]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.inviteBanner}>
-          <IconBubble name="account-multiple-plus-outline" color={colors.plum} backgroundColor={colors.plumTint} size={18} />
-          <Text style={styles.inviteCopy}>{invitesRemaining > 0 ? <>Invite {invitesRemaining} friend{invitesRemaining === 1 ? "" : "s"} this week, unlock the <Text style={styles.bold}>Golden Bloom</Text> skin.</> : <>Your <Text style={styles.bold}>Golden Bloom</Text> skin is unlocked.</>}</Text>
-          <Text style={styles.inviteCta}>{invitesRemaining > 0 ? "Invite →" : "Unlocked ✓"}</Text>
-        </LinearGradient>
-      </Pressable>
-
-      <View style={styles.greetingRow}>
-        <View style={styles.greetingCopy}>
-          <Text style={rdmStyles.mono}>{dateLabel}</Text>
-          <Text style={styles.greeting}>Morning, {firstName}</Text>
+    <FocusedScreen contentStyle={styles.screenContent}>
+      <View style={styles.headingRow}>
+        <View style={styles.heading}>
+          <Text style={styles.date}>{dateLabel}</Text>
+          <Text accessibilityRole="header" style={styles.title}>{getGreeting(new Date().getHours())}, {user.name}.</Text>
+          <Text style={styles.greeting}>Make today count.</Text>
         </View>
-        <View style={styles.streakPill}>
-          <MaterialCommunityIcons name="fire" size={18} color={colors.gold} />
-          <Text style={styles.streakText}>{profile.streak}</Text>
-        </View>
-        <Pressable accessibilityLabel="Sign out" hitSlop={8} onPress={() => setSignOutOpen(true)} style={styles.accountButton}>
-          <MaterialCommunityIcons name="logout" size={18} color={colors.inkSoft} />
+        <Pressable accessibilityLabel="Open account" accessibilityRole="button" onPress={() => router.push("/(app)/account")} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
+          <MaterialCommunityIcons name="account-circle-outline" size={27} color={palette.text} />
         </Pressable>
       </View>
 
-      <SurfaceCard
-        onPress={() => router.push("/(app)/tree")}
-        style={styles.treeCard}
-      >
-        <IconBubble
-          backgroundColor={colors.growthTint}
-          color={colors.growth}
-          name="tree-outline"
-          size={25}
-        />
-        <View style={styles.treeCopy}>
-          <Text style={styles.treeTitle}>Grow Your Tree</Text>
-          <Text style={styles.treeMeta}>
-            {profile.tree.pledgedAt ? `Day ${profile.tree.dayNumber} · ${profile.plantStage} · Tap to tend it` : "Plant your first tree with Base RDM"}
-          </Text>
+      <View style={styles.progressRow}>
+        <View accessibilityLabel={`${today.completed} of ${today.total} daily reflections done`} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: today.total || 1, now: today.completed }} aria-valuemin={0} aria-valuemax={today.total || 1} aria-valuenow={today.completed} aria-valuetext={`${today.completed} of ${today.total} daily reflections done`} style={styles.ring}>
+          {today.total === 0 ? <Image accessible={false} source={require("@/assets/homescreen_logo/image.png")} resizeMode="contain" style={styles.emptyProgressLogo} /> : <>
+            <ProgressCircle animated={false} borderWidth={0} color={today.completed === 0 ? palette.line : palette.green} direction="clockwise" progress={today.completed / today.total} size={108} strokeCap="round" thickness={9} unfilledColor={palette.line} />
+            <View pointerEvents="none" style={styles.ringCopy}>
+              <Text style={styles.progressCount}>{today.completed} of {today.total}</Text>
+              <Text style={styles.progressLabel}>daily reflections{"\n"}done</Text>
+            </View>
+          </>}
         </View>
-        <MaterialCommunityIcons name="arrow-right" size={20} color={colors.inkSoft} />
-      </SurfaceCard>
-
-      <SectionLabel>Choose your path</SectionLabel>
-      <View style={styles.pathRow}>
-        <SurfaceCard onPress={() => router.push("/(app)/framework")} style={styles.pathCard}>
-          <IconBubble name="clipboard-check-outline" color={colors.plum} backgroundColor={colors.plumTint} />
-          <Text style={styles.pathTitle}>Framework</Text>
-          <Text style={styles.pathCopy}>Choose a habit or build your own with PARR.</Text>
-          <Text style={[styles.pathGo, { color: colors.plum }]}>Browse →</Text>
-        </SurfaceCard>
-        <SurfaceCard onPress={() => router.push("/(app)/ai-coach")} style={styles.pathCard}>
-          <IconBubble name="creation-outline" color={colors.ai} backgroundColor={colors.aiTint} />
-          <Text style={styles.pathTitle}>AI-Guided</Text>
-          <Text style={styles.pathCopy}>Build your goal and habit journey with Medaa Ai.</Text>
-          <Text style={[styles.pathGo, { color: colors.ai }]}>Plan →</Text>
-        </SurfaceCard>
+        <View style={styles.progressDivider} />
+        <Text style={styles.encouragement}>Small steps{"\n"}today, a brighter{"\n"}you tomorrow.</Text>
       </View>
 
-      <SectionLabel>Responsible games</SectionLabel>
-      <View style={styles.gameRow}>
-        {games.slice(0, 3).map((game) => (
-          <Pressable key={game.id} onPress={() => router.push({ pathname: "/(app)/game/[id]", params: { id: game.id } })} style={({ pressed }) => [styles.gameChip, pressed && styles.pressed]}>
-            <Text style={styles.timer}>{gameDurationLabel(game.durationSeconds)} MIN</Text>
-            <MaterialCommunityIcons name={game.icon as IconName} size={22} color={colors.ai} />
-            <Text style={styles.gameTitle}>{game.title}</Text>
-            <Text style={styles.gameDescription}>{game.description}</Text>
+      <View style={styles.nextSection}>
+        <Text accessibilityRole="header" style={styles.sectionTitle}>Next up</Text>
+        {firstItem ? (
+          <View style={styles.nextCard}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${firstItem.title}`} onPress={() => openCommitment(firstItem)} style={({ pressed }) => [styles.nextCardHeading, pressed && styles.pressed]}>
+              <MaterialCommunityIcons name={firstItem.icon as IconName} size={30} color={palette.text} />
+              <View style={styles.itemCopy}>
+                <Text style={styles.itemTitle}>{firstItem.title}</Text>
+                <Text style={styles.caption}>{firstItem.perDay === null ? "Keep moving toward your goal" : `${formatRdm(firstItem.perDay)} RDM allocated today`}</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={22} color={palette.muted} />
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => openCommitment(firstItem)} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+              <Text style={styles.primaryLabel}>{firstItem.stage === "reflect" ? "Add reflection" : firstItem.stage === "act" ? "Check in & reflect" : "Update progress"}</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.emptyCard}>
+            <MaterialCommunityIcons name={allReflected ? "check-circle-outline" : "sprout-outline"} size={24} color={palette.green} />
+            <View style={styles.itemCopy}>
+              <Text style={styles.itemTitle}>{allReflected ? "Today's reflections are complete" : "Room for one small step"}</Text>
+              <Text style={styles.caption}>{allReflected ? "Your progress is saved. Keep growing tomorrow." : "No daily reflections are pending. Browse habits or plan a goal with Medaa Ai."}</Text>
+            </View>
+          </View>
+        )}
+        {today.items.slice(1, 3).map((item) => (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open ${item.title}`} key={`${item.kind}:${item.id}`} onPress={() => openCommitment(item)} style={({ pressed }) => [styles.compactItem, pressed && styles.pressed]}>
+            <MaterialCommunityIcons name={item.kind === "goal" ? "bullseye-arrow" : item.icon as IconName} size={26} color={item.kind === "goal" ? palette.gold : palette.green} />
+            <View style={styles.itemCopy}>
+              <Text style={styles.itemTitle}>{item.title}</Text>
+              <Text style={styles.caption}>{item.kind === "goal" ? "Goal" : "Habit"}</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={palette.muted} />
           </Pressable>
         ))}
+        {today.items.length > 3 ? <Text style={styles.moreDue}>{today.items.length - 3} more to continue in Habits and Goals</Text> : null}
       </View>
 
-      <SectionLabel>RDM Wallet</SectionLabel>
-      <SurfaceCard onPress={() => router.push("/(app)/(tabs)/wallet")} style={styles.walletCard}>
-        {[
-          ["Balance", profile.wallet.balance, colors.growth],
-          ["Reward", profile.wallet.reward, colors.gold],
-          ["Remorse", profile.wallet.remorse, colors.coral],
-          ["Peer", profile.wallet.peer, colors.plum],
-        ].map(([label, amount, color], index) => (
-          <View key={String(label)} style={[styles.walletCell, index < 3 && styles.walletDivider]}>
-            <Text style={[styles.walletAmount, { color: String(color) }]}>{formatRdm(Number(amount))}</Text>
-            <Text style={styles.walletLabel}>{label}</Text>
-          </View>
-        ))}
-      </SurfaceCard>
+      <Pressable accessibilityRole="button" accessibilityLabel={profile.tree.pledgedAt ? "Tend your tree" : "Plant your tree"} onPress={() => router.push("/(app)/tree")} style={({ pressed }) => [styles.treeCard, pressed && styles.pressed]}>
+        <MaterialCommunityIcons name="tree-outline" size={32} color={palette.green} />
+        <View style={styles.itemCopy}>
+          <Text style={styles.cardTitle}>{profile.tree.pledgedAt ? `Your tree · Day ${profile.tree.dayNumber}` : "Grow your tree"}</Text>
+          <Text style={styles.caption}>{profile.tree.pledgedAt ? "A brighter you grows here." : "Start with one promise to yourself."}</Text>
+        </View>
+        <View style={styles.treeAction}><Text style={styles.treeActionLabel}>{profile.tree.pledgedAt ? "Tend" : "Plant"}</Text></View>
+      </Pressable>
 
-      <View style={styles.metaLinks}>
-        <Pressable onPress={() => router.push("/(app)/leaderboard")} style={styles.metaLink}>
-          <MaterialCommunityIcons name="podium" size={20} color={colors.plum} />
-          <Text style={styles.metaLinkText}>Leaderboard</Text>
+      <View style={styles.exploreLinks}>
+        <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/framework")} style={styles.link}>
+          <Text style={styles.linkLabel}>Browse habits</Text><MaterialCommunityIcons name="arrow-right" size={20} color={palette.link} />
         </Pressable>
-        <Pressable onPress={() => router.push("/(app)/badges")} style={styles.metaLink}>
-          <MaterialCommunityIcons name="medal-outline" size={20} color={colors.gold} />
-          <Text style={styles.metaLinkText}>Badges</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/ai-coach")} style={styles.link}>
+          <Text style={styles.linkLabel}>Medaa Ai</Text><MaterialCommunityIcons name="arrow-right" size={20} color={palette.link} />
         </Pressable>
       </View>
-      <ActionDialog
-        cancelLabel="Stay signed in"
-        confirmColor={colors.coral}
-        confirmLabel="Sign out"
-        message="Your progress is safely stored and will be here when you return."
-        onCancel={() => setSignOutOpen(false)}
-        onConfirm={() => {
-          setSignOutOpen(false);
-          void signOut();
-        }}
-        title="Sign out?"
-        visible={signOutOpen}
-      />
-    </AppScreen>
+
+      <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/(tabs)/japanese-wisdom")} style={({ pressed }) => [styles.wisdomCard, pressed && styles.pressed]}>
+        <MaterialCommunityIcons name="bowl-mix-outline" size={24} color={palette.purple} />
+        <View style={styles.itemCopy}><Text style={styles.cardTitle}>Japanese Wisdom</Text><Text style={styles.caption}>Hara Hachi Bu · a mindful daily moment</Text></View>
+        <MaterialCommunityIcons name="chevron-right" size={22} color={palette.muted} />
+      </Pressable>
+
+    </FocusedScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  inviteBanner: { borderRadius: 13, borderWidth: 1, borderColor: colors.line, padding: 10, flexDirection: "row", alignItems: "center", gap: 9 },
-  inviteCopy: { flex: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
-  bold: { fontFamily: fonts.bodyBold },
-  inviteCta: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 10 },
-  greetingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  greetingCopy: { flex: 1 },
-  greeting: { color: colors.ink, fontFamily: fonts.display, fontSize: 22, marginTop: 2 },
-  streakPill: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 4, borderRadius: radii.pill, paddingHorizontal: 10, backgroundColor: colors.goldTint, borderWidth: 1, borderColor: "rgba(240,180,41,0.25)" },
-  streakText: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 13 },
-  accountButton: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.line, alignItems: "center", justifyContent: "center" },
-  treeCard: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 13, paddingHorizontal: 14 },
-  treeCopy: { flex: 1, gap: 3 },
-  treeTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 16 },
-  treeMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 16 },
-  pathRow: { flexDirection: "row", gap: 10 },
-  pathCard: { flex: 1, minHeight: 148, gap: 7 },
-  pathTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 16 },
-  pathCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, flex: 1 },
-  pathGo: { fontFamily: fonts.monoBold, fontSize: 10 },
-  gameRow: { flexDirection: "row", gap: 8 },
-  gameChip: { flex: 1, minWidth: 0, minHeight: 132, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.line, borderRadius: radii.medium, padding: 10, gap: 7 },
-  timer: { alignSelf: "flex-start", color: colors.ai, backgroundColor: colors.aiTint, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3, fontFamily: fonts.monoBold, fontSize: 9 },
-  gameTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 },
-  gameDescription: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10 },
-  walletCard: { padding: 6, flexDirection: "row" },
-  walletCell: { flex: 1, alignItems: "center", paddingVertical: 10 },
-  walletDivider: { borderRightWidth: 1, borderRightColor: colors.line },
-  walletAmount: { fontFamily: fonts.monoBold, fontSize: 13 },
-  walletLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9, marginTop: 2 },
-  metaLinks: { flexDirection: "row", gap: 10 },
-  metaLink: { flex: 1, minHeight: 48, borderRadius: 13, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.line, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  metaLinkText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 },
-  pressed: { opacity: 0.75 },
+  screenContent: { gap: 14 },
+  headingRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+  heading: { gap: 5 },
+  date: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 31 },
+  greeting: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
+  menuButton: { alignItems: "center", backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 10, borderWidth: 1, height: 42, justifyContent: "center", width: 42 },
+  progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14, paddingVertical: 2 },
+  ring: { width: 128, height: 128, alignItems: "center", justifyContent: "center" },
+  ringCopy: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", gap: 2 },
+  emptyProgressLogo: { width: 120, height: 120 },
+  progressCount: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 17 },
+  progressLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 15, textAlign: "center" },
+  progressDivider: { width: 1, height: 64, backgroundColor: palette.line },
+  encouragement: { flex: 1, color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  nextSection: { borderTopWidth: 1, borderColor: palette.line, paddingTop: 10, gap: 9 },
+  sectionTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 14.5, lineHeight: 19 },
+  nextCard: { borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, borderRadius: 10, padding: 7, gap: 8 },
+  nextCardHeading: { flexDirection: "row", alignItems: "center", gap: 12, padding: 5, minHeight: 46 },
+  itemCopy: { flex: 1, gap: 3 },
+  itemTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20 },
+  cardTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 18 },
+  caption: { color: palette.muted, fontFamily: fonts.body, fontSize: 11.5, lineHeight: 16 },
+  primaryButton: { minHeight: 42, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 9, backgroundColor: palette.green, alignItems: "center", justifyContent: "center" },
+  primaryLabel: { color: palette.onGreen, fontFamily: fonts.bodyBold, fontSize: 14, textAlign: "center" },
+  compactItem: { flexDirection: "row", alignItems: "center", gap: 13, borderBottomWidth: 1, borderColor: palette.line, minHeight: 56, paddingVertical: 8, paddingHorizontal: 2 },
+  emptyCard: { flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 13 },
+  moreDue: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
+  treeCard: { flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 11, minHeight: 64 },
+  treeAction: { minHeight: 36, minWidth: 48, borderWidth: 1, borderColor: "#245a48", borderRadius: 9, backgroundColor: "#17362c", alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  treeActionLabel: { color: palette.green, fontFamily: fonts.bodyMedium, fontSize: 12.5 },
+  exploreLinks: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 8 },
+  link: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 3 },
+  linkLabel: { color: palette.link, fontFamily: fonts.bodyMedium, fontSize: 12.5 },
+  wisdomCard: { minHeight: 56, borderWidth: 1, borderColor: palette.line, borderRadius: 10, flexDirection: "row", alignItems: "center", padding: 11, gap: 11 },
+  pressed: { opacity: 0.72 },
 });
