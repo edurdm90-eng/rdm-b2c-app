@@ -74,6 +74,11 @@ export default function LoginScreen() {
       }
 
       await refreshSession();
+      const verified = await authClient.getSession();
+      if (!verified.data?.user) {
+        setError("Sign-in succeeded, but the session could not be saved on this device. Please try again.");
+        return;
+      }
       queryClient.clear();
       router.replace(postLoginDestination(params));
     } catch {
