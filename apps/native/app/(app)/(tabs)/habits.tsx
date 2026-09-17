@@ -3,6 +3,7 @@ import { dayKeyForTimeZone, habitWeekProgress } from "@rdm-b2c/api/domain/rdm";
 import type { AppRouter } from "@rdm-b2c/api/routers/index";
 import { useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useIsFocused } from "expo-router";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -50,6 +51,32 @@ function openHabit(habit: Habit) {
   router.push({ pathname: "/(app)/habit/[id]", params: { id: habit.id } });
 }
 
+function NoHabitsYet() {
+  return (
+    <FocusedScreen scroll={false} contentStyle={styles.emptyScreenContent}>
+      <View style={styles.heading}>
+        <Text accessibilityRole="header" style={styles.title}>Habits</Text>
+        <Pressable accessibilityLabel="Create a habit" accessibilityRole="button" onPress={() => router.push("/(app)/framework")} style={({ pressed }) => [styles.plusButton, pressed && styles.pressed]}>
+          <MaterialCommunityIcons color={palette.text} name="plus" size={30} />
+        </Pressable>
+      </View>
+      <View style={styles.emptyState}>
+        <LinearGradient colors={["rgba(56, 214, 147, 0.2)", "rgba(56, 214, 147, 0.03)"]} style={styles.emptyIcon}>
+          <MaterialCommunityIcons color={palette.green} name="sprout" size={56} />
+        </LinearGradient>
+        <Text accessibilityRole="header" style={styles.emptyTitle}>Your first small step starts here.</Text>
+        <Text style={styles.emptySubtitle}>Choose one habit you can return to each day.</Text>
+      </View>
+      <View style={styles.emptyActions}>
+        <FocusedButton label="Explore habit framework" onPress={() => router.push("/(app)/framework")} />
+        <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/(app)/habit/new", params: { template: "custom" } })} style={({ pressed }) => [styles.emptySecondary, pressed && styles.pressed]}>
+          <Text style={styles.emptySecondaryLabel}>Create my own habit</Text>
+        </Pressable>
+      </View>
+    </FocusedScreen>
+  );
+}
+
 export default function HabitsScreen() {
   const focused = useIsFocused();
   const habits = useQuery({
@@ -64,6 +91,7 @@ export default function HabitsScreen() {
 
   if (habits.isLoading) return <LoadingState label="Loading your habits…" />;
   if (habits.error || !habits.data) return <ErrorState message={habits.error?.message ?? "Habits are unavailable."} onRetry={() => void habits.refetch()} />;
+  if (habits.data.length === 0) return <NoHabitsYet />;
 
   const now = new Date();
   const localToday = dayKeyForTimeZone(now, getDeviceTimeZone());
@@ -213,6 +241,14 @@ export default function HabitsScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16 },
+  emptyScreenContent: { flex: 1, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16 },
+  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 8 },
+  emptyIcon: { width: 132, height: 132, borderRadius: 34, borderWidth: 1, borderColor: "rgba(56, 214, 147, 0.28)", alignItems: "center", justifyContent: "center" },
+  emptyTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33, textAlign: "center", marginTop: 6 },
+  emptySubtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, textAlign: "center", maxWidth: 270 },
+  emptyActions: { gap: 12, paddingTop: 12 },
+  emptySecondary: { minHeight: 54, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, alignItems: "center", justifyContent: "center" },
+  emptySecondaryLabel: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 23 },
   heading: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 40 },
   plusButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },

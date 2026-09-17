@@ -99,6 +99,7 @@ export function HabitDateField({ label, value, minimumDayKey, onChange, disabled
           <View style={styles.modal}>
             <Pressable accessible={false} onPress={close} style={StyleSheet.absoluteFill} />
             <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <View style={styles.sheetHandle} />
               <View style={styles.toolbar}>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Cancel ${label.toLowerCase()} selection`} onPress={close} style={styles.toolbarButton}>
                   <Text style={styles.cancel}>Cancel</Text>
@@ -131,8 +132,9 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.48 },
   pressed: { opacity: 0.8 },
   modal: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0, 0, 0, 0.6)" },
-  sheet: { backgroundColor: focusedColors.panel, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: 12 },
-  toolbar: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: focusedColors.line },
+  sheet: { backgroundColor: focusedColors.panel, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 12, alignItems: "center" },
+  sheetHandle: { width: 46, height: 4, borderRadius: 99, backgroundColor: focusedColors.line, marginTop: 10, marginBottom: 4 },
+  toolbar: { width: "100%", minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: focusedColors.line },
   toolbarButton: { minHeight: 48, minWidth: 64, alignItems: "center", justifyContent: "center" },
   sheetTitle: { flex: 1, textAlign: "center", color: focusedColors.text, fontFamily: fonts.bodyMedium, fontSize: 16 },
   cancel: { color: focusedColors.muted, fontFamily: fonts.bodyMedium, fontSize: 15 },

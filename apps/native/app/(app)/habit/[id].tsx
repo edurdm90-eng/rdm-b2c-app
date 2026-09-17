@@ -222,7 +222,7 @@ export default function HabitDetailScreen() {
             <Text accessibilityRole="header" style={styles.headerTitle}>{data.title}</Text>
             {!historyOpen ? <Pressable accessibilityLabel="View habit history" accessibilityRole="button" disabled={busy} onPress={openHistory} style={styles.iconButton}><MaterialCommunityIcons name="history" size={23} color={palette.muted} /></Pressable> : null}
           </View>
-          <View style={styles.headerMeta}><Text style={styles.subtitle}>{data.category} · {data.cadence}</Text><MaterialCommunityIcons name={icon} size={32} color={palette.text} /></View>
+          <View style={styles.headerMeta}><Text style={styles.subtitle}>{wisdom ? "Japanese Wisdom · Daily practice" : `${data.category} · ${data.cadence}`}</Text><MaterialCommunityIcons name={icon} size={32} color={wisdom ? palette.purple : palette.text} /></View>
         </View>
 
         <ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={[styles.content, resultScreen && !historyOpen && styles.resultContent]} keyboardShouldPersistTaps="handled">
@@ -234,8 +234,11 @@ export default function HabitDetailScreen() {
               {isAction ? (
                 <>
                   <View style={styles.streakRow}>
-                    <MaterialCommunityIcons name="fire" size={35} color={palette.gold} />
-                    <View style={styles.flex}><Text style={styles.metricValue}>{data.streak} day streak</Text><Text style={styles.smallCopy}>{data.streak ? "Keep going. Small steps add up." : "Start with one small step today."}</Text></View>
+                    <View style={styles.streakPill}>
+                      <MaterialCommunityIcons name="fire" size={16} color={palette.gold} />
+                      <Text style={styles.streakPillText}>{data.streak} day streak</Text>
+                    </View>
+                    <Text style={[styles.smallCopy, styles.flex]}>{data.streak ? "Keep going. Small steps add up." : "Start with one small step today."}</Text>
                   </View>
                   <View style={styles.todayRow}><Text style={styles.label}>Today</Text><Text style={styles.dateLabel}>{formatDay(presentation.todayDayKey)}</Text></View>
                   <View style={styles.field}>
@@ -307,7 +310,12 @@ export default function HabitDetailScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
-          {habit.error ? <Pressable accessibilityRole="button" onPress={() => void habit.refetch()} style={styles.retry}><Text style={styles.error}>Couldn't refresh your habit. Your draft is kept here. Tap to retry.</Text></Pressable> : null}
+          {habit.error ? (
+            <Pressable accessibilityRole="button" onPress={() => void habit.refetch()} style={({ pressed }) => [styles.warningCard, pressed && styles.pressed]}>
+              <MaterialCommunityIcons name="wifi-alert" size={22} color={palette.gold} />
+              <Text style={styles.warningBody}>Couldn't refresh your habit. Your draft is kept here. Tap to retry.</Text>
+            </Pressable>
+          ) : null}
           {error ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
           {historyOpen ? <Pressable accessibilityRole="button" onPress={() => setHistoryOpen(false)} disabled={busy} style={styles.outlineButton}><Text style={styles.outlineLabel}>Back to today's habit</Text></Pressable>
             : isAction ? <><FocusedButton label={wisdom ? "Save check-in & reflect" : "Save action & reflect"} onPress={saveAction} loading={busy} /><Pressable accessibilityRole="button" disabled={busy} onPress={() => { setError(null); setMissDayKey(presentation.todayDayKey); }} style={styles.missLink}><Text style={styles.link}>I missed today</Text></Pressable></>
@@ -361,7 +369,9 @@ const styles = StyleSheet.create({
   stepLabelCurrent: { color: palette.text, fontFamily: fonts.bodyMedium },
   stepLine: { position: "absolute", top: 14, left: "50%", width: "100%", height: 1, backgroundColor: palette.line },
   stepLineDone: { backgroundColor: "#29684F" },
-  streakRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: palette.line },
+  streakRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: palette.line },
+  streakPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 99, backgroundColor: "rgba(255, 189, 55, 0.12)", borderWidth: 1, borderColor: "rgba(255, 189, 55, 0.3)" },
+  streakPillText: { color: palette.gold, fontFamily: fonts.bodyBold, fontSize: 12 },
   todayRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   label: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19 },
   dateLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, flexShrink: 1, textAlign: "right" },
@@ -410,6 +420,9 @@ const styles = StyleSheet.create({
   neutralCopy: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 22, textAlign: "center" },
   error: { color: palette.coral, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
   retry: { minHeight: 44, justifyContent: "center" },
+  warningCard: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "rgba(255, 189, 55, 0.45)", backgroundColor: "rgba(255, 189, 55, 0.08)", borderRadius: 10, padding: 12 },
+  warningBody: { flex: 1, color: "#E6C97A", fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
+  pressed: { opacity: 0.8 },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", alignItems: "center", backgroundColor: "rgba(0,0,0,0.48)" },
   missSheet: { width: "100%", maxWidth: 480, maxHeight: "90%", backgroundColor: palette.panel, borderWidth: 1, borderColor: palette.line, borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: "hidden" },
   sheetScroll: { width: "100%", flexShrink: 1 },
