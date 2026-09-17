@@ -4,7 +4,14 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL"],
+      "env": [
+        "DATABASE_URL",
+        "OPENAI_API_KEY",
+        "OPENAI_MODEL",
+        "MEDAA_DAILY_REQUEST_LIMIT",
+        "BETTER_AUTH_URL",
+        "CORS_ORIGIN"
+      ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
