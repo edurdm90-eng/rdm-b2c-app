@@ -12,7 +12,7 @@ export default function GamesScreen() {
   const focused = useIsFocused();
   const games = useQuery({ ...trpc.rdm.games.list.queryOptions(), enabled: focused, refetchInterval: focused ? 30_000 : false });
   const [filter, setFilter] = useState<number | "all">("all");
-  const visible = [...(games.data ?? [])].filter((game) => filter === "all" || game.filterMinutes === filter).sort((a, b) => gameOrder.indexOf(a.id) - gameOrder.indexOf(b.id));
+  const visible = [...(games.data ?? [])].filter((game) => game.id !== "gratitude-tap" && (filter === "all" || game.filterMinutes === filter)).sort((a, b) => gameOrder.indexOf(a.id) - gameOrder.indexOf(b.id));
 
   return <FocusedScreen contentStyle={[g.screen, { gap: 12 }]}>
     <View style={s.heading}><Text style={f.title}>Games</Text><Pressable accessibilityRole="button" onPress={() => router.push("/(app)/badges")} style={s.badges}><GameIcon name="medal-outline" color={c.gold} size={21} /><Text style={s.badgeLabel}>Badges</Text></Pressable></View>
