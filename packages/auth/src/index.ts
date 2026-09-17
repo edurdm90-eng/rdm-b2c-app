@@ -3,6 +3,7 @@ import { client } from "@rdm-b2c/db";
 import { env } from "@rdm-b2c/env/server";
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { ObjectId } from "mongodb";
 
 import { grantSignupAirdrop } from "./signup-airdrop";
 
@@ -49,6 +50,13 @@ export function createAuth() {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     advanced: {
+      database: {
+        // The Mongoose-owned MongoDB driver can return ObjectId instances
+        // from a different BSON module than Better Auth's adapter. A custom
+        // string id generator tells the adapter to preserve existing ids
+        // instead of trying to re-serialize those instances.
+        generateId: () => new ObjectId().toHexString(),
+      },
       defaultCookieAttributes: {
         sameSite: isProduction ? "none" : "lax",
         secure: isProduction,
