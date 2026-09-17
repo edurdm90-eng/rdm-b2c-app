@@ -25,6 +25,7 @@ app.use(
     },
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
+    exposeHeaders: ["set-cookie"],
     credentials: true,
   }),
 );
