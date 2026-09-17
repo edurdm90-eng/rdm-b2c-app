@@ -3,6 +3,7 @@ import { client } from "@rdm-b2c/db";
 import { env } from "@rdm-b2c/env/server";
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { bearer } from "better-auth/plugins";
 import { ObjectId } from "mongodb";
 
 import { grantSignupAirdrop } from "./signup-airdrop";
@@ -63,7 +64,12 @@ export function createAuth() {
         httpOnly: true,
       },
     },
-    plugins: [expo()],
+    // React Native's fetch never exposes the Set-Cookie header to JS (same
+    // restriction browsers apply), so the Expo client can't reliably persist
+    // a cookie-based session. `bearer()` additionally returns the session
+    // token via a plain `set-auth-token` header and accepts it back as
+    // `Authorization: Bearer <token>`, sidestepping that restriction.
+    plugins: [expo(), bearer()],
   });
 }
 

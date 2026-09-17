@@ -5,7 +5,7 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { Platform } from "react-native";
 
-import { authClient } from "@/lib/auth-client";
+import { getStoredToken } from "@/lib/auth-token";
 
 export const queryClient = new QueryClient();
 const serverUrl = env.EXPO_PUBLIC_SERVER_URL.replace(/\/$/, "");
@@ -17,20 +17,18 @@ export const trpcClient = createTRPCClient<AppRouter>({
       fetch: function (url, options) {
         return fetch(url, {
           ...options,
-          // Better Auth Expo forwards the session cookie manually on native.
           credentials: Platform.OS === "web" ? "include" : "omit",
         });
       },
-      headers() {
+      headers: async () => {
         if (Platform.OS === "web") {
           return {};
         }
-        const headers = new Map<string, string>();
-        const cookies = authClient.getCookie();
-        if (cookies) {
-          headers.set("Cookie", cookies);
-        }
-        return Object.fromEntries(headers);
+        // RN's fetch never exposes Set-Cookie to JS, so native auth is
+        // carried as a bearer token (persisted by the server's bearer()
+        // plugin) instead of a cookie. See lib/auth-client.ts.
+        const token = await getStoredToken();
+        return token ? { Authorization: `Bearer ${token}` } : {};
       },
     }),
   ],
