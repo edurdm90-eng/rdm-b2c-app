@@ -158,6 +158,7 @@ export default function HabitDetailScreen() {
   const resultScreen = completed || missed;
   const legacyNext = !pledge && data.active && data.stage === "reward" && state === "inactive";
   const destination = wisdom ? "/(app)/(tabs)/japanese-wisdom" : "/(app)/(tabs)/habits";
+  const dayIndex = presentation.totalDays !== null ? Math.min(presentation.completedCount + presentation.missedCount + 1, presentation.totalDays) : null;
 
   function back() {
     if (busy) return;
@@ -230,14 +231,20 @@ export default function HabitDetailScreen() {
             <HabitHistory habit={data} todayDayKey={presentation.todayDayKey} canOpenToday={isAction || isReflection} canMissToday={isAction && !busy} onOpenToday={() => setHistoryOpen(false)} onMissToday={() => { setError(null); setMissDayKey(presentation.todayDayKey); }} />
           ) : isAction || isReflection ? (
             <>
+              <View style={styles.dayHeading}>
+                <Text accessibilityRole="header" style={styles.dayHeadingTitle}>{dayIndex !== null ? `Day ${dayIndex} of ${presentation.totalDays}` : formatDay(presentation.todayDayKey)}</Text>
+                {data.streak > 0 ? (
+                  <View style={styles.streakPill}>
+                    <MaterialCommunityIcons name="fire" size={16} color={palette.gold} />
+                    <Text style={styles.streakPillText}>{data.streak} day streak</Text>
+                  </View>
+                ) : null}
+              </View>
               <HabitSteps stage={isAction ? "act" : "reflect"} />
               {isAction ? (
                 <>
                   <View style={styles.streakRow}>
-                    <View style={styles.streakPill}>
-                      <MaterialCommunityIcons name="fire" size={16} color={palette.gold} />
-                      <Text style={styles.streakPillText}>{data.streak} day streak</Text>
-                    </View>
+                    <MaterialCommunityIcons name="fire" size={22} color={palette.gold} />
                     <Text style={[styles.smallCopy, styles.flex]}>{data.streak ? "Keep going. Small steps add up." : "Start with one small step today."}</Text>
                   </View>
                   <View style={styles.todayRow}><Text style={styles.label}>Today</Text><Text style={styles.dateLabel}>{formatDay(presentation.todayDayKey)}</Text></View>
@@ -293,6 +300,14 @@ export default function HabitDetailScreen() {
                 <Metric icon="chart-bar" label="Reflections" value={String(presentation.completedCount) + (presentation.totalDays !== null ? " of " + presentation.totalDays : "")} hint="Keep reflecting daily." color={palette.link} />
                 {pledge ? <Metric icon="chart-pie" label="Remaining pledge" value={formatRdm(pledge.remaining) + " RDM"} hint={presentation.remainingDays ? "For the next " + presentation.remainingDays + " scheduled days." : "Every daily allocation is settled."} color={palette.link} /> : null}
               </View>
+              {pledge ? (
+                <View style={styles.commitmentBreakdown}>
+                  <Text style={styles.label}>Your commitment</Text>
+                  <View style={styles.breakdownRow}><MaterialCommunityIcons name="database-outline" size={20} color={palette.link} /><Text style={[styles.smallCopy, styles.flex]}>Total pledge</Text><Text style={styles.breakdownValue}>{formatRdm(pledge.total)} RDM</Text></View>
+                  <View style={styles.breakdownRow}><MaterialCommunityIcons name="check-circle" size={20} color={palette.green} /><Text style={[styles.smallCopy, styles.flex]}>Settled to Reward</Text><Text style={styles.breakdownValue}>{formatRdm(pledge.perDay * pledge.completedDayKeys.length)} RDM</Text></View>
+                  <View style={styles.breakdownRow}><MaterialCommunityIcons name="lock-outline" size={20} color={palette.muted} /><Text style={[styles.smallCopy, styles.flex]}>Still locked</Text><Text style={styles.breakdownValue}>{formatRdm(pledge.remaining)} RDM</Text></View>
+                </View>
+              ) : null}
               <WeekProgress habit={data} todayDayKey={presentation.todayDayKey} />
               {pledge ? <View style={styles.nextCard}><MaterialCommunityIcons name="calendar-month-outline" size={27} color={palette.text} /><View style={styles.flex}><Text style={styles.label}>{nextDayCopy(presentation.todayDayKey, presentation.nextDayKey)}</Text><Text style={styles.smallCopy}>{presentation.nextDayKey ? "Small steps, steady progress." : "Your history stays available below."}</Text></View></View> : <Text style={styles.smallCopy}>Come back on the next day to continue your routine.</Text>}
               {wisdom ? <Text style={styles.smallCopy}>Your practice progress is in History → Insights. Consistency is assessed across the full schedule; bonus payouts remain disabled.</Text> : null}
@@ -332,9 +347,22 @@ export default function HabitDetailScreen() {
             <View style={styles.sheetHandle} />
             <MaterialCommunityIcons name="close-circle" size={40} color={palette.coral} />
             <Text accessibilityRole="header" style={styles.sheetTitle}>{wisdom ? "Record a missed check-in?" : "Mark today as missed?"}</Text>
-            <Text style={styles.sheetCopy}>{pledge
-              ? "Today's " + formatRdm(pledge.perDay) + " RDM will move from your habit pledge to your Remorse Purse.\nThis cannot be undone."
-              : "Up to 10 available Base RDM will move to your Remorse Purse.\nThis cannot be undone."}</Text>
+            <View style={styles.sheetDivider} />
+            <View style={styles.sheetRows}>
+              <View style={styles.sheetRow}>
+                <MaterialCommunityIcons name="database-outline" size={21} color={palette.muted} />
+                <Text style={styles.sheetRowText}>{pledge ? `Today's ${formatRdm(pledge.perDay)} RDM → Remorse` : "Up to 10 available Base RDM → Remorse"}</Text>
+              </View>
+              <View style={styles.sheetRow}>
+                <MaterialCommunityIcons name="fire" size={21} color={palette.muted} />
+                <Text style={styles.sheetRowText}>Your current streak resets</Text>
+              </View>
+              <View style={styles.sheetRow}>
+                <MaterialCommunityIcons name="shield-check-outline" size={21} color={palette.muted} />
+                <Text style={styles.sheetRowText}>Earlier rewards stay in Reward</Text>
+              </View>
+            </View>
+            <Text style={styles.smallCopy}>This cannot be undone.</Text>
             {wisdom ? <Text style={styles.smallCopy}>This is not a judgement about what you ate. Honest reflections count even when the practice was difficult.</Text> : null}
             {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
             <FocusedButton label="Confirm missed day" loading={busy} onPress={confirmMiss} style={styles.confirmMiss} />
@@ -369,6 +397,8 @@ const styles = StyleSheet.create({
   stepLabelCurrent: { color: palette.text, fontFamily: fonts.bodyMedium },
   stepLine: { position: "absolute", top: 14, left: "50%", width: "100%", height: 1, backgroundColor: palette.line },
   stepLineDone: { backgroundColor: "#29684F" },
+  dayHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingBottom: 14 },
+  dayHeadingTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 19, lineHeight: 26 },
   streakRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: palette.line },
   streakPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 99, backgroundColor: "rgba(255, 189, 55, 0.12)", borderWidth: 1, borderColor: "rgba(255, 189, 55, 0.3)" },
   streakPillText: { color: palette.gold, fontFamily: fonts.bodyBold, fontSize: 12 },
@@ -399,6 +429,9 @@ const styles = StyleSheet.create({
   outlineLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19, textAlign: "center" },
   resultHero: { alignItems: "center", paddingTop: 0, paddingBottom: 5, gap: 2 },
   resultTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 28, textAlign: "center", marginTop: 4 },
+  commitmentBreakdown: { gap: 10, paddingTop: 4, paddingBottom: 4 },
+  breakdownRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  breakdownValue: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 20 },
   metrics: { borderBottomWidth: 1, borderBottomColor: palette.line },
   metric: { minHeight: 60, paddingVertical: 11, borderTopWidth: 1, borderTopColor: palette.line, flexDirection: "row", alignItems: "center", gap: 18 },
   metricHeading: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
@@ -429,6 +462,9 @@ const styles = StyleSheet.create({
   sheetContent: { paddingHorizontal: 18, paddingTop: 12, alignItems: "center", gap: 10 },
   sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: "#40505E", marginBottom: 4 },
   sheetTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 28, textAlign: "center" },
-  sheetCopy: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, textAlign: "center" },
+  sheetDivider: { width: "100%", height: 1, backgroundColor: palette.line, marginTop: 4 },
+  sheetRows: { width: "100%", gap: 4 },
+  sheetRow: { width: "100%", flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: palette.line },
+  sheetRowText: { flex: 1, color: palette.text, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
   confirmMiss: { width: "100%", minHeight: 44, backgroundColor: palette.coral },
 });

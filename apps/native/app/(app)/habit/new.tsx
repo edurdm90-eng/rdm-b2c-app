@@ -12,11 +12,11 @@ import * as Crypto from "expo-crypto";
 import { router, useLocalSearchParams } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { HabitDateField } from "@/components/habit-date-field";
-import { ActionDialog } from "@/components/rdm-ui";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { goBackToJapaneseWisdom } from "@/lib/wisdom-navigation";
@@ -72,6 +72,7 @@ export default function NewHabitScreen() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const submissionInFlight = useRef(false);
+  const insets = useSafeAreaInsets();
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions());
   const numericDailyPledge = Number(dailyRdm);
   const pledgeSchedule = useMemo(() => habitPledgeSchedule({
@@ -191,10 +192,15 @@ export default function NewHabitScreen() {
             <>
               {wisdomPractice ? (
                 <View style={styles.practiceCard}>
-                  <Text style={styles.cardTitle}>{wisdomPractice.title}</Text>
+                  <View style={styles.practiceHeading}>
+                    <View style={styles.practiceIcon}><MaterialCommunityIcons name="bowl-mix-outline" size={26} color={palette.purple} /></View>
+                    <Text style={styles.cardTitle}>{wisdomPractice.title}</Text>
+                  </View>
                   <Text style={styles.subtitle}>{wisdomPractice.description}</Text>
-                  <Text style={styles.noteText}>{wisdomPractice.target}</Text>
-                  <Text style={styles.noteText}>{wisdomPractice.pledge}</Text>
+                  <View style={styles.practiceDescriptionBox}>
+                    <Text style={styles.noteText}>{wisdomPractice.target}</Text>
+                    <Text style={styles.noteText}>{wisdomPractice.pledge}</Text>
+                  </View>
                   <Text style={styles.noteText}>An honest reflection counts even if the practice was difficult. No food quantity, calorie, or weight target. Follow your individual nutritional needs and professional guidance.</Text>
                   <Text style={styles.noteText}>Bonus payouts are not enabled for this commitment.</Text>
                 </View>
@@ -294,7 +300,7 @@ export default function NewHabitScreen() {
                 </View>
                 <Text style={styles.caption}>Minimum 1 RDM per scheduled day.</Text>
               </View>
-              <View style={styles.summary}>
+              <View style={[styles.summary, wisdomPractice && styles.summaryWisdom]}>
                 <Text style={[styles.label, styles.summaryHeading]}>Pledge summary</Text>
                 <View style={styles.summaryRow}><Text style={styles.subtitle}>{pledgeSchedule ? pledgeSchedule.dayCount + " days × " + formatRdm(numericDailyPledge) + " RDM" : "Scheduled days × daily RDM"}</Text><Text style={styles.amount}>{pledgeSchedule ? formatRdm(pledgeSchedule.totalPledge) + " RDM" : "—"}</Text></View>
                 <View style={styles.summaryRow}><Text style={styles.subtitle}>Total pledge</Text><Text style={styles.amount}>{pledgeSchedule ? formatRdm(pledgeSchedule.totalPledge) + " RDM" : "—"}</Text></View>
@@ -321,15 +327,36 @@ export default function NewHabitScreen() {
         </View>
       </KeyboardAvoidingView>
       {wisdomPractice ? (
-        <ActionDialog
-          title="Confirm Hara Hachi Bu"
-          visible={confirmOpen}
-          message={startDayKey + " to " + endDayKey + " (end excluded), in " + timeZone + ". " + (pledgeSchedule?.dayCount ?? 0) + " days × " + formatRdm(numericDailyPledge) + " RDM = " + formatRdm(pledgeSchedule?.totalPledge ?? 0) + " RDM locked from Base. Each daily check-in and reflection moves its allocation to Reward; a missed day moves it to Remorse. Bonus payouts are not enabled."}
-          confirmLabel="Lock RDM & start"
-          loading={createHabit.isPending}
-          onCancel={() => setConfirmOpen(false)}
-          onConfirm={() => submit(true)}
-        />
+        <Modal animationType="slide" transparent visible={confirmOpen} onRequestClose={() => { if (!createHabit.isPending) setConfirmOpen(false); }}>
+          <View style={styles.modalBackdrop}>
+            <Pressable accessibilityLabel="Go back to schedule" accessibilityRole="button" disabled={createHabit.isPending} onPress={() => setConfirmOpen(false)} style={StyleSheet.absoluteFill} />
+            <View accessibilityViewIsModal role="dialog" aria-modal style={styles.confirmSheet}>
+              <ScrollView style={styles.flex} contentContainerStyle={[styles.confirmContent, { paddingBottom: Math.max(insets.bottom, 16) }]} keyboardShouldPersistTaps="handled">
+                <View style={styles.sheetHandle} />
+                <Text accessibilityRole="header" style={styles.confirmTitle}>Confirm {wisdomPractice.title}</Text>
+
+                <View style={styles.confirmRows}>
+                  <View style={styles.confirmRow}><Text style={styles.subtitle}>Start</Text><Text style={styles.amount}>{startDayKey}</Text></View>
+                  <View style={styles.confirmRow}><Text style={styles.subtitle}>End</Text><Text style={styles.amount}>{endDayKey} (excluded)</Text></View>
+                  <View style={styles.confirmRow}><Text style={styles.subtitle}>Daily pledge</Text><Text style={styles.amount}>{formatRdm(numericDailyPledge)} RDM</Text></View>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.confirmRow}><Text style={styles.confirmTotalLabel}>{pledgeSchedule?.dayCount ?? 0} days · Total {formatRdm(pledgeSchedule?.totalPledge ?? 0)} RDM</Text></View>
+                <View style={styles.confirmRow}><Text style={styles.subtitle}>Base after pledge</Text><Text style={styles.confirmTotalLabel}>{availableBase !== undefined && pledgeSchedule ? formatRdm(availableBase - pledgeSchedule.totalPledge) + " RDM" : "—"}</Text></View>
+                <View style={styles.divider} />
+                <View style={styles.confirmRow}><Text style={styles.subtitle}>Timezone</Text><Text style={styles.amount}>{timeZone}</Text></View>
+
+                <InfoNote>Daily check-in + reflection → Reward.{"\n"}Missed day → Remorse.</InfoNote>
+                <InfoNote>Bonus payouts are not enabled.</InfoNote>
+
+                <FocusedButton label={"Lock " + formatRdm(pledgeSchedule?.totalPledge ?? 0) + " RDM & start"} loading={createHabit.isPending} onPress={() => submit(true)} style={styles.confirmPrimary} />
+                <Pressable accessibilityRole="button" disabled={createHabit.isPending} onPress={() => setConfirmOpen(false)} style={styles.outlineButton}>
+                  <Text style={styles.outlineLabel}>Go back</Text>
+                </Pressable>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       ) : null}
     </FocusedScreen>
   );
@@ -371,6 +398,10 @@ const styles = StyleSheet.create({
   noteCard: { padding: 12, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, borderRadius: 8 },
   footer: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 10 },
   practiceCard: { padding: 16, borderWidth: 1, borderColor: palette.line, borderRadius: 8, gap: 12 },
+  practiceHeading: { flexDirection: "row", alignItems: "center", gap: 12 },
+  practiceIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: "rgba(183, 136, 241, 0.14)", borderWidth: 1, borderColor: "rgba(183, 136, 241, 0.3)", alignItems: "center", justifyContent: "center" },
+  practiceDescriptionBox: { gap: 6, padding: 12, borderRadius: 8, backgroundColor: "#0E1620", borderWidth: 1, borderColor: palette.line },
+  summaryWisdom: { borderWidth: 1, borderTopWidth: 1, borderColor: "rgba(183, 136, 241, 0.3)", backgroundColor: "rgba(183, 136, 241, 0.06)", borderRadius: 12, paddingTop: 14, paddingHorizontal: 14, paddingBottom: 14, marginTop: 4 },
   cardTitle: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 16, lineHeight: 22 },
   habitSummary: { minHeight: 66, padding: 14, gap: 18, borderRadius: 8, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, flexDirection: "row", alignItems: "center" },
   dates: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
@@ -386,4 +417,15 @@ const styles = StyleSheet.create({
   retry: { minHeight: 44, justifyContent: "center" },
   error: { color: palette.coral, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
   disabled: { opacity: 0.4 },
+  modalBackdrop: { flex: 1, justifyContent: "flex-end", alignItems: "center", backgroundColor: "rgba(0, 0, 0, 0.6)" },
+  confirmSheet: { width: "100%", maxWidth: 480, maxHeight: "88%", backgroundColor: palette.panel, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: "hidden" },
+  confirmContent: { paddingHorizontal: 20, paddingTop: 10, alignItems: "center", gap: 10 },
+  sheetHandle: { width: 46, height: 4, borderRadius: 99, backgroundColor: palette.line, marginBottom: 6 },
+  confirmTitle: { width: "100%", color: palette.text, fontFamily: fonts.bodyBold, fontSize: 23, lineHeight: 30, marginBottom: 4 },
+  confirmRows: { width: "100%", gap: 2 },
+  confirmRow: { width: "100%", flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 9 },
+  confirmTotalLabel: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22 },
+  confirmPrimary: { width: "100%", marginTop: 8 },
+  outlineButton: { width: "100%", minHeight: 54, borderWidth: 1, borderColor: palette.line, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  outlineLabel: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 23 },
 });
