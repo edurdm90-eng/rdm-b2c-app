@@ -36,7 +36,7 @@ function AppTabBar({ state, descriptors, navigation }: AppTabBarProps) {
   }, [availableWidth, itemWidth, state.index]);
 
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10), paddingLeft: insets.left, paddingRight: insets.right }]}>
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 6), paddingLeft: insets.left, paddingRight: insets.right }]}>
       {overflowing ? <Text style={styles.scrollHint}>Swipe for all tabs ↔</Text> : null}
       <ScrollView
         horizontal
@@ -65,7 +65,7 @@ function AppTabBar({ state, descriptors, navigation }: AppTabBarProps) {
               onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
               style={({ pressed }) => [styles.item, { width: itemWidth }, pressed && styles.pressed]}
             >
-              <MaterialCommunityIcons name={focused && route.name === "index" ? "home-variant" : focused && route.name === "wallet" ? "wallet" : icons[route.name] ?? "circle-outline"} size={24} color={color} />
+              <MaterialCommunityIcons name={focused && route.name === "index" ? "home-variant" : focused && route.name === "wallet" ? "wallet" : icons[route.name] ?? "circle-outline"} size={21} color={color} />
               <Text style={[styles.label, { color }]}>{label}</Text>
             </Pressable>
           );
@@ -94,11 +94,11 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  bar: { backgroundColor: focusedColors.background, borderTopWidth: 1, borderTopColor: focusedColors.line, paddingTop: 6 },
+  bar: { backgroundColor: focusedColors.background, borderTopWidth: 1, borderTopColor: focusedColors.line, paddingTop: 3 },
   items: { alignItems: "center" },
-  scroll: { height: 52, flexGrow: 0 },
-  item: { minHeight: 52, alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 4 },
-  label: { fontFamily: fonts.bodyMedium, fontSize: 9, textAlign: "center" },
+  scroll: { height: 44, flexGrow: 0 },
+  item: { minHeight: 44, alignItems: "center", justifyContent: "center", gap: 1, paddingHorizontal: 3 },
+  label: { fontFamily: fonts.bodyMedium, fontSize: 8, textAlign: "center" },
   scrollHint: { fontFamily: fonts.body, fontSize: 10, color: focusedColors.muted, textAlign: "right", paddingHorizontal: 12, paddingBottom: 2 },
   pressed: { opacity: 0.7 },
 });
