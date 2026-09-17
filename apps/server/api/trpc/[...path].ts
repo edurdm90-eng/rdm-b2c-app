@@ -7,6 +7,7 @@ export default async function handler(
   request: Parameters<typeof toWebRequest>[0],
   response: ServerResponse,
 ) {
-  const pathname = request.url?.split("?", 1)[0]?.slice("/api".length) || "/";
-  await sendWebResponse(await app.fetch(await toWebRequest(request, pathname)), response);
+  // Vercel rewrites /trpc/* to this function but keeps the request URL as
+  // /trpc/*. Passing that path through unchanged lets Hono match /trpc/*.
+  await sendWebResponse(await app.fetch(await toWebRequest(request)), response);
 }
