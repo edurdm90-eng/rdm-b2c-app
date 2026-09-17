@@ -1,4 +1,4 @@
-import type { IncomingMessage } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 
 type VercelRequest = IncomingMessage & {
@@ -41,6 +41,28 @@ export function toWebRequest(request: VercelRequest, pathname?: string) {
     body,
     duplex: "half",
   } as RequestInit & { duplex: "half" });
+}
+
+export async function sendWebResponse(
+  response: Response,
+  destination: ServerResponse,
+) {
+  destination.statusCode = response.status;
+
+  const setCookie = (
+    response.headers as Headers & { getSetCookie?: () => string[] }
+  ).getSetCookie?.();
+
+  response.headers.forEach((value, name) => {
+    if (name !== "set-cookie") {
+      destination.setHeader(name, value);
+    }
+  });
+  if (setCookie?.length) {
+    destination.setHeader("set-cookie", setCookie);
+  }
+
+  destination.end(response.body ? Buffer.from(await response.arrayBuffer()) : undefined);
 }
 
 function getHeader(request: VercelRequest, name: string) {

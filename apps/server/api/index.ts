@@ -1,11 +1,19 @@
 import { toWebRequest } from "./_request.js";
+import { sendWebResponse } from "./_request.js";
+import type { ServerResponse } from "node:http";
 
-export default async function handler(request: Parameters<typeof toWebRequest>[0]) {
+export default async function handler(
+  request: Parameters<typeof toWebRequest>[0],
+  response: ServerResponse,
+) {
   const pathname = request.url?.split("?", 1)[0] ?? "/";
   if (pathname === "/" || pathname === "/api") {
-    return new Response("OK");
+    response.statusCode = 200;
+    response.setHeader("content-type", "text/plain; charset=UTF-8");
+    response.end("OK");
+    return;
   }
 
   const { default: app } = await import("../dist/vercel.mjs");
-  return app.fetch(toWebRequest(request, pathname));
+  await sendWebResponse(await app.fetch(toWebRequest(request, pathname)), response);
 }
