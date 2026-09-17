@@ -58,7 +58,10 @@ export async function sendWebResponse(
 
   const setCookie = (
     response.headers as Headers & { getSetCookie?: () => string[] }
-  ).getSetCookie?.();
+  ).getSetCookie?.() ?? (() => {
+    const combined = response.headers.get("set-cookie");
+    return combined ? [combined] : [];
+  })();
 
   response.headers.forEach((value, name) => {
     if (name !== "set-cookie") {
