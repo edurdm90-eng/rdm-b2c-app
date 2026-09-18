@@ -1,14 +1,16 @@
 import { client, RdmProfile } from "@rdm-b2c/db";
-import { ObjectId } from "mongodb";
+import type { ObjectId } from "mongodb";
+
+import { signupAirdropUserFilter } from "./signup-airdrop-id";
 
 /** Credits only accounts marked eligible by the server when they were created. */
 export async function grantSignupAirdrop(userId: string): Promise<void> {
   const operationId = `signup-airdrop:${userId}`;
   if (await RdmProfile.exists({ userId, creditedOperations: operationId })) return;
-  const user = await client.collection<{ _id: ObjectId | string; signupAirdropEligible?: boolean }>("user").findOne({
-    _id: ObjectId.isValid(userId) ? new ObjectId(userId) : userId,
-    signupAirdropEligible: true,
-  }, { projection: { _id: 1 } });
+  const user = await client.collection<{ _id: string | ObjectId; signupAirdropEligible?: boolean }>("user").findOne(
+    signupAirdropUserFilter(userId),
+    { projection: { _id: 1 } },
+  );
   if (!user) return;
 
   try {
