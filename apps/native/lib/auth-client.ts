@@ -6,6 +6,9 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 import { getStoredToken, setStoredToken } from "@/lib/auth-token";
+import { sessionTokenFromCookie } from "@/lib/bearer-session";
+
+export const googleAuthEnabled = env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
 
 // Captures the `set-auth-token` header the server's bearer() plugin returns
 // on every response and persists it. Unlike Set-Cookie, this is a plain
@@ -61,3 +64,16 @@ const baseAuthClient = createAuthClient({
 export const authClient = baseAuthClient as typeof baseAuthClient & {
   getCookie(): string;
 };
+
+/**
+ * OAuth completes in the system browser, so its session cookie is returned to
+ * Expo's cookie store rather than an RN fetch response. Mirror its signed
+ * session token into the bearer store used by tRPC before entering the app.
+ */
+export async function syncBearerTokenFromSessionCookie(): Promise<boolean> {
+  if (Platform.OS === "web") return true;
+  const token = sessionTokenFromCookie(authClient.getCookie());
+  if (!token) return false;
+  await setStoredToken(token);
+  return true;
+}

@@ -6,10 +6,15 @@ import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { bearer } from "better-auth/plugins";
 import { ObjectId } from "mongodb";
 
+import { googleProviderConfig } from "./google";
 import { grantSignupAirdrop } from "./signup-airdrop";
 
 export function createAuth() {
   const isProduction = env.NODE_ENV === "production";
+  const google = googleProviderConfig({
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+  });
   return betterAuth({
     database: mongodbAdapter(client),
     trustedOrigins: [
@@ -23,6 +28,26 @@ export function createAuth() {
     ],
     emailAndPassword: {
       enabled: true,
+    },
+    socialProviders: google ? { google } : undefined,
+    session: {
+      // A two-week rolling session is long enough for a routine app without
+      // forcing frequent sign-ins. Refreshing at most once a day keeps normal
+      // authenticated traffic from turning every request into a database write.
+      expiresIn: 60 * 60 * 24 * 14,
+      updateAge: 60 * 60 * 24,
+      freshAge: 60 * 60 * 24,
+    },
+    account: {
+      // OAuth tokens are not exposed to RDM clients and stay encrypted at rest.
+      encryptOAuthTokens: true,
+      accountLinking: {
+        enabled: true,
+        // Do not force-link identities whose email is not verified by Google.
+        // Better Auth links matching, verified Google emails by default.
+        allowDifferentEmails: false,
+        updateUserInfoOnLink: false,
+      },
     },
     user: {
       additionalFields: {
@@ -69,7 +94,7 @@ export function createAuth() {
     // a cookie-based session. `bearer()` additionally returns the session
     // token via a plain `set-auth-token` header and accepts it back as
     // `Authorization: Bearer <token>`, sidestepping that restriction.
-    plugins: [expo(), bearer()],
+    plugins: [expo(), bearer({ requireSignature: true })],
   });
 }
 

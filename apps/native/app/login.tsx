@@ -16,7 +16,7 @@ import {
 } from "react-native";
 
 import { FocusedButton, FocusedScreen, focusedColors } from "@/components/focused-ui";
-import { authClient } from "@/lib/auth-client";
+import { authClient, googleAuthEnabled, syncBearerTokenFromSessionCookie } from "@/lib/auth-client";
 import { postLoginDestination } from "@/lib/auth-return";
 import { fonts } from "@/lib/theme";
 import { queryClient, trpcClient } from "@/utils/trpc";
@@ -83,6 +83,37 @@ export default function LoginScreen() {
       router.replace(postLoginDestination(params));
     } catch {
       setError("RDM could not reach the server. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function signInWithGoogle() {
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const result = await authClient.signIn.social({
+        provider: "google",
+        // The Expo Better Auth client turns this relative route into RDM's
+        // signed deep link, then completes the browser flow in-app.
+        callbackURL: "/login",
+      });
+      if (result.error) {
+        setError(result.error.message ?? "Google sign-in could not be completed.");
+        return;
+      }
+
+      await refreshSession();
+      const verified = await authClient.getSession();
+      if (!verified.data?.user || !await syncBearerTokenFromSessionCookie()) {
+        setError("Google sign-in completed, but the session could not be saved on this device. Please try again.");
+        return;
+      }
+      queryClient.clear();
+      router.replace(postLoginDestination(params));
+    } catch {
+      setError("Google sign-in could not be completed. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -212,6 +243,26 @@ export default function LoginScreen() {
               style={styles.submitButton}
             />
 
+            {googleAuthEnabled ? (
+              <>
+                <View style={styles.orRow}>
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>or</Text>
+                  <View style={styles.orLine} />
+                </View>
+                <Pressable
+                  accessibilityLabel="Continue with Google"
+                  accessibilityRole="button"
+                  disabled={submitting}
+                  onPress={() => void signInWithGoogle()}
+                  style={({ pressed }) => [styles.googleButton, pressed && styles.pressed, submitting && styles.disabled]}
+                >
+                  <MaterialCommunityIcons name="google" size={20} color={focusedColors.text} />
+                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                </Pressable>
+              </>
+            ) : null}
+
             <View style={styles.switchRow}>
               <Text style={styles.switchPrompt}>{mode === "sign-in" ? "New to RDM?" : "Already a member?"}</Text>
               <Pressable
@@ -303,6 +354,12 @@ const styles = StyleSheet.create({
   airdropDescription: { color: focusedColors.background, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
   error: { color: focusedColors.coral, fontFamily: fonts.bodyMedium, fontSize: 12.5, lineHeight: 18, marginTop: 12 },
   submitButton: { borderRadius: 10, minHeight: 48, marginTop: 18 },
+  orRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 16 },
+  orLine: { flex: 1, height: 1, backgroundColor: focusedColors.line },
+  orText: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 12 },
+  googleButton: { minHeight: 48, marginTop: 14, borderRadius: 10, borderWidth: 1, borderColor: focusedColors.line, backgroundColor: focusedColors.panel, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  googleButtonText: { color: focusedColors.text, fontFamily: fonts.bodyMedium, fontSize: 14 },
+  disabled: { opacity: 0.55 },
   switchRow: { borderTopWidth: 1, borderColor: focusedColors.line, marginTop: 20, paddingTop: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, flexWrap: "wrap" },
   switchPrompt: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14 },
   switchButton: { minHeight: 44, justifyContent: "center" },
