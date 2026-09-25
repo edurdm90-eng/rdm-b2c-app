@@ -7,9 +7,13 @@
       "env": [
         "DATABASE_URL",
         "BETTER_AUTH_SECRET",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "LEGACY_FOCUS_TAP_CUTOFF",
         "OPENAI_API_KEY",
         "OPENAI_MODEL",
         "MEDAA_DAILY_REQUEST_LIMIT",
+        "MONGODB_MAX_POOL_SIZE",
         "BETTER_AUTH_URL",
         "CORS_ORIGIN",
         "PORT",

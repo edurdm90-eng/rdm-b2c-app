@@ -29,6 +29,19 @@ export function createAuth() {
     emailAndPassword: {
       enabled: true,
     },
+    rateLimit: {
+      enabled: isProduction,
+      // Memory counters are isolated per serverless instance. Mongo-backed
+      // counters keep login abuse limits consistent across every instance.
+      storage: "database",
+      window: 60,
+      max: 100,
+      customRules: {
+        "/sign-in/*": { window: 60, max: 12 },
+        "/sign-up/*": { window: 60, max: 6 },
+        "/callback/*": { window: 60, max: 30 },
+      },
+    },
     socialProviders: google ? { google } : undefined,
     session: {
       // A two-week rolling session is long enough for a routine app without

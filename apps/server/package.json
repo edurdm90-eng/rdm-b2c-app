@@ -7,6 +7,8 @@
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/server.ts --outfile server",
     "dev": "tsx watch src/server.ts",
+    "db:ensure-indexes": "tsx scripts/ensure-database-indexes.ts",
+    "prebuild": "pnpm db:ensure-indexes -- --apply",
     "test": "tsx --test ../../packages/api/src/domain/*.test.ts tests/*.test.ts",
     "test:integration": "tsx --test ../../packages/api/src/integration/*.test.ts",
     "start": "node dist/server.mjs"

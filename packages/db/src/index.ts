@@ -1,5 +1,5 @@
 import { env } from "@rdm-b2c/env/server";
-import mongoose from "mongoose";
+import mongoose, { type ConnectOptions } from "mongoose";
 
 const databaseName = "rdm-business";
 const connectionParts = env.DATABASE_URL.match(
@@ -9,7 +9,17 @@ const authority = connectionParts?.[1];
 if (!authority) throw new Error("DATABASE_URL must be a valid MongoDB connection string");
 const databaseUrl = `${authority}/${databaseName}${connectionParts?.[2] ?? ""}`;
 
-await mongoose.connect(databaseUrl);
+await mongoose.connect(databaseUrl, {
+  // Serverless instances reuse this module while warm. A bounded pool avoids
+  // multiplying Atlas connections during traffic spikes and releases idle
+  // sockets promptly after an instance cools down.
+  maxPoolSize: env.MONGODB_MAX_POOL_SIZE,
+  minPoolSize: 0,
+  maxIdleTimeMS: 30_000,
+  serverSelectionTimeoutMS: 10_000,
+  connectTimeoutMS: 10_000,
+  socketTimeoutMS: 45_000,
+} as ConnectOptions);
 
 const client = mongoose.connection.getClient().db(databaseName);
 
