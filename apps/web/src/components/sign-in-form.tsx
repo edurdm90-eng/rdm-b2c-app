@@ -1,135 +1,65 @@
 import { Button } from "@rdm-b2c/ui/components/button";
-import { Input } from "@rdm-b2c/ui/components/input";
-import { Label } from "@rdm-b2c/ui/components/label";
-import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { toast } from "sonner";
-import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
 import Loader from "./loader";
 
-export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
-  const navigate = useNavigate({
-    from: "/",
-  });
+export default function SignInForm() {
   const { isPending } = authClient.useSession();
+  const [submitting, setSubmitting] = useState(false);
 
-  const form = useForm({
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-    onSubmit: async ({ value }) => {
-      await authClient.signIn.email(
-        {
-          email: value.email,
-          password: value.password,
-        },
-        {
-          onSuccess: () => {
-            navigate({
-              to: "/dashboard",
-            });
-            toast.success("Sign in successful");
-          },
-          onError: (error) => {
-            toast.error(error.error.message || error.error.statusText);
-          },
-        },
-      );
-    },
-    validators: {
-      onSubmit: z.object({
-        email: z.email("Invalid email address"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
-      }),
-    },
-  });
-
-  if (isPending) {
-    return <Loader />;
+  async function signInWithGoogle() {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const dashboardURL = new URL("/dashboard", window.location.origin).toString();
+      const loginURL = new URL("/login", window.location.origin).toString();
+      const result = await authClient.signIn.social({
+        provider: "google",
+        // OAuth completes on the API origin, so the return must explicitly
+        // target the separate web origin instead of resolving on the server.
+        callbackURL: dashboardURL,
+        errorCallbackURL: loginURL,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? "Google sign-in could not be completed.");
+        setSubmitting(false);
+      }
+    } catch {
+      toast.error("Google sign-in could not be reached. Please try again.");
+      setSubmitting(false);
+    }
   }
 
+  if (isPending) return <Loader />;
+
   return (
-    <div className="mx-auto w-full mt-10 max-w-md p-6">
-      <h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          form.handleSubmit();
-        }}
-        className="space-y-4"
-      >
-        <div>
-          <form.Field name="email">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Email</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="email"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
+    <main className="mx-auto mt-16 w-full max-w-md px-6">
+      <section className="rounded-2xl border bg-card p-7 text-center shadow-sm">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-bold text-primary">
+          R
         </div>
-
-        <div>
-          <form.Field name="password">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Password</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="password"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-        </div>
-
-        <form.Subscribe
-          selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
-        >
-          {({ canSubmit, isSubmitting }) => (
-            <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
-              {isSubmitting ? "Submitting..." : "Sign In"}
-            </Button>
-          )}
-        </form.Subscribe>
-      </form>
-
-      <div className="mt-4 text-center">
+        <h1 className="text-3xl font-bold tracking-tight">Welcome to RDM</h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Continue with Google to securely access your routines, goals and rewards.
+        </p>
         <Button
-          variant="link"
-          onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
+          className="mt-7 h-12 w-full gap-3 text-base"
+          disabled={submitting}
+          onClick={() => void signInWithGoogle()}
+          type="button"
         >
-          Need an account? Sign Up
+          <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-background font-bold text-primary">
+            G
+          </span>
+          {submitting ? "Opening Google…" : "Continue with Google"}
         </Button>
-      </div>
-    </div>
+        <p className="mt-4 text-xs leading-5 text-muted-foreground">
+          New accounts are created automatically. RDM never receives your Google password.
+        </p>
+      </section>
+    </main>
   );
 }

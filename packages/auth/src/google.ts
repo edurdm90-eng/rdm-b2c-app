@@ -3,14 +3,23 @@ export type GoogleOAuthEnvironment = {
   clientSecret?: string;
 };
 
+type GoogleProviderOptions = {
+  required?: boolean;
+};
+
 /**
  * Keeps OAuth disabled in environments without credentials, while refusing a
  * partial configuration that would otherwise fail only after a user taps the
  * Google button.
  */
-export function googleProviderConfig(environment: GoogleOAuthEnvironment) {
+export function googleProviderConfig(environment: GoogleOAuthEnvironment, options: GoogleProviderOptions = {}) {
   const { clientId, clientSecret } = environment;
-  if (!clientId && !clientSecret) return undefined;
+  if (!clientId && !clientSecret) {
+    if (options.required) {
+      throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required when Google is the production login method.");
+    }
+    return undefined;
+  }
   if (!clientId || !clientSecret) {
     throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together.");
   }

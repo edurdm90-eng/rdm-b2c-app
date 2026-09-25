@@ -8,8 +8,6 @@ import { Platform } from "react-native";
 import { getStoredToken, setStoredToken } from "@/lib/auth-token";
 import { sessionTokenFromCookie } from "@/lib/bearer-session";
 
-export const googleAuthEnabled = env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
-
 // Captures the `set-auth-token` header the server's bearer() plugin returns
 // on every response and persists it. Unlike Set-Cookie, this is a plain
 // header RN's fetch always exposes to JS, so it survives release builds
@@ -73,6 +71,19 @@ export const authClient = baseAuthClient as typeof baseAuthClient & {
 export async function syncBearerTokenFromSessionCookie(): Promise<boolean> {
   if (Platform.OS === "web") return true;
   const token = sessionTokenFromCookie(authClient.getCookie());
+  if (!token) return false;
+  await setStoredToken(token);
+  return true;
+}
+
+/**
+ * Android may recreate the app while the system browser owns the OAuth flow.
+ * Better Auth returns the signed session cookie in the deep-link callback so a
+ * fresh process can recover the same bearer session without restarting OAuth.
+ */
+export async function syncBearerTokenFromOAuthCallback(cookieHeader: string): Promise<boolean> {
+  if (Platform.OS === "web") return false;
+  const token = sessionTokenFromCookie(cookieHeader);
   if (!token) return false;
   await setStoredToken(token);
   return true;

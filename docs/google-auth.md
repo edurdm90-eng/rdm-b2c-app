@@ -14,13 +14,6 @@ GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 ```
 
-Set this public build variable to show the Google button in the native app only
-after both server variables are present in the matching server environment:
-
-```text
-EXPO_PUBLIC_GOOGLE_AUTH_ENABLED=true
-```
-
 Register these exact authorized redirect URIs in Google Cloud:
 
 ```text
@@ -31,10 +24,12 @@ https://rdm-b2c-server-rho.vercel.app/api/auth/callback/google
 `BETTER_AUTH_URL` must match the active server origin. Better Auth derives the
 callback URL from it, so a mismatched value causes `redirect_uri_mismatch`.
 
-Google login remains intentionally disabled in the server when neither Google
-variable is present, and hidden in the app until its public feature flag is
-enabled. Providing only one server variable fails startup rather than exposing
-a button that will always fail.
+Google is the native app's only sign-in method, so its button is always visible.
+Every runnable server requires both Google variables, preventing an environment
+that looks healthy while its only native login method is unavailable. Automated
+unit tests may omit them; local development, previews and production may not.
+Email/password endpoints are disabled outside the test environment, and both the
+native and web clients use the same Google provider.
 
 ## Security and session behavior
 

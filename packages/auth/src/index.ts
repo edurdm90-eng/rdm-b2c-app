@@ -14,6 +14,11 @@ export function createAuth() {
   const google = googleProviderConfig({
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
+  }, {
+    // Google is the native app's only login method. Every runnable server must
+    // expose it; unit tests may still construct isolated auth helpers without
+    // production credentials.
+    required: env.NODE_ENV !== "test",
   });
   return betterAuth({
     database: mongodbAdapter(client),
@@ -27,7 +32,10 @@ export function createAuth() {
       "http://127.0.0.1:8082",
     ],
     emailAndPassword: {
-      enabled: true,
+      // Production, preview and local app servers are Google-only. The test
+      // environment retains email auth solely for isolated auth integration
+      // fixtures that do not contact Google's OAuth service.
+      enabled: env.NODE_ENV === "test",
     },
     rateLimit: {
       enabled: isProduction,

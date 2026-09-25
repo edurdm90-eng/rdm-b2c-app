@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { groupLoginReturnParams, postLoginDestination } from "../../native/lib/auth-return";
+import {
+  groupLoginReturnParams,
+  loginCallbackPath,
+  loginReferralCode,
+  postLoginDestination,
+} from "../../native/lib/auth-return";
 
 test("a group invite survives the login redirect with its normalized code", () => {
   const params = groupLoginReturnParams("/group/new", { code: "fam7qx", mode: "join" });
@@ -33,4 +38,15 @@ test("login destinations reject URLs, unknown routes, duplicate params, and malf
   assert.deepEqual(postLoginDestination({ returnTo: "group-join", code: ["FAM7QX", "ABC123"] }), {
     pathname: "/(app)/group/new", params: { mode: "join" },
   });
+});
+
+test("Google OAuth callbacks preserve only validated return and referral parameters", () => {
+  const id = "507f1f77bcf86cd799439011";
+  assert.equal(
+    loginCallbackPath({ returnTo: "group-invite", groupId: id, referralCode: "ab12cd", next: "https://outside.test" }),
+    `/login?returnTo=group-invite&groupId=${id}&referralCode=AB12CD`,
+  );
+  assert.equal(loginCallbackPath({ returnTo: "https://outside.test", referralCode: "../bad" }), "/login");
+  assert.equal(loginReferralCode({ referralCode: " fam7qx " }), "FAM7QX");
+  assert.equal(loginReferralCode({ referralCode: ["FAM7QX"] }), null);
 });

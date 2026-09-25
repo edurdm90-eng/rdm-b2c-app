@@ -10,6 +10,13 @@ test("Google OAuth is disabled unless both server credentials are configured", (
   assert.throws(() => googleProviderConfig({ clientSecret: "client-secret" }), /GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET/);
 });
 
+test("Google OAuth credentials are mandatory for a runnable Google-only auth server", () => {
+  assert.throws(
+    () => googleProviderConfig({}, { required: true }),
+    /GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required/,
+  );
+});
+
 test("Google OAuth uses the minimum identity scopes and deliberate account selection", () => {
   assert.deepEqual(googleProviderConfig({ clientId: "client-id", clientSecret: "client-secret" }), {
     clientId: "client-id",
@@ -23,6 +30,10 @@ test("the native client can turn the Better Auth session cookie into its bearer 
   assert.equal(
     sessionTokenFromCookie("theme=dark; __Secure-better-auth.session_token=signed-token; locale=en"),
     "signed-token",
+  );
+  assert.equal(
+    sessionTokenFromCookie("theme=dark; Path=/, __Secure-better-auth.session_token=callback-token; Path=/; HttpOnly"),
+    "callback-token",
   );
   assert.equal(sessionTokenFromCookie("better-auth.session_token=plain-token"), "plain-token");
   assert.equal(sessionTokenFromCookie("theme=dark"), null);
