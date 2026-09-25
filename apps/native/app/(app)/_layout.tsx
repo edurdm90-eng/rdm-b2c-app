@@ -16,6 +16,7 @@ export default function ProtectedLayout() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="account" />
       <Stack.Screen name="framework" />
       <Stack.Screen name="ai-coach" />
       <Stack.Screen name="habit/new" />

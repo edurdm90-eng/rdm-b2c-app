@@ -21,7 +21,7 @@ import {
 import { formatDayKey } from "@/lib/date";
 import { groupRewardStructureTitle, singularizeUnit } from "@/lib/group-goals";
 import { LIVE_REFRESH_MS } from "@/lib/query-policy";
-import { colors, fonts, formatRdm, radii } from "@/lib/theme";
+import { colors, fonts, formatRdm, radii, typography } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
 type DashboardTab = "progress" | "members";
@@ -197,9 +197,9 @@ const styles = StyleSheet.create({
   progressCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
   metrics: { borderBottomColor: colors.line, borderBottomWidth: 1, borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingVertical: 11 },
   metricValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 14, textAlign: "center" },
-  metricLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 8.5, marginTop: 3, textAlign: "center" },
+  metricLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, lineHeight: 14, marginTop: 3, textAlign: "center" },
   poolFooter: { flexDirection: "row", justifyContent: "space-between", width: "100%" },
-  poolMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9 },
+  poolMeta: { color: colors.inkSoft, ...typography.compactMeta },
   tabRow: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 9, borderWidth: 1, flexDirection: "row", padding: 3 },
   tab: { alignItems: "center", borderRadius: 7, flex: 1, paddingVertical: 9 },
   tabActive: { backgroundColor: "#263541" },
@@ -207,20 +207,20 @@ const styles = StyleSheet.create({
   tabLabelActive: { color: colors.ink },
   descriptionCard: { alignItems: "center", flexDirection: "row", gap: 10 },
   description: { color: colors.ink, flex: 1, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
-  memberCount: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 9 },
+  memberCount: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 10 },
   avatarHeader: { borderBottomColor: colors.line, borderBottomWidth: 1, paddingBottom: 10 },
   memberRow: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", gap: 10, minHeight: 58 },
   memberAvatar: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 16, height: 32, justifyContent: "center", width: 32 },
   memberAvatarText: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 10 },
   memberCopy: { flex: 1 },
   memberName: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12 },
-  memberProgress: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9, marginTop: 2 },
+  memberProgress: { color: colors.inkSoft, marginTop: 2, ...typography.compactMeta },
   memberPledge: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 11 },
   inviteRow: { alignItems: "center", flexDirection: "row", gap: 10, minHeight: 52 },
   inviteIcon: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 15, height: 30, justifyContent: "center", width: 30 },
   inviteLabel: { color: colors.plum, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 12 },
   logCard: { gap: 12 },
-  unitChip: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 9, letterSpacing: 0.6, textTransform: "uppercase" },
+  unitChip: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase" },
   counterRow: { alignItems: "center", flexDirection: "row", gap: 20, justifyContent: "center" },
   counterButton: { alignItems: "center", backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 12, borderWidth: 1, height: 44, justifyContent: "center", width: 44 },
   counterButtonText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 22 },
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   helper: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   noteLabel: { color: colors.inkSoft, fontFamily: fonts.bodyMedium, fontSize: 11 },
   noteInput: { backgroundColor: colors.background, borderColor: colors.line, borderRadius: 10, borderWidth: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 13, height: 44, paddingHorizontal: 12 },
-  charCount: { alignSelf: "flex-end", color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9 },
+  charCount: { alignSelf: "flex-end", color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 10 },
   waitingCard: { alignItems: "center", backgroundColor: colors.goldTint, gap: 6 },
   waitingTitle: { color: colors.gold, fontFamily: fonts.display, fontSize: 17 },
   loggedCard: { alignItems: "center", backgroundColor: colors.growthTint, gap: 6 },

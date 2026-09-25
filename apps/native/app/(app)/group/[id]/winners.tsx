@@ -18,7 +18,7 @@ import {
 } from "@/components/rdm-ui";
 import { groupRewardStructureTitle } from "@/lib/group-goals";
 import { LIVE_REFRESH_MS } from "@/lib/query-policy";
-import { colors, fonts, formatRdm, radii } from "@/lib/theme";
+import { colors, fonts, formatRdm, radii, typography } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
 export default function GroupWinnersScreen() {
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   heroTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 18, textAlign: "center" },
   heroFraction: { alignItems: "center", color: colors.ink, fontFamily: fonts.monoBold, fontSize: 14 },
   intro: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, marginTop: 3, textAlign: "center" },
-  ownerOnly: { color: colors.inkSoft, fontFamily: fonts.monoBold, fontSize: 8, letterSpacing: 0.5 },
+  ownerOnly: { color: colors.inkSoft, fontFamily: fonts.monoBold, fontSize: 9.5, letterSpacing: 0.5 },
   summaryCard: { gap: 0, padding: 0 },
   summaryRow: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", gap: 10, minHeight: 52, paddingHorizontal: 14 },
   summaryRowLast: { borderBottomWidth: 0 },
@@ -116,10 +116,10 @@ const styles = StyleSheet.create({
   rankText: { color: colors.inkSoft, fontFamily: fonts.bodyBold, fontSize: 11 },
   rankTextSelected: { color: colors.backgroundDeep },
   avatar: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 15, height: 30, justifyContent: "center", width: 30 },
-  avatarText: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 9 },
+  avatarText: { color: colors.plum, fontFamily: fonts.bodyBold, fontSize: 10 },
   memberCopy: { flex: 1 },
   memberName: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12 },
-  memberProgress: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9.5, lineHeight: 15, marginTop: 2 },
+  memberProgress: { color: colors.inkSoft, marginTop: 2, ...typography.compactMeta },
   award: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 11 },
   zeroAward: { color: colors.inkSoft },
   specialCard: { alignItems: "center", borderColor: colors.plum, borderRadius: radii.medium, borderStyle: "dashed", borderWidth: 1, flexDirection: "row", gap: 10, padding: 14 },

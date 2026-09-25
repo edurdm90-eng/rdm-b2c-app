@@ -28,6 +28,14 @@ export const fonts = {
   monoBold: "JetBrainsMono_700Bold",
 } as const;
 
+export const typography = {
+  compactMeta: {
+    fontFamily: fonts.body,
+    fontSize: 10.5,
+    lineHeight: 15,
+  },
+} as const;
+
 export const radii = {
   small: 10,
   medium: 16,

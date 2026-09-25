@@ -33,7 +33,7 @@ export default function GroupsScreen() {
   }
 
   return (
-    <GroupScreen>
+    <GroupScreen bottomSafe={false}>
       <GroupPageHeader
         title="Groups"
         subtitle="Keep going, together."

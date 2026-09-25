@@ -16,7 +16,7 @@ import { focusedTypography } from "@/components/focused-ui";
 import { formatDayRange } from "@/lib/date";
 import { groupRewardStructureDescription, groupRewardStructureTitle } from "@/lib/group-goals";
 import { LIVE_REFRESH_MS } from "@/lib/query-policy";
-import { colors, fonts, formatRdm, radii } from "@/lib/theme";
+import { colors, fonts, formatRdm, radii, typography } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
 export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   categoryChipLabel: { color: colors.plum, fontFamily: fonts.bodyMedium, fontSize: 10 },
   previewMetrics: { borderBottomColor: colors.line, borderBottomWidth: 1, borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingVertical: 9 },
   previewMetric: { alignItems: "center", flexDirection: "row", gap: 5 },
-  previewMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9.5 },
+  previewMeta: { color: colors.inkSoft, ...typography.compactMeta },
   commitmentCard: { alignItems: "center", gap: 6 },
   commitmentRow: { alignItems: "center", flexDirection: "row", gap: 8 },
   commitmentTotal: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 22 },

@@ -18,7 +18,7 @@ import {
   LoadingState,
 } from "@/components/rdm-ui";
 import { LIVE_REFRESH_MS } from "@/lib/query-policy";
-import { colors, fonts, formatRdm } from "@/lib/theme";
+import { colors, fonts, formatRdm, typography } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
 export default function GroupInviteScreen() {
@@ -130,18 +130,18 @@ const styles = StyleSheet.create({
   readySubtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
   codeCard: { alignItems: "center", gap: 10, paddingVertical: 22 },
   groupName: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 19, textAlign: "center" },
-  codeLabel: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, marginTop: 4 },
+  codeLabel: { color: colors.inkSoft, fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1, marginTop: 4 },
   code: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 31, letterSpacing: 5 },
   fullButton: { width: "100%" },
   metricsRow: { borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingTop: 14, width: "100%" },
   metric: { alignItems: "center", gap: 5 },
-  metricText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9.5, textAlign: "center" },
+  metricText: { color: colors.inkSoft, textAlign: "center", ...typography.compactMeta },
   channelRow: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", gap: 11, minHeight: 60 },
   channelRowLast: { borderBottomWidth: 0 },
   channelIcon: { alignItems: "center", backgroundColor: colors.panelRaised, borderRadius: 11, height: 38, justifyContent: "center", width: 38 },
   activityCopy: { flex: 1 },
   channelTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 },
-  channelHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, marginTop: 3 },
+  channelHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, marginTop: 3 },
   infoRow: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", gap: 10, minHeight: 52 },
   infoRowLast: { borderBottomWidth: 0 },
   infoIcon: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 12, textAlign: "center", width: 24 },

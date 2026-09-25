@@ -45,8 +45,8 @@ function AppTabBar({ state, descriptors, navigation }: AppTabBarProps) {
               onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
               style={({ pressed }) => [styles.item, pressed && styles.pressed]}
             >
-              <MaterialCommunityIcons name={focused && route.name === "index" ? "home-variant" : focused && route.name === "wallet" ? "wallet" : icons[route.name] ?? "circle-outline"} size={21} color={color} />
-              <Text style={[styles.label, { color }]}>{label}</Text>
+              <MaterialCommunityIcons name={focused && route.name === "index" ? "home-variant" : focused && route.name === "wallet" ? "wallet" : icons[route.name] ?? "circle-outline"} size={22} color={color} />
+              <Text numberOfLines={1} style={[styles.label, { color }]}>{label}</Text>
             </Pressable>
           );
         })}
@@ -74,9 +74,9 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  bar: { backgroundColor: focusedColors.background, borderTopWidth: 1, borderTopColor: focusedColors.line, paddingTop: 3 },
+  bar: { backgroundColor: focusedColors.background, borderTopWidth: 1, borderTopColor: focusedColors.line, paddingTop: 4 },
   items: { alignItems: "center", flexDirection: "row", width: "100%" },
-  item: { flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", gap: 1, paddingHorizontal: 1 },
-  label: { fontFamily: fonts.bodyMedium, fontSize: 8, textAlign: "center" },
+  item: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: 1 },
+  label: { fontFamily: fonts.bodyMedium, fontSize: 10, lineHeight: 13, textAlign: "center" },
   pressed: { opacity: 0.7 },
 });

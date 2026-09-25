@@ -51,7 +51,7 @@ export default function AccountScreen() {
   }
 
   return (
-    <FocusedScreen contentStyle={styles.screenContent}>
+    <FocusedScreen bottomSafe contentStyle={styles.screenContent}>
       <View style={styles.header}>
         <Pressable accessibilityLabel="Go back" accessibilityRole="button" onPress={() => router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)")} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={26} color={palette.text} />
@@ -60,16 +60,26 @@ export default function AccountScreen() {
       </View>
 
       <View style={styles.profileCard}>
-        <View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>
-        <View style={styles.profileCopy}><Text style={styles.name}>{user.name}</Text><Text style={styles.email}>{user.email}</Text></View>
+        <View accessibilityLabel={`${user.name} profile`} accessible style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>
+        <View style={styles.profileCopy}><Text numberOfLines={2} style={styles.name}>{user.name}</Text><Text numberOfLines={1} style={styles.email}>{user.email}</Text></View>
       </View>
 
       <View style={styles.statsCard}>
-        <View style={styles.stat}><Text style={styles.statValue}>{profile.streak}</Text><Text style={styles.statLabel}>day streak</Text></View>
+        <View style={styles.stat}><Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.statValue}>{profile.streak}</Text><Text style={styles.statLabel}>day streak</Text></View>
         <View style={styles.statDivider} />
-        <View style={styles.stat}><Text style={styles.statValue}>{formatRdm(profile.wallet.balance)}</Text><Text style={styles.statLabel}>total RDM</Text></View>
-        <View style={styles.statDivider} />
-        <View style={styles.stat}><Text style={styles.statValue}>{profile.referralCode}</Text><Text style={styles.statLabel}>invite code</Text></View>
+        <View style={styles.stat}><Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.statValue}>{formatRdm(profile.wallet.balance)}</Text><Text style={styles.statLabel}>total RDM</Text></View>
+      </View>
+
+      <View style={styles.inviteCard}>
+        <View style={styles.inviteIcon}><MaterialCommunityIcons name="account-multiple-plus-outline" size={22} color={palette.green} /></View>
+        <View style={styles.inviteCopy}>
+          <Text style={styles.inviteEyebrow}>YOUR INVITE CODE</Text>
+          <Text selectable style={styles.inviteCode}>{profile.referralCode}</Text>
+          <Text style={styles.inviteHint}>{invitesRemaining > 0 ? `${invitesRemaining} invite${invitesRemaining === 1 ? "" : "s"} remaining this week` : "Weekly invite goal complete"}</Text>
+        </View>
+        {invitesRemaining > 0 ? <Pressable accessibilityLabel="Share invite code" accessibilityRole="button" onPress={() => void inviteFriend()} style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}>
+          <MaterialCommunityIcons name="share-variant-outline" size={20} color={palette.link} />
+        </Pressable> : <MaterialCommunityIcons name="check-circle" size={22} color={palette.green} />}
       </View>
 
       <Text style={styles.sectionTitle}>Explore</Text>
@@ -79,11 +89,6 @@ export default function AccountScreen() {
           <View style={styles.menuCopy}><Text style={styles.menuLabel}>{item.label}</Text><Text style={styles.menuHint}>{item.hint}</Text></View>
           <MaterialCommunityIcons name="chevron-right" size={21} color={palette.muted} />
         </Pressable>)}
-        {invitesRemaining > 0 ? <Pressable accessibilityRole="button" onPress={() => void inviteFriend()} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
-          <View style={[styles.menuIcon, { backgroundColor: `${palette.green}22` }]}><MaterialCommunityIcons name="account-plus-outline" size={21} color={palette.green} /></View>
-          <View style={styles.menuCopy}><Text style={styles.menuLabel}>Invite a friend</Text><Text style={styles.menuHint}>{invitesRemaining} invites remaining this week</Text></View>
-          <MaterialCommunityIcons name="share-variant-outline" size={20} color={palette.muted} />
-        </Pressable> : null}
       </View>
 
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -95,29 +100,36 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  screenContent: { gap: 14, paddingTop: 16 },
+  screenContent: { gap: 14, paddingTop: 12 },
   header: { alignItems: "center", flexDirection: "row", gap: 10, minHeight: 44 },
   backButton: { alignItems: "center", height: 40, justifyContent: "center", marginLeft: -8, width: 40 },
   headerTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 27 },
   headerSubtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
-  profileCard: { alignItems: "center", backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 12, padding: 16 },
-  avatar: { alignItems: "center", backgroundColor: palette.green, borderRadius: 28, height: 56, justifyContent: "center", width: 56 },
+  profileCard: { alignItems: "center", backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 13, padding: 15 },
+  avatar: { alignItems: "center", backgroundColor: palette.green, borderRadius: 28, flexShrink: 0, height: 56, justifyContent: "center", width: 56 },
   avatarText: { color: palette.onGreen, fontFamily: fonts.bodyBold, fontSize: 21 },
-  profileCopy: { flex: 1, gap: 3 },
-  name: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 18 },
-  email: { color: palette.muted, fontFamily: fonts.body, fontSize: 11 },
-  statsCard: { alignItems: "center", backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 10, borderWidth: 1, flexDirection: "row", justifyContent: "space-around", paddingVertical: 14 },
+  profileCopy: { flex: 1, gap: 4, minWidth: 0 },
+  name: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 24 },
+  email: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
+  statsCard: { alignItems: "center", backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 10, borderWidth: 1, flexDirection: "row", justifyContent: "space-around", paddingVertical: 13 },
   stat: { alignItems: "center", flex: 1, gap: 3 },
-  statValue: { color: palette.text, fontFamily: fonts.monoBold, fontSize: 15 },
-  statLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 10 },
-  statDivider: { backgroundColor: palette.line, height: 30, width: 1 },
+  statValue: { color: palette.text, fontFamily: fonts.monoBold, fontSize: 17, lineHeight: 23 },
+  statLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16 },
+  statDivider: { backgroundColor: palette.line, height: 34, width: 1 },
+  inviteCard: { alignItems: "center", backgroundColor: "rgba(56,214,147,0.06)", borderColor: "rgba(56,214,147,0.3)", borderRadius: 10, borderWidth: 1, flexDirection: "row", gap: 11, padding: 13 },
+  inviteIcon: { alignItems: "center", backgroundColor: "rgba(56,214,147,0.12)", borderRadius: 10, height: 38, justifyContent: "center", width: 38 },
+  inviteCopy: { flex: 1, gap: 2, minWidth: 0 },
+  inviteEyebrow: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10, letterSpacing: 0.7 },
+  inviteCode: { color: palette.text, fontFamily: fonts.monoBold, fontSize: 16, letterSpacing: 1.3, lineHeight: 22 },
+  inviteHint: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16 },
+  shareButton: { alignItems: "center", borderColor: palette.line, borderRadius: 10, borderWidth: 1, height: 42, justifyContent: "center", width: 42 },
   sectionTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 15, marginTop: 4 },
   menuCard: { backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12 },
   menuItem: { alignItems: "center", borderBottomColor: palette.line, borderBottomWidth: 1, flexDirection: "row", gap: 11, minHeight: 62 },
   menuIcon: { alignItems: "center", borderRadius: 10, height: 36, justifyContent: "center", width: 36 },
   menuCopy: { flex: 1, gap: 2 },
-  menuLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13 },
-  menuHint: { color: palette.muted, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 16 },
+  menuLabel: { color: palette.text, fontFamily: fonts.bodyMedium, fontSize: 13.5, lineHeight: 19 },
+  menuHint: { color: palette.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16 },
   comingSoon: { alignItems: "center", backgroundColor: "rgba(177,190,209,0.06)", borderColor: palette.line, borderRadius: 10, borderWidth: 1, flexDirection: "row", gap: 11, padding: 13 },
   signOut: { alignItems: "center", flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 42 },
   signOutLabel: { color: palette.coral, fontFamily: fonts.bodyMedium, fontSize: 13 },

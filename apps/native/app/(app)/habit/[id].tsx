@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   weekSection: { gap: 10 },
   week: { flexDirection: "row" },
   weekDay: { flex: 1, alignItems: "center", gap: 4 },
-  weekLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 9, lineHeight: 14 },
+  weekLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 10, lineHeight: 14 },
   weekDate: { height: 20, width: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   weekNumber: { color: palette.text, fontFamily: fonts.body, fontSize: 11 },
   weekToday: { backgroundColor: palette.green },

@@ -15,17 +15,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ErrorState } from "@/components/rdm-ui";
 import { focusedColors } from "@/components/focused-ui";
-import { colors, fonts, radii } from "@/lib/theme";
+import { colors, fonts, radii, typography } from "@/lib/theme";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
-export function GroupScreen({ children, scroll = true, contentStyle }: {
+export function GroupScreen({ children, scroll = true, bottomSafe = true, contentStyle }: {
   children: ReactNode;
   scroll?: boolean;
+  bottomSafe?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={groupStyles.safeArea}>
+    <SafeAreaView edges={bottomSafe ? ["top", "left", "right", "bottom"] : ["top", "left", "right"]} style={groupStyles.safeArea}>
       {scroll ? (
         <ScrollView
           contentContainerStyle={[groupStyles.content, contentStyle]}
@@ -247,7 +248,7 @@ const styles = StyleSheet.create({
   },
   aiCopy: { flex: 1 },
   aiLabel: { color: colors.ai, fontFamily: fonts.bodyMedium, fontSize: 11 },
-  aiSoon: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 9, marginTop: 1 },
+  aiSoon: { color: colors.inkSoft, marginTop: 1, ...typography.compactMeta },
   avatars: { flexDirection: "row" },
   avatar: {
     alignItems: "center",
@@ -261,7 +262,7 @@ const styles = StyleSheet.create({
   },
   overlap: { marginLeft: -8 },
   moreAvatar: { backgroundColor: focusedColors.line },
-  avatarText: { color: colors.backgroundDeep, fontFamily: fonts.bodyBold, fontSize: 9 },
+  avatarText: { color: colors.backgroundDeep, fontFamily: fonts.bodyBold, fontSize: 10 },
 });
 
 const groupStyles = StyleSheet.create({

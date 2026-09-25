@@ -96,8 +96,8 @@ const styles = StyleSheet.create({
   icon: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 11, height: 38, justifyContent: "center", width: 38 },
   copy: { flex: 1 },
   title: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 },
-  description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, lineHeight: 16, marginTop: 3 },
+  description: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, marginTop: 3 },
   note: { backgroundColor: "transparent", borderBottomWidth: 0, borderLeftWidth: 0, borderRadius: 0, borderRightWidth: 0, gap: 6, marginTop: 6, paddingHorizontal: 4, paddingTop: 20 },
   noteTitle: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14 },
-  soon: { color: colors.inkSoft, fontFamily: fonts.monoBold, fontSize: 8 },
+  soon: { color: colors.inkSoft, fontFamily: fonts.monoBold, fontSize: 9.5 },
 });
