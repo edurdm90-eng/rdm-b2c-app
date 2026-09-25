@@ -9,6 +9,7 @@ import { FocusedButton, focusedColors as palette } from "@/components/focused-ui
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { TreeActionDialog } from "@/components/tree-action-dialog";
 import { formatTreeDay, TreePage } from "@/components/tree-ui";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -21,7 +22,7 @@ export default function GoodDeedsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<{ reward: number; completedCount: number; message: string } | null>(null);
   const submitting = useRef(false);
-  const goodDeeds = useQuery({ ...trpc.rdm.goodDeeds.today.queryOptions({ timeZone }), enabled: focused, refetchInterval: focused ? 30_000 : false, refetchIntervalInBackground: false });
+  const goodDeeds = useQuery({ ...trpc.rdm.goodDeeds.today.queryOptions({ timeZone }), enabled: focused, refetchInterval: focused ? STANDARD_REFRESH_MS : false, refetchIntervalInBackground: false });
   const submitGoodDeeds = useMutation(trpc.rdm.goodDeeds.submit.mutationOptions({
     onSuccess: (result) => {
       setSelected(new Set());

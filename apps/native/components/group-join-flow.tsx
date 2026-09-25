@@ -12,8 +12,10 @@ import {
   GroupSectionLabel,
   GroupSurfaceCard,
 } from "@/components/group-goal-ui";
+import { focusedTypography } from "@/components/focused-ui";
 import { formatDayRange } from "@/lib/date";
 import { groupRewardStructureDescription, groupRewardStructureTitle } from "@/lib/group-goals";
+import { LIVE_REFRESH_MS } from "@/lib/query-policy";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -26,7 +28,7 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
     ...trpc.rdm.groups.preview.queryOptions({ inviteCode: normalizedInviteCode }),
     enabled: normalizedInviteCode.length === 6 && focused,
     retry: false,
-    refetchInterval: focused && normalizedInviteCode.length === 6 ? 15_000 : false,
+    refetchInterval: focused && normalizedInviteCode.length === 6 ? LIVE_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
   const joinGroup = useMutation(trpc.rdm.groups.join.mutationOptions({
@@ -162,7 +164,7 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
 
 const styles = StyleSheet.create({
   intro: { gap: 4 },
-  introTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 26, letterSpacing: -0.5, lineHeight: 32 },
+  introTitle: { color: colors.ink, fontFamily: fonts.bodyBold, ...focusedTypography.heroTitle, letterSpacing: -0.5 },
   introBody: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14 },
   codeInputWrap: { justifyContent: "center" },
   input: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 10, borderWidth: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 14, minHeight: 52, paddingHorizontal: 14 },

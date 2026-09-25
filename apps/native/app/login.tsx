@@ -15,7 +15,7 @@ import {
   type TextInputProps,
 } from "react-native";
 
-import { FocusedButton, FocusedScreen, focusedColors } from "@/components/focused-ui";
+import { FocusedButton, FocusedScreen, focusedColors, focusedTypography } from "@/components/focused-ui";
 import { authClient, googleAuthEnabled, syncBearerTokenFromSessionCookie } from "@/lib/auth-client";
 import { postLoginDestination } from "@/lib/auth-return";
 import { fonts } from "@/lib/theme";
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   content: { width: "100%", maxWidth: 420, alignSelf: "center" },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 20 },
   brandName: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 28 },
-  title: { color: focusedColors.text, fontFamily: fonts.bodyBold, fontSize: 28, lineHeight: 35, letterSpacing: -0.6 },
+  title: { color: focusedColors.text, fontFamily: fonts.bodyBold, ...focusedTypography.heroTitle, letterSpacing: -0.6 },
   signupTitle: { fontSize: 22, lineHeight: 29, letterSpacing: -0.4 },
   subtitle: { color: focusedColors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, marginTop: 8, marginBottom: 24 },
   signupSubtitle: { marginBottom: 16 },

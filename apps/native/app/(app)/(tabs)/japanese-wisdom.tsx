@@ -6,7 +6,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
+import { FocusedButton, FocusedScreen, focusedColors as palette, focusedTypography } from "@/components/focused-ui";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { WisdomProgress } from "@/components/wisdom-progress";
 import { fonts } from "@/lib/theme";
@@ -122,7 +122,7 @@ export default function JapaneseWisdomScreen() {
 const styles = StyleSheet.create({
   content: { paddingTop: 20, paddingHorizontal: 20, paddingBottom: 16, gap: 16 },
   heading: { gap: 4, marginBottom: 4 },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 30, lineHeight: 38 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, ...focusedTypography.pageTitle },
   subtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
   hero: { alignItems: "center", gap: 4, paddingVertical: 6 },
   bowl: { width: 84, height: 72, borderRadius: 22, backgroundColor: "rgba(183, 136, 241, 0.14)", borderWidth: 1, borderColor: "rgba(183, 136, 241, 0.3)", alignItems: "center", justifyContent: "center", marginBottom: 6 },

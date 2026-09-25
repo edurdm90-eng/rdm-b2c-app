@@ -7,6 +7,7 @@ import { ProgressCircle } from "react-native-progress/Circle";
 
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -26,7 +27,7 @@ export default function HomeScreen() {
   const dashboard = useQuery({
     ...trpc.rdm.dashboard.queryOptions(),
     enabled: focused,
-    refetchInterval: focused ? 30_000 : false,
+    refetchInterval: focused ? STANDARD_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
 

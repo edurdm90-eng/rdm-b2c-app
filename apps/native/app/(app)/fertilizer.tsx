@@ -9,6 +9,7 @@ import { focusedColors as palette } from "@/components/focused-ui";
 import { formatTreeDay, TreeNotice, TreePage, treeStyles } from "@/components/tree-ui";
 import { getGoalPresentation, type Goal } from "@/lib/goal-presentation";
 import { getHabitDetailPresentation, type HabitDetail } from "@/lib/habit-detail";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -126,13 +127,13 @@ export default function FertilizerScreen() {
   const habits = useQuery({
     ...trpc.rdm.habits.list.queryOptions(),
     enabled: focused && tab === "habits",
-    refetchInterval: focused && tab === "habits" ? 30_000 : false,
+    refetchInterval: focused && tab === "habits" ? STANDARD_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
   const goals = useQuery({
     ...trpc.rdm.goals.list.queryOptions(),
     enabled: focused && tab === "goals",
-    refetchInterval: focused && tab === "goals" ? 30_000 : false,
+    refetchInterval: focused && tab === "goals" ? STANDARD_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
   const query = tab === "habits" ? habits : goals;

@@ -5,10 +5,11 @@ import { router, useIsFocused } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
+import { FocusedButton, FocusedScreen, focusedColors as palette, focusedTypography } from "@/components/focused-ui";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { formatDayKey } from "@/lib/date";
 import { getGoalPresentation, type Goal } from "@/lib/goal-presentation";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -81,7 +82,7 @@ export default function GoalsScreen() {
   const goals = useQuery({
     ...trpc.rdm.goals.list.queryOptions(),
     enabled: focused,
-    refetchInterval: focused ? 30_000 : false,
+    refetchInterval: focused ? STANDARD_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
   const [view, setView] = useState<"active" | "completed">("active");
@@ -148,7 +149,7 @@ export default function GoalsScreen() {
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 24 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 13 },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, ...focusedTypography.pageTitle },
   addButton: { width: 40, minHeight: 40, alignItems: "center", justifyContent: "center" },
   tabs: { flexDirection: "row", padding: 3, borderWidth: 1, borderColor: palette.line, borderRadius: 10, marginBottom: 16 },
   tab: { flex: 1, minHeight: 34, borderRadius: 7, alignItems: "center", justifyContent: "center" },

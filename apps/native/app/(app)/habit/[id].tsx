@@ -11,6 +11,7 @@ import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/compon
 import { HabitHistory } from "@/components/habit-history";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { getHabitDetailPresentation, type HabitDetail } from "@/lib/habit-detail";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { goBackToJapaneseWisdom } from "@/lib/wisdom-navigation";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -100,7 +101,7 @@ function WeekProgress({ habit, todayDayKey }: { habit: HabitDetail; todayDayKey:
 export default function HabitDetailScreen() {
   const { id = "" } = useLocalSearchParams<{ id: string }>();
   const focused = useIsFocused();
-  const habit = useQuery({ ...trpc.rdm.habits.byId.queryOptions({ id }), enabled: focused && Boolean(id), refetchInterval: focused ? 30_000 : false });
+  const habit = useQuery({ ...trpc.rdm.habits.byId.queryOptions({ id }), enabled: focused && Boolean(id), refetchInterval: focused ? STANDARD_REFRESH_MS : false });
   const [actionNote, setActionNote] = useState("");
   const [reflection, setReflection] = useState("");
   const [error, setError] = useState<string | null>(null);

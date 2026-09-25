@@ -2,7 +2,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { FocusedButton, focusedColors as palette } from "@/components/focused-ui";
+import { FocusedButton, focusedColors as palette, focusedTypography } from "@/components/focused-ui";
 import { fonts, formatRdm } from "@/lib/theme";
 
 export function TreeActionDialog({ visible, kind, reward, title, message, busy = false, onDone, onBackToTree }: {
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   symbol: { position: "relative", width: 86, height: 91, alignItems: "center", justifyContent: "center" },
   check: { position: "absolute", right: 0, bottom: 0, backgroundColor: palette.panel, borderRadius: 20 },
   support: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, textAlign: "center" },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 28, lineHeight: 35, textAlign: "center" },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, ...focusedTypography.heroTitle, textAlign: "center" },
   reward: { gap: 8, paddingTop: 12, paddingBottom: 9, alignItems: "center" },
   rewardAmount: { flexDirection: "row", alignItems: "center", gap: 12 },
   amount: { color: palette.gold, fontFamily: fonts.bodyBold, fontSize: 30, lineHeight: 39 },

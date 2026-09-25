@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
+import { FocusedScreen, focusedColors as palette, focusedTypography } from "@/components/focused-ui";
 import { fonts } from "@/lib/theme";
 
 export function TreePage({ title, children, footer, onBack, busy = false }: {
@@ -60,7 +60,7 @@ export function formatTreeDay(dayKey: string, full = false) {
 }
 
 export const treeStyles = StyleSheet.create({
-  heading: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 27, lineHeight: 34 },
+  heading: { color: palette.text, fontFamily: fonts.bodyBold, ...focusedTypography.pageTitle },
   section: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 23 },
   body: { color: palette.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
   small: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
@@ -74,11 +74,11 @@ export const treeStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   screen: { padding: 0, paddingTop: 0, paddingBottom: 0, paddingHorizontal: 0 },
   flex: { flex: 1 },
-  header: { minHeight: 70, paddingHorizontal: 14, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 12 },
+  header: { minHeight: 58, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 10 },
   back: { width: 42, height: 44, alignItems: "center", justifyContent: "center" },
   title: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 19, lineHeight: 25 },
-  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20, gap: 18 },
-  footer: { paddingHorizontal: 20, paddingTop: 10, gap: 9, backgroundColor: palette.background },
+  content: { flexGrow: 1, paddingHorizontal: 18, paddingTop: 10, paddingBottom: 18, gap: 16 },
+  footer: { paddingHorizontal: 18, paddingTop: 10, gap: 9, backgroundColor: palette.background },
   notice: { padding: 14, borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel, flexDirection: "row", alignItems: "flex-start", gap: 12 },
   noticeText: { flex: 1, color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
 });

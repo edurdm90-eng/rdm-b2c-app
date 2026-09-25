@@ -17,6 +17,7 @@ import {
   ProgressBar,
 } from "@/components/rdm-ui";
 import { groupRewardStructureTitle } from "@/lib/group-goals";
+import { LIVE_REFRESH_MS } from "@/lib/query-policy";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -29,7 +30,7 @@ export default function GroupWinnersScreen() {
   const preview = useQuery({
     ...trpc.rdm.groups.awardPreview.queryOptions({ id }),
     enabled: validId && focused,
-    refetchInterval: focused ? 15_000 : false,
+    refetchInterval: focused ? LIVE_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
   const award = useMutation(trpc.rdm.groups.award.mutationOptions({

@@ -7,7 +7,19 @@ import { Platform } from "react-native";
 
 import { getStoredToken } from "@/lib/auth-token";
 
-export const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 20_000,
+      gcTime: 5 * 60_000,
+      retry: 1,
+      refetchOnReconnect: true,
+    },
+    mutations: {
+      retry: 0,
+    },
+  },
+});
 const serverUrl = env.EXPO_PUBLIC_SERVER_URL.replace(/\/$/, "");
 
 export const trpcClient = createTRPCClient<AppRouter>({

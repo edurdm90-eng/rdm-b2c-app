@@ -8,8 +8,9 @@ import { router, useIsFocused } from "expo-router";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
+import { FocusedButton, FocusedScreen, focusedColors as palette, focusedTypography } from "@/components/focused-ui";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { trpc } from "@/utils/trpc";
@@ -82,7 +83,7 @@ export default function HabitsScreen() {
   const habits = useQuery({
     ...trpc.rdm.habits.list.queryOptions(),
     enabled: focused,
-    refetchInterval: focused ? 30_000 : false,
+    refetchInterval: focused ? STANDARD_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
   const [view, setView] = useState<"today" | "all">("today");
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
   emptySecondary: { minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.panel, alignItems: "center", justifyContent: "center" },
   emptySecondaryLabel: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 19 },
   heading: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
-  title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 33 },
+  title: { color: palette.text, fontFamily: fonts.bodyBold, ...focusedTypography.pageTitle },
   plusButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   toggle: { minHeight: 40, flexDirection: "row", borderWidth: 1, borderColor: palette.line, borderRadius: 11, padding: 3 },
   toggleOption: { flex: 1, minHeight: 34, justifyContent: "center", alignItems: "center", borderRadius: 8 },

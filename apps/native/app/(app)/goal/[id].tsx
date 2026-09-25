@@ -12,6 +12,7 @@ import { GoalProgressControl } from "@/components/goal-progress-control";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { formatDayKey } from "@/lib/date";
 import { canSubmitGoalReflection, getGoalPresentation, type Goal } from "@/lib/goal-presentation";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -30,7 +31,7 @@ function LedgerValue({ icon, value, label, hint, color = palette.text }: { icon:
 export default function GoalDetailScreen() {
   const { id = "", view: requestedView } = useLocalSearchParams<{ id: string; view?: string }>();
   const focused = useIsFocused();
-  const goal = useQuery({ ...trpc.rdm.goals.byId.queryOptions({ id }), enabled: focused && Boolean(id), refetchInterval: focused ? 30_000 : false });
+  const goal = useQuery({ ...trpc.rdm.goals.byId.queryOptions({ id }), enabled: focused && Boolean(id), refetchInterval: focused ? STANDARD_REFRESH_MS : false });
   const [view, setView] = useState<"overview" | "reflect">(requestedView === "reflect" ? "reflect" : "overview");
   const [tab, setTab] = useState<"overview" | "reflections">("overview");
   const [reflection, setReflection] = useState("");

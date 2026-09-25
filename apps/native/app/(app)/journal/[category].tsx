@@ -11,6 +11,7 @@ import { FocusedButton, focusedColors as palette } from "@/components/focused-ui
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { TreeActionDialog } from "@/components/tree-action-dialog";
 import { formatTreeDay, TreeNotice, TreePage } from "@/components/tree-ui";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -123,7 +124,7 @@ export default function JournalEntryScreen() {
   const focused = useIsFocused();
   const params = useLocalSearchParams<{ category?: string }>();
   const categoryId = String(params.category ?? "") as GratitudeCategoryId;
-  const detail = useQuery({ ...trpc.rdm.gratitude.byCategory.queryOptions({ category: categoryId, timeZone }), enabled: focused, refetchInterval: focused ? 30_000 : false, refetchIntervalInBackground: false });
+  const detail = useQuery({ ...trpc.rdm.gratitude.byCategory.queryOptions({ category: categoryId, timeZone }), enabled: focused, refetchInterval: focused ? STANDARD_REFRESH_MS : false, refetchIntervalInBackground: false });
   if (detail.isLoading) return <LoadingState label="Opening your journal…" />;
   if (!detail.data) return <ErrorState message={detail.error?.message ?? "This journal prompt is unavailable."} onRetry={() => void detail.refetch()} />;
   return <JournalForm key={detail.data.category.id} detail={detail.data} onRefresh={() => void detail.refetch()} />;

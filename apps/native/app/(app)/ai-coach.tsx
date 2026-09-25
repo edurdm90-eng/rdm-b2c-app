@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { MedaaDraftCard } from "@/components/medaa-draft-card";
 import { MedaaJourneyStep } from "@/components/medaa-journey";
+import { PENDING_REFRESH_MS, STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -42,12 +43,12 @@ export default function AiCoachScreen() {
   const history = useQuery(trpc.medaa.conversations.queryOptions(undefined, { enabled: focused && historyOpen }));
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions(undefined, { enabled: focused && !conversationId }));
   const budget = useQuery(trpc.medaa.budget.queryOptions({ conversationId }, {
-    enabled: focused && Boolean(conversationId), refetchInterval: focused ? 30_000 : false,
+    enabled: focused && Boolean(conversationId), refetchInterval: focused ? STANDARD_REFRESH_MS : false,
   }));
   const conversation = useQuery(trpc.medaa.conversation.queryOptions({ id: conversationId }, {
     enabled: Boolean(conversationId) && focused,
     structuralSharing: (previous, incoming) => keepNewestConversation(previous as MedaaConversation | undefined, incoming as MedaaConversation),
-    refetchInterval: (query) => query.state.data?.pendingRequestId ? 2_000 : false,
+    refetchInterval: (query) => query.state.data?.pendingRequestId ? PENDING_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   }));
   const data = conversation.data;

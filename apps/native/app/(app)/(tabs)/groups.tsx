@@ -14,6 +14,7 @@ import {
   GroupSurfaceCard,
 } from "@/components/group-goal-ui";
 import { groupAvatarColor, initialsForGroupName } from "@/lib/group-goals";
+import { LIVE_REFRESH_MS } from "@/lib/query-policy";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -22,7 +23,7 @@ export default function GroupsScreen() {
   const groups = useQuery({
     ...trpc.rdm.groups.list.queryOptions(),
     enabled: focused,
-    refetchInterval: focused ? 15_000 : false,
+    refetchInterval: focused ? LIVE_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
 

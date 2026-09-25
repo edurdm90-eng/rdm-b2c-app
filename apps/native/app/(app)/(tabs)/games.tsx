@@ -5,12 +5,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FocusedScreen, focusedColors as c, focusedStyles as f } from "@/components/focused-ui";
 import { GameArt, GameIcon, GamesNote, GamesTabs, gameOrder, gamesStyles as g } from "@/components/games-ui";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
 export default function GamesScreen() {
   const focused = useIsFocused();
-  const games = useQuery({ ...trpc.rdm.games.list.queryOptions(), enabled: focused, refetchInterval: focused ? 30_000 : false });
+  const games = useQuery({ ...trpc.rdm.games.list.queryOptions(), enabled: focused, refetchInterval: focused ? STANDARD_REFRESH_MS : false });
   const [filter, setFilter] = useState<number | "all">("all");
   const visible = [...(games.data ?? [])].filter((game) => game.id !== "gratitude-tap" && (filter === "all" || game.filterMinutes === filter)).sort((a, b) => gameOrder.indexOf(a.id) - gameOrder.indexOf(b.id));
 

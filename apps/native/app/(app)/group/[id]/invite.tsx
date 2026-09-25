@@ -17,6 +17,7 @@ import {
 import {
   LoadingState,
 } from "@/components/rdm-ui";
+import { LIVE_REFRESH_MS } from "@/lib/query-policy";
 import { colors, fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -28,7 +29,7 @@ export default function GroupInviteScreen() {
   const group = useQuery({
     ...trpc.rdm.groups.detail.queryOptions({ id }),
     enabled: validId && focused,
-    refetchInterval: focused ? 15_000 : false,
+    refetchInterval: focused ? LIVE_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
 

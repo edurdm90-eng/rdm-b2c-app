@@ -6,6 +6,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, Vi
 
 import { FocusedButton, focusedColors as palette } from "@/components/focused-ui";
 import { TreeArtwork, TreeNotice, TreePage, treeStyles as ui } from "@/components/tree-ui";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -28,7 +29,7 @@ export default function TreeScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const submitting = useRef(false);
-  const overview = useQuery(trpc.rdm.tree.overview.queryOptions({ timeZone }, { enabled: focused, refetchInterval: focused ? 60_000 : false }));
+  const overview = useQuery(trpc.rdm.tree.overview.queryOptions({ timeZone }, { enabled: focused, refetchInterval: focused ? STANDARD_REFRESH_MS : false }));
   const pledge = useMutation(trpc.rdm.tree.pledge.mutationOptions());
   const missedDayKey = overview.data?.missedDay?.dayKey;
   useEffect(() => { if (focused && missedDayKey && !working) router.replace("/(app)/streak-missed"); }, [focused, missedDayKey, working]);

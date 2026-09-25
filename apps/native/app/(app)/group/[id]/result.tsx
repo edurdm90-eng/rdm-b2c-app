@@ -15,6 +15,7 @@ import {
 } from "@/components/rdm-ui";
 import { formatDayRange } from "@/lib/date";
 import { groupRewardStructureTitle } from "@/lib/group-goals";
+import { SETTLEMENT_REFRESH_MS } from "@/lib/query-policy";
 import { colors, fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -26,7 +27,7 @@ export default function GroupResultScreen() {
   const group = useQuery({
     ...trpc.rdm.groups.detail.queryOptions({ id }),
     enabled: validId && focused,
-    refetchInterval: (query) => focused && !query.state.data?.awarded ? 15_000 : false,
+    refetchInterval: (query) => focused && !query.state.data?.awarded ? SETTLEMENT_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
 

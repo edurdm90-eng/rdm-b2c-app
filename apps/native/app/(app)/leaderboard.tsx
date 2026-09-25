@@ -5,13 +5,14 @@ import { StyleSheet, Text, View } from "react-native";
 import { FocusedButton, FocusedScreen, focusedColors as c, focusedStyles as f } from "@/components/focused-ui";
 import { GameIcon, GamesHeader, GamesNote, GamesTabs, gameBlue, gamesStyles as g } from "@/components/games-ui";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
 export default function LeaderboardScreen() {
   const focused = useIsFocused();
   const [scope, setScope] = useState<"friends" | "groups" | "global">("friends");
-  const leaderboard = useQuery({ ...trpc.rdm.social.leaderboard.queryOptions({ scope }), enabled: focused, refetchInterval: focused ? 30_000 : false, refetchIntervalInBackground: false });
+  const leaderboard = useQuery({ ...trpc.rdm.social.leaderboard.queryOptions({ scope }), enabled: focused, refetchInterval: focused ? STANDARD_REFRESH_MS : false, refetchIntervalInBackground: false });
   const entries = leaderboard.data?.entries ?? [];
   const podium = entries.length >= 3 ? [entries[1]!, entries[0]!, entries[2]!] : entries.slice(0, 3);
   return <FocusedScreen bottomSafe contentStyle={g.screen}>

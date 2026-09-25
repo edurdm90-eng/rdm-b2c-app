@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { ErrorState, LoadingState, RdmLogo } from "@/components/rdm-ui";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm, formatTransactionDate } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -33,7 +34,7 @@ export default function WalletScreen() {
   const wallet = useQuery({
     ...trpc.rdm.wallet.summary.queryOptions(),
     enabled: focused,
-    refetchInterval: focused ? 15_000 : false,
+    refetchInterval: focused ? STANDARD_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
 

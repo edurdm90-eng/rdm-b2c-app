@@ -20,6 +20,7 @@ import {
 } from "@/components/rdm-ui";
 import { formatDayKey } from "@/lib/date";
 import { groupRewardStructureTitle, singularizeUnit } from "@/lib/group-goals";
+import { LIVE_REFRESH_MS } from "@/lib/query-policy";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -37,7 +38,7 @@ export default function GroupDashboardScreen() {
   const group = useQuery({
     ...trpc.rdm.groups.detail.queryOptions({ id }),
     enabled: validId && focused,
-    refetchInterval: focused ? 15_000 : false,
+    refetchInterval: focused ? LIVE_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
   const logContribution = useMutation(trpc.rdm.groups.logContribution.mutationOptions({
