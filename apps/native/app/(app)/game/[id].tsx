@@ -3,6 +3,7 @@ import {
   type GameAction,
   type GamePrompt,
 } from "@rdm-b2c/api/domain/rdm";
+import { focusTargetForSeed } from "@rdm-b2c/api/domain/game-rules";
 import { useMutation } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { router, useLocalSearchParams } from "expo-router";
@@ -41,7 +42,6 @@ export default function GamePlayScreen() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [wordInput, setWordInput] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [targetIndex, setTargetIndex] = useState(4);
   const [gratitudeTaps, setGratitudeTaps] = useState<string[]>([]);
   const [result, setResult] = useState<GameResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,9 +142,6 @@ export default function GamePlayScreen() {
       setMoves(progressed.moves);
       setMatchedIndexes(progressed.matchedIndexes);
       if (retrying) setPrompt(progressed.prompt);
-      if (pending.action.type === "focus_tap") {
-        setTargetIndex((current) => (current * 5 + 3) % 9);
-      }
       if (pending.action.type === "gratitude_tap") {
         const gratitudeValue = pending.action.value;
         setGratitudeTaps((current) => current.includes(gratitudeValue)
@@ -203,7 +200,11 @@ export default function GamePlayScreen() {
   }
 
   async function tapFocusTarget() {
-    await performAction({ type: "focus_tap" });
+    if (!sessionId) return;
+    await performAction({
+      type: "focus_tap",
+      targetIndex: focusTargetForSeed(sessionId, actionCount),
+    });
   }
 
   async function answerAptitude(value: string) {
@@ -309,7 +310,8 @@ export default function GamePlayScreen() {
   return <GameSessionView
     game={game} status={status} secondsLeft={secondsLeft} score={score} actionCount={actionCount} moves={moves}
     prompt={prompt} memoryBoard={memoryBoard} matchedIndexes={matchedIndexes} flippedIndexes={flippedIndexes}
-    selectedOption={selectedOption} wordInput={wordInput} feedback={feedback} targetIndex={targetIndex}
+    selectedOption={selectedOption} wordInput={wordInput} feedback={feedback}
+    targetIndex={focusTargetForSeed(sessionId ?? "idle", actionCount)}
     gratitudeTaps={gratitudeTaps} result={result} error={error}
     isBusy={status !== "running" || progressGame.isPending || answerTransition || secondsLeft === 0}
     pendingAction={Boolean(pendingAction.current)}

@@ -127,22 +127,42 @@ const sortRounds = [
 
 const gratitudeValues = new Set(["family", "friends", "health", "home", "nature", "learning"]);
 const memoryIcons = ["🌿", "⭐", "🍎", "⚽", "🚀", "💎", "🎵", "🎈"] as const;
+export const FOCUS_FLOW_CELL_COUNT = 9;
 
-export function memoryBoardForSeed(seed: string) {
-  const board = [...memoryIcons, ...memoryIcons];
+function shuffledValues<Value>(values: readonly Value[], seed: string) {
+  const shuffled = [...values];
   let state = 2_166_136_261;
   for (const character of seed) {
     state ^= character.charCodeAt(0);
     state = Math.imul(state, 16_777_619) >>> 0;
   }
-  for (let index = board.length - 1; index > 0; index -= 1) {
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
     state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
     const swapIndex = state % (index + 1);
-    const current = board[index]!;
-    board[index] = board[swapIndex]!;
-    board[swapIndex] = current;
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex]!, shuffled[index]!];
   }
-  return board;
+  return shuffled;
+}
+
+export function focusTargetForSeed(seed: string, actionCount: number) {
+  const safeActionCount = Math.max(0, Math.floor(actionCount));
+  const cycle = Math.floor(safeActionCount / FOCUS_FLOW_CELL_COUNT);
+  const position = safeActionCount % FOCUS_FLOW_CELL_COUNT;
+  const cells = Array.from({ length: FOCUS_FLOW_CELL_COUNT }, (_, index) => index);
+  const order = shuffledValues(cells, `${seed}:focus:${cycle}`);
+
+  if (cycle > 0) {
+    const previousOrder = shuffledValues(cells, `${seed}:focus:${cycle - 1}`);
+    if (order[0] === previousOrder[FOCUS_FLOW_CELL_COUNT - 1]) {
+      [order[0], order[1]] = [order[1]!, order[0]!];
+    }
+  }
+
+  return order[position]!;
+}
+
+export function memoryBoardForSeed(seed: string) {
+  return shuffledValues([...memoryIcons, ...memoryIcons], seed);
 }
 
 export function gamePromptFor(gameId: GameId, actionCount: number): GamePrompt | null {
@@ -182,18 +202,25 @@ export function gamePromptFor(gameId: GameId, actionCount: number): GamePrompt |
 export function evaluateGameAction({
   action,
   actionCount,
+  allowLegacyFocusTap = false,
+  focusSeed,
   gameId,
   matchedIndexes,
   memoryBoard,
 }: {
   action: GameAction;
   actionCount: number;
+  allowLegacyFocusTap?: boolean;
+  focusSeed?: string;
   gameId: GameId;
   matchedIndexes: number[];
   memoryBoard?: string[];
 }) {
   if (gameId === "focus-flow" && action.type === "focus_tap") {
-    return acceptedResult(true, matchedIndexes, 1);
+    const accepted = focusSeed !== undefined
+      && (allowLegacyFocusTap && action.targetIndex === undefined
+        || action.targetIndex === focusTargetForSeed(focusSeed, actionCount));
+    return accepted ? acceptedResult(true, matchedIndexes, 1) : rejectedResult(matchedIndexes);
   }
   if (gameId === "gratitude-tap" && action.type === "gratitude_tap") {
     const accepted = gratitudeValues.has(action.value);

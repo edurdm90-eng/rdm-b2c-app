@@ -16,6 +16,7 @@ import {
   habitStages,
   treeCareKinds,
 } from "@rdm-b2c/db";
+import { env } from "@rdm-b2c/env/server";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -74,7 +75,7 @@ import {
   type GameId,
   type WalletBalances,
 } from "../domain/rdm";
-import { evaluateGameAction, gamePromptFor, memoryBoardForSeed } from "../domain/game-rules";
+import { evaluateGameAction, FOCUS_FLOW_CELL_COUNT, gamePromptFor, memoryBoardForSeed } from "../domain/game-rules";
 import { availableTreePenalty, treeCareProgress } from "../domain/tree-progress";
 import { personalGoalTransition, type PersonalGoalCommand, type PersonalGoalStatus } from "../domain/goal-lifecycle";
 
@@ -94,7 +95,7 @@ const goodDeedSelection = z
   .max(goodDeedIds.length)
   .refine((ids) => new Set(ids).size === ids.length, "Choose each deed only once");
 const gameActionSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("focus_tap") }),
+  z.object({ type: z.literal("focus_tap"), targetIndex: z.number().int().min(0).max(FOCUS_FLOW_CELL_COUNT - 1).optional() }),
   z.object({ type: z.literal("breath_cycle") }),
   z.object({ type: z.literal("gratitude_tap"), value: z.string().trim().min(1).max(40) }),
   z.object({ type: z.literal("answer"), value: z.string().max(80) }),
@@ -3011,6 +3012,8 @@ export const rdmRouter = router({
         const result = evaluateGameAction({
           action: input.action,
           actionCount: current.actionCount,
+          allowLegacyFocusTap: actionAt < env.LEGACY_FOCUS_TAP_CUTOFF,
+          focusSeed: String(current._id),
           gameId: game.id,
           matchedIndexes: numberArray(current.matchedIndexes),
           memoryBoard,

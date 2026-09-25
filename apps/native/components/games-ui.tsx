@@ -45,16 +45,16 @@ export function GamesNote({ children, icon = "information-outline", color = c.mu
   return <View style={s.note}><GameIcon name={icon} size={22} color={color} /><Text style={s.noteText}>{children}</Text></View>;
 }
 export function GameArt({ id, intro = false, large = false }: { id: string; intro?: boolean; large?: boolean }) {
-  if (intro && id === "memory-match") return <Image accessible={false} source={require("@/assets/images/games-memory-intro.png")} resizeMode="contain" style={{ width: "100%", height: large ? 180 : 76 }} />;
-  if (!gameLogoSources[id]) return <View style={{ height: large ? 180 : 68, alignItems: "center", justifyContent: "center" }}><GameIcon name="gamepad-variant-outline" size={large ? 132 : 66} color={gameBlue} /></View>;
-  return <Image accessible={false} source={gameLogoSources[id]} resizeMode="contain" style={{ width: "100%", height: large ? 180 : 76 }} />;
+  if (intro && id === "memory-match") return <Image accessible={false} source={require("@/assets/images/games-memory-intro.png")} resizeMode="contain" style={{ width: "100%", height: large ? 150 : 72 }} />;
+  if (!gameLogoSources[id]) return <View style={{ height: large ? 150 : 64, alignItems: "center", justifyContent: "center" }}><GameIcon name="gamepad-variant-outline" size={large ? 108 : 60} color={gameBlue} /></View>;
+  return <Image accessible={false} source={gameLogoSources[id]} resizeMode="contain" style={{ width: "100%", height: large ? 150 : 72 }} />;
 }
 export function GamesProgress({ value, color = c.green }: { value: number; color?: string }) {
   const progress = Math.min(1, Math.max(0, value));
   return <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }} style={s.track}><View style={{ width: `${progress * 100}%`, height: "100%", borderRadius: 9, backgroundColor: color }} /></View>;
 }
 export const gamesStyles = StyleSheet.create({
-  screen: { paddingTop: 16, paddingHorizontal: 20, gap: 18 },
+  screen: { paddingTop: 14, paddingHorizontal: 18, gap: 16 },
   card: { backgroundColor: "#171F26", borderColor: c.line, borderWidth: 1, borderRadius: 10, padding: 16 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   footer: { marginTop: "auto", paddingTop: 18, gap: 10 },

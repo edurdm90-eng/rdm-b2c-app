@@ -38,7 +38,13 @@ import {
   releaseHabitPledgeBalances,
   treeGrowthFor,
 } from "./rdm";
-import { evaluateGameAction, gamePromptFor, memoryBoardForSeed } from "./game-rules";
+import {
+  evaluateGameAction,
+  FOCUS_FLOW_CELL_COUNT,
+  focusTargetForSeed,
+  gamePromptFor,
+  memoryBoardForSeed,
+} from "./game-rules";
 
 test("responsible games cap rewards and normalize duration", () => {
   assert.equal(rewardForGame(2, 340), 7);
@@ -131,10 +137,27 @@ test("word answers are normalized and only correct words advance the sprint", ()
   });
 });
 
-test("focus taps add one server-owned point per accepted target", () => {
+test("focus flow visits every cell once per round without repeating at the boundary", () => {
+  const firstRound = Array.from({ length: FOCUS_FLOW_CELL_COUNT }, (_, actionCount) => (
+    focusTargetForSeed("session-a", actionCount)
+  ));
+  const secondRound = Array.from({ length: FOCUS_FLOW_CELL_COUNT }, (_, index) => (
+    focusTargetForSeed("session-a", index + FOCUS_FLOW_CELL_COUNT)
+  ));
+
+  assert.deepEqual([...firstRound].sort((left, right) => left - right), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.deepEqual([...secondRound].sort((left, right) => left - right), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.notEqual(firstRound[FOCUS_FLOW_CELL_COUNT - 1], secondRound[0]);
+  assert.deepEqual(firstRound, Array.from({ length: FOCUS_FLOW_CELL_COUNT }, (_, index) => focusTargetForSeed("session-a", index)));
+  assert.notDeepEqual(firstRound, Array.from({ length: FOCUS_FLOW_CELL_COUNT }, (_, index) => focusTargetForSeed("session-b", index)));
+});
+
+test("focus taps only score the server-owned current target", () => {
+  const targetIndex = focusTargetForSeed("session-a", 14);
   assert.deepEqual(evaluateGameAction({
-    action: { type: "focus_tap" },
+    action: { type: "focus_tap", targetIndex },
     actionCount: 14,
+    focusSeed: "session-a",
     gameId: "focus-flow",
     matchedIndexes: [],
   }), {
@@ -145,6 +168,28 @@ test("focus taps add one server-owned point per accepted target", () => {
     movesDelta: 0,
     scoreDelta: 1,
   });
+  assert.equal(evaluateGameAction({
+    action: { type: "focus_tap", targetIndex: (targetIndex + 1) % FOCUS_FLOW_CELL_COUNT },
+    actionCount: 14,
+    focusSeed: "session-a",
+    gameId: "focus-flow",
+    matchedIndexes: [],
+  }).accepted, false);
+  assert.equal(evaluateGameAction({
+    action: { type: "focus_tap" },
+    actionCount: 14,
+    allowLegacyFocusTap: true,
+    focusSeed: "session-a",
+    gameId: "focus-flow",
+    matchedIndexes: [],
+  }).accepted, true, "legacy APK focus taps remain compatible during rollout");
+  assert.equal(evaluateGameAction({
+    action: { type: "focus_tap" },
+    actionCount: 14,
+    focusSeed: "session-a",
+    gameId: "focus-flow",
+    matchedIndexes: [],
+  }).accepted, false, "legacy taps stop scoring when the compatibility window closes");
 });
 
 test("gratitude taps and breathing cycles use their own server-owned scoring", () => {

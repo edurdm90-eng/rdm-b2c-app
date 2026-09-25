@@ -1,4 +1,5 @@
 import type { GameId, GamePrompt, gameCatalog } from "@rdm-b2c/api/domain/rdm";
+import { FOCUS_FLOW_CELL_COUNT } from "@rdm-b2c/api/domain/game-rules";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { FocusedButton, focusedColors as c, focusedStyles as f } from "@/components/focused-ui";
 import { GameArt, GameIcon, GamesFrame, GamesNote, GamesOutlineButton, GamesProgress, gameBlue, gamesStyles as g, type GameIconName } from "@/components/games-ui";
@@ -35,7 +36,7 @@ const gratitude: [string, string, GameIconName][] = [["family", "Family", "accou
 const sortIcons: Record<string, GameIconName> = { Apple: "apple", Dolphin: "dolphin", Hammer: "hammer", Rose: "flower", Bicycle: "bicycle", Jacket: "tshirt-crew", Food: "food-apple-outline", Animal: "paw-outline", Object: "cube-outline", Plant: "flower-outline", Tool: "wrench-outline", Place: "map-marker-outline", Vehicle: "car-outline", Clothing: "tshirt-crew-outline" };
 const phases = ["Inhale", "Hold", "Exhale", "Hold"];
 function Stat({ value, label, clock = false }: { value: string; label: string; clock?: boolean }) {
-  return <View style={[s.stat, clock && { flex: 1.45 }]}>{clock ? <GameIcon name="clock-outline" size={29} color={gameBlue} /> : null}<View><Text style={[s.statValue, clock && { fontSize: 28 }]}>{value}</Text><Text style={s.small}>{label}</Text></View></View>;
+  return <View style={[s.stat, clock && { flex: 1.45 }]}>{clock ? <GameIcon name="clock-outline" size={23} color={gameBlue} /> : null}<View><Text style={[s.statValue, clock && s.clockValue]}>{value}</Text><Text style={s.small}>{label}</Text></View></View>;
 }
 export function GameSessionView(p: Props) {
   const id = p.game.id;
@@ -104,8 +105,9 @@ export function GameSessionView(p: Props) {
     </> : null}
 
     {id === "focus-flow" ? <>
-      <Text style={f.title}>Stay with the target.</Text><View style={s.focusGrid}>{Array.from({ length: 9 }, (_, i) => <View key={i} style={s.focusCell}>{i === p.targetIndex ? <Pressable accessibilityRole="button" accessibilityLabel="Focus target" disabled={p.isBusy} onPress={p.tapFocus} style={s.target}><GameIcon name="bullseye" size={76} color={gameBlue} /></Pressable> : null}</View>)}</View>
-      <Text style={s.centerNote}>Tap the blue target as it moves.</Text><View style={g.rule} /><Text style={f.sectionTitle}>{p.actionCount} hits</Text><GamesProgress color={gameBlue} value={elapsed / duration} />
+      <View style={s.focusHeading}><Text style={f.title}>Stay with the target.</Text><Text style={s.roundLabel}>Round {Math.floor(p.actionCount / FOCUS_FLOW_CELL_COUNT) + 1}</Text></View>
+      <View style={s.focusGrid}>{Array.from({ length: FOCUS_FLOW_CELL_COUNT }, (_, i) => <View key={i} style={s.focusCell}>{i === p.targetIndex ? <Pressable accessibilityRole="button" accessibilityLabel={`Focus target in cell ${i + 1}`} disabled={p.isBusy} onPress={p.tapFocus} style={s.target}><View style={s.targetRing}><GameIcon name="bullseye" size={48} color={gameBlue} /></View></Pressable> : null}</View>)}</View>
+      <Text style={s.centerNote}>Tap the blue target. Every round visits all nine cells.</Text><View style={g.rule} /><View style={s.focusProgressLabel}><Text style={f.sectionTitle}>{p.actionCount} hits</Text><Text style={s.small}>{p.actionCount % FOCUS_FLOW_CELL_COUNT} of {FOCUS_FLOW_CELL_COUNT} this round</Text></View><GamesProgress color={gameBlue} value={(p.actionCount % FOCUS_FLOW_CELL_COUNT) / FOCUS_FLOW_CELL_COUNT} />
     </> : null}
 
     {id === "gratitude-tap" ? <>
@@ -124,7 +126,7 @@ export function GameSessionView(p: Props) {
 
     {id === "sort-sprint" && p.prompt?.kind === "sort" ? <>
       <View style={s.center}><Text style={[f.title, s.introTitle]}>Where does this belong?</Text><Text style={f.body}>Choose the correct category.</Text></View>
-      <View style={[s.center, { paddingVertical: 8, gap: 10 }]}><GameIcon name={sortIcons[p.prompt.item] ?? "shape-outline"} size={98} color={c.gold} /><Text style={s.item}>{p.prompt.item.toUpperCase()}</Text></View>
+      <View style={[s.center, { paddingVertical: 6, gap: 8 }]}><GameIcon name={sortIcons[p.prompt.item] ?? "shape-outline"} size={78} color={c.gold} /><Text style={s.item}>{p.prompt.item.toUpperCase()}</Text></View>
       <View style={s.sortGrid}>{p.prompt.options.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ checked: p.selectedOption === option, disabled: p.isBusy }} disabled={p.isBusy} onPress={() => p.selectOption(option)} style={[s.sortOption, p.selectedOption === option && s.selected, wrong && p.selectedOption === option && s.wrong]}><GameIcon name={sortIcons[option] ?? "shape-outline"} size={33} color={p.selectedOption === option ? gameBlue : c.muted} /><Text style={g.label}>{option}</Text></Pressable>)}</View>
     </> : null}
 
@@ -134,41 +136,46 @@ export function GameSessionView(p: Props) {
   </GamesFrame>;
 }
 const s = StyleSheet.create({
-  center: { alignItems: "center", gap: 6 }, introTitle: { fontSize: 25, lineHeight: 32, textAlign: "center" },
+  center: { alignItems: "center", gap: 6 }, introTitle: { fontSize: 23, lineHeight: 30, textAlign: "center" },
   introMeta: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
   divider: { width: 1, height: "75%", minHeight: 30, backgroundColor: c.line },
-  instructions: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.line, paddingVertical: 18, gap: 18 },
+  instructions: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.line, paddingVertical: 15, gap: 15 },
   step: { flexDirection: "row", gap: 14 }, stepNumber: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "#283440" },
-  stats: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: c.line, borderRadius: 10, paddingVertical: 15, marginBottom: 8 },
+  stats: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: c.line, borderRadius: 10, paddingVertical: 11, marginBottom: 6 },
   stat: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   statValue: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 26 },
+  clockValue: { fontSize: 22, lineHeight: 28 },
   small: { color: c.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17 },
   memoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   memoryCard: { width: "23.3%", aspectRatio: 0.9, borderWidth: 1, borderColor: "#35424D", borderRadius: 9, backgroundColor: "#202B34", alignItems: "center", justifyContent: "center" },
   memoryVisible: { backgroundColor: "#246BB0", borderColor: gameBlue }, memoryMatched: { backgroundColor: "#1B543F", borderColor: "#3D9874" },
   centerNote: { color: c.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, textAlign: "center" },
   segments: { flexDirection: "row", gap: 4 }, segment: { flex: 1, height: 10, borderRadius: 5, backgroundColor: c.line },
-  question: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 23, lineHeight: 32, textAlign: "center", paddingVertical: 24 },
-  option: { flexDirection: "row", gap: 17, alignItems: "center", minHeight: 65, borderRadius: 10, borderWidth: 1, borderColor: c.line, padding: 15, backgroundColor: "#192229" },
+  question: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 20, lineHeight: 28, textAlign: "center", paddingVertical: 16 },
+  option: { flexDirection: "row", gap: 12, alignItems: "center", minHeight: 56, borderRadius: 10, borderWidth: 1, borderColor: c.line, padding: 12, backgroundColor: "#192229" },
   selected: { borderColor: gameBlue, backgroundColor: "#1C344C" }, wrong: { borderColor: c.coral },
-  optionLetter: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 19, width: 24 },
+  optionLetter: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 17, width: 22 },
   letters: { flexDirection: "row", gap: 7, marginVertical: 12 },
-  letter: { flex: 1, height: 90, backgroundColor: c.panel, borderColor: c.line, borderWidth: 1, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  letterText: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 34 },
+  letter: { flex: 1, height: 68, backgroundColor: c.panel, borderColor: c.line, borderWidth: 1, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  letterText: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 28 },
   inputRow: { flexDirection: "row", borderWidth: 1.5, borderColor: gameBlue, borderRadius: 9, backgroundColor: c.panel },
   input: { flex: 1, minWidth: 0, minHeight: 59, paddingHorizontal: 16, color: c.text, fontFamily: fonts.bodyBold, fontSize: 23 },
   clear: { width: 44, justifyContent: "center", alignItems: "center" },
   focusGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginVertical: 4 },
-  focusCell: { width: "31.7%", aspectRatio: 1, borderRadius: 10, borderWidth: 1, borderColor: c.line, backgroundColor: "#192229", alignItems: "center", justifyContent: "center" },
+  focusCell: { flexBasis: "30%", flexGrow: 1, maxWidth: "32%", aspectRatio: 1, borderRadius: 10, borderWidth: 1, borderColor: c.line, backgroundColor: "#192229", alignItems: "center", justifyContent: "center" },
+  focusHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  roundLabel: { color: gameBlue, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
   target: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
-  breathBox: { borderWidth: 4, borderColor: gameBlue, borderRadius: 28, marginHorizontal: 25, marginTop: 10, height: 250, justifyContent: "center", alignItems: "center", gap: 12 },
-  phase: { color: gameBlue, fontFamily: fonts.bodyBold, fontSize: 29 }, breathCount: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 68, lineHeight: 80 },
+  targetRing: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: "rgba(99, 174, 245, 0.35)", backgroundColor: "rgba(99, 174, 245, 0.08)", alignItems: "center", justifyContent: "center" },
+  focusProgressLabel: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  breathBox: { borderWidth: 3, borderColor: gameBlue, borderRadius: 24, marginHorizontal: 24, marginTop: 8, height: 205, justifyContent: "center", alignItems: "center", gap: 8 },
+  phase: { color: gameBlue, fontFamily: fonts.bodyBold, fontSize: 25 }, breathCount: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 56, lineHeight: 66 },
   phases: { flexDirection: "row", gap: 7 }, phaseChip: { flex: 1, borderWidth: 1, borderColor: c.line, borderRadius: 10, paddingVertical: 13, gap: 4, alignItems: "center" },
-  item: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 29 },
+  item: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 24 },
   sortGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  sortOption: { width: "48.3%", minHeight: 105, borderRadius: 10, borderWidth: 1, borderColor: c.line, backgroundColor: "#192229", alignItems: "center", justifyContent: "center", gap: 10 },
+  sortOption: { flexBasis: "46%", flexGrow: 1, minHeight: 88, borderRadius: 10, borderWidth: 1, borderColor: c.line, backgroundColor: "#192229", alignItems: "center", justifyContent: "center", gap: 8 },
   feedback: { color: c.green, fontFamily: fonts.bodyMedium, fontSize: 13, textAlign: "center", lineHeight: 20 },
   error: { color: c.coral, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
-  resultScore: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 45, lineHeight: 59 },
-  reward: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 27 }, textButton: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+  resultScore: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 38, lineHeight: 49 },
+  reward: { color: c.text, fontFamily: fonts.bodyBold, fontSize: 24 }, textButton: { minHeight: 44, alignItems: "center", justifyContent: "center" },
 });

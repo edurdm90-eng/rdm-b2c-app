@@ -569,7 +569,7 @@ export type GameId = (typeof gameIds)[number];
 export type GameAction =
   | { type: "answer"; value: string }
   | { type: "breath_cycle" }
-  | { type: "focus_tap" }
+  | { type: "focus_tap"; targetIndex?: number }
   | { type: "gratitude_tap"; value: string }
   | { type: "memory_pair"; first: number; second: number };
 
