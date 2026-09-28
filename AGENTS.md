@@ -11,7 +11,7 @@ Run commands from the repository root with pnpm 10:
 - `pnpm install` installs workspace dependencies.
 - `pnpm dev` starts all apps; `pnpm dev:web`, `pnpm dev:server`, and `pnpm dev:native` start one.
 - `pnpm build` builds every package that defines a build task.
-- `pnpm test` runs the API domain tests through the server workspace.
+- `pnpm test` runs the API domain tests through the server workspace and the native session-transition regression tests.
 - `pnpm check-types` runs workspace TypeScript checks and the web production build.
 - `pnpm --filter native ios` or `pnpm --filter native android` launches a native development build.
 

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "expo start --clear",
     "check-types": "tsc --noEmit",
+    "test": "tsx --test lib/session-transition.test.ts",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
@@ -59,6 +60,7 @@
   "devDependencies": {
     "@rdm-b2c/config": "workspace:*",
     "@types/react": "~19.2.17",
+    "tsx": "^4.23.1",
     "typescript": "~6.0.3"
   }
 }

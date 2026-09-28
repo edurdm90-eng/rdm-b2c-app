@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { FocusedScreen, focusedColors, focusedTypography } from "@/components/focused-ui";
 import {
@@ -16,6 +16,7 @@ import {
   postLoginDestination,
 } from "@/lib/auth-return";
 import { fonts } from "@/lib/theme";
+import { preparePostLoginSession } from "@/lib/session-transition";
 import { queryClient, trpcClient } from "@/utils/trpc";
 
 export default function LoginScreen() {
@@ -25,10 +26,18 @@ export default function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
   const flowStarted = useRef(false);
   const callbackCookie = typeof params.cookie === "string" ? params.cookie : null;
+  const sessionState = authClient.useSession();
 
   async function enterAuthenticatedApp(code: string | null) {
-    const session = await authClient.getSession();
-    if (!session.data?.user) return false;
+    const ready = await preparePostLoginSession({
+      isNative: Platform.OS !== "web",
+      refreshSession: sessionState.refetch,
+      verifySession: async () => {
+        const session = await authClient.getSession();
+        return Boolean(session.data?.user);
+      },
+    });
+    if (!ready) return false;
 
     if (code) {
       try {
