@@ -37,6 +37,7 @@ export default function HomeScreen() {
   }
 
   const { user, profile, today, serverTime } = dashboard.data;
+  const userInitial = user.name.trim().charAt(0).toUpperCase() || "R";
   const firstItem = today.items[0];
   const allReflected = today.total > 0 && today.completed === today.total;
   const dateLabel = new Date(serverTime).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
@@ -46,11 +47,11 @@ export default function HomeScreen() {
       <View style={styles.headingRow}>
         <View style={styles.heading}>
           <Text style={styles.date}>{dateLabel}</Text>
-          <Text accessibilityRole="header" style={styles.title}>{getGreeting(new Date().getHours())}, {user.name}.</Text>
+          <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>{getGreeting(new Date().getHours())}, {user.name}.</Text>
           <Text style={styles.greeting}>Make today count.</Text>
         </View>
         <Pressable accessibilityLabel="Open account" accessibilityRole="button" onPress={() => router.push("/(app)/account")} style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
-          <MaterialCommunityIcons name="account-circle-outline" size={27} color={palette.text} />
+          <Text style={styles.menuInitial}>{userInitial}</Text>
         </Pressable>
       </View>
 
@@ -137,11 +138,12 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screenContent: { gap: 14 },
   headingRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
-  heading: { gap: 5 },
+  heading: { flex: 1, gap: 5, minWidth: 0 },
   date: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   title: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 31 },
   greeting: { color: palette.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
-  menuButton: { alignItems: "center", backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 10, borderWidth: 1, height: 42, justifyContent: "center", width: 42 },
+  menuButton: { alignItems: "center", backgroundColor: palette.green, borderColor: "rgba(56,214,147,0.5)", borderRadius: 21, borderWidth: 1, flexShrink: 0, height: 42, justifyContent: "center", width: 42 },
+  menuInitial: { color: palette.onGreen, fontFamily: fonts.bodyBold, fontSize: 17, lineHeight: 22 },
   progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14, paddingVertical: 2 },
   ring: { width: 128, height: 128, alignItems: "center", justifyContent: "center" },
   ringCopy: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", gap: 2 },
