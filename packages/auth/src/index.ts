@@ -6,7 +6,7 @@ import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { bearer } from "better-auth/plugins";
 import { ObjectId } from "mongodb";
 
-import { googleProviderConfig } from "./google";
+import { googleAccountLinkingConfig, googleProviderConfig } from "./google";
 import { grantSignupAirdrop } from "./signup-airdrop";
 
 export function createAuth() {
@@ -62,13 +62,7 @@ export function createAuth() {
     account: {
       // OAuth tokens are not exposed to RDM clients and stay encrypted at rest.
       encryptOAuthTokens: true,
-      accountLinking: {
-        enabled: true,
-        // Do not force-link identities whose email is not verified by Google.
-        // Better Auth links matching, verified Google emails by default.
-        allowDifferentEmails: false,
-        updateUserInfoOnLink: false,
-      },
+      accountLinking: googleAccountLinkingConfig(),
     },
     user: {
       additionalFields: {

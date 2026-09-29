@@ -8,6 +8,20 @@ type GoogleProviderOptions = {
 };
 
 /**
+ * Google is the production identity provider, so a verified Google identity
+ * may claim an existing legacy credential user with the same email address.
+ * Different-email linking remains disabled to prevent account takeover.
+ */
+export function googleAccountLinkingConfig() {
+  return {
+    enabled: true,
+    trustedProviders: ["google"],
+    allowDifferentEmails: false,
+    updateUserInfoOnLink: false,
+  };
+}
+
+/**
  * Keeps OAuth disabled in environments without credentials, while refusing a
  * partial configuration that would otherwise fail only after a user taps the
  * Google button.
