@@ -30,6 +30,7 @@ test("Google OAuth can safely link matching legacy credential accounts", () => {
   assert.deepEqual(googleAccountLinkingConfig(), {
     enabled: true,
     trustedProviders: ["google"],
+    requireLocalEmailVerified: false,
     allowDifferentEmails: false,
     updateUserInfoOnLink: false,
   });

@@ -16,6 +16,9 @@ export function googleAccountLinkingConfig() {
   return {
     enabled: true,
     trustedProviders: ["google"],
+    // Legacy credential accounts were created before email verification was
+    // enforced. Google proves control of the matching email during OAuth.
+    requireLocalEmailVerified: false,
     allowDifferentEmails: false,
     updateUserInfoOnLink: false,
   };
