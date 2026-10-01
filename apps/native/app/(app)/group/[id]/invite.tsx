@@ -42,7 +42,7 @@ export default function GroupInviteScreen() {
   if (data.status !== "active" || data.targetHit || data.awarded) {
     return <GroupErrorState message="This group is no longer accepting new members." onBack={() => router.dismissTo({ pathname: "/(app)/group/[id]", params: { id } })} />;
   }
-  const inviteLink = Linking.createURL("/(app)/group/new", {
+  const inviteLink = Linking.createURL("/group/new", {
     queryParams: { code: data.inviteCode, mode: "join" },
   });
   const message = `Join my RDM group goal “${data.name}” with code ${data.inviteCode}. Pledge at least ${data.minimumPledge} RDM from your Base Purse. ${inviteLink}`;
@@ -94,9 +94,9 @@ export default function GroupInviteScreen() {
         <Text selectable style={styles.code}>{data.inviteCode}</Text>
         <GroupPrimaryButton color={colors.plum} icon="content-copy" label="Copy code" onPress={() => void copyCode()} style={styles.fullButton} />
         <View style={styles.metricsRow}>
-          <View style={styles.metric}><MaterialCommunityIcons color={colors.inkSoft} name="calendar-outline" size={16} /><Text style={styles.metricText}>{data.durationDays} days</Text></View>
-          <View style={styles.metric}><MaterialCommunityIcons color={colors.inkSoft} name="hand-coin-outline" size={16} /><Text style={styles.metricText}>{formatRdm(data.minimumPledge)} RDM per member</Text></View>
-          <View style={styles.metric}><MaterialCommunityIcons color={colors.inkSoft} name="flag-checkered" size={16} /><Text style={styles.metricText}>{data.target} {data.unit}</Text></View>
+          <View style={styles.metric}><MaterialCommunityIcons color={colors.inkSoft} name="calendar-outline" size={16} /><Text numberOfLines={2} style={styles.metricText}>{data.durationDays} days</Text></View>
+          <View style={styles.metric}><MaterialCommunityIcons color={colors.inkSoft} name="hand-coin-outline" size={16} /><Text numberOfLines={2} style={styles.metricText}>{formatRdm(data.minimumPledge)} RDM per member</Text></View>
+          <View style={styles.metric}><MaterialCommunityIcons color={colors.inkSoft} name="flag-checkered" size={16} /><Text numberOfLines={2} style={styles.metricText}>{data.target} {data.unit}</Text></View>
         </View>
       </GroupSurfaceCard>
       <GroupSectionLabel>Send a direct invite</GroupSectionLabel>
@@ -134,8 +134,8 @@ const styles = StyleSheet.create({
   code: { color: colors.plum, fontFamily: fonts.monoBold, fontSize: 31, letterSpacing: 5 },
   fullButton: { width: "100%" },
   metricsRow: { borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingTop: 14, width: "100%" },
-  metric: { alignItems: "center", gap: 5 },
-  metricText: { color: colors.inkSoft, textAlign: "center", ...typography.compactMeta },
+  metric: { alignItems: "center", flex: 1, gap: 5, minWidth: 0, paddingHorizontal: 3 },
+  metricText: { color: colors.inkSoft, flexShrink: 1, textAlign: "center", ...typography.compactMeta },
   channelRow: { alignItems: "center", borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: "row", gap: 11, minHeight: 60 },
   channelRowLast: { borderBottomWidth: 0 },
   channelIcon: { alignItems: "center", backgroundColor: colors.panelRaised, borderRadius: 11, height: 38, justifyContent: "center", width: 38 },

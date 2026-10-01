@@ -19,6 +19,7 @@ let mongo: ChildProcess | undefined;
 let temporaryDirectory: string;
 let db: typeof import("@rdm-b2c/db");
 let appRouter: typeof import("../routers/index")["appRouter"];
+let reconcileDueGroupGoalsBatch: typeof import("../routers/rdm")["reconcileDueGroupGoalsBatch"];
 let auth: typeof import("@rdm-b2c/auth")["auth"];
 
 before(async () => {
@@ -57,6 +58,7 @@ before(async () => {
   process.env.MEDAA_DAILY_REQUEST_LIMIT = "30";
   db = await import("@rdm-b2c/db");
   ({ appRouter } = await import("../routers/index"));
+  ({ reconcileDueGroupGoalsBatch } = await import("../routers/rdm"));
   ({ auth } = await import("@rdm-b2c/auth"));
   await Promise.all([db.RdmProfile, db.Habit, db.Goal, db.TreeCareActivity, db.GratitudeEntry,
     db.GoodDeedEntry, db.GoalGroup, db.GameSession, db.Referral, db.MedaaConversation, db.MedaaUsage].map((model) => model.init()));
@@ -241,6 +243,7 @@ test("an unfunded failed join cannot block the funded group's award pool", async
   const failedMember = caller(failedMemberId);
   const group = await creator.rdm.groups.create(testGroupInput({ rewardStructure: "winner_takes_all", target: 10 }));
   await assert.rejects(() => failedMember.rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 }));
+  await assert.rejects(() => failedMember.rdm.groups.detail({ id: group.id }), { code: "NOT_FOUND" });
   await creator.rdm.groups.logContribution({ id: group.id, operationId: randomUUID(), amount: 10 });
   const preview = await creator.rdm.groups.awardPreview({ id: group.id });
   assert.equal(preview.group.members.length, 1);
@@ -248,6 +251,149 @@ test("an unfunded failed join cannot block the funded group's award pool", async
   await creator.rdm.groups.award({ id: group.id });
   assert.equal((await creator.rdm.wallet.summary()).wallet.peer, 10);
   assert.equal((await failedMember.rdm.wallet.summary()).wallet.balance, 0);
+});
+
+test("failed join funding releases the reserved member slot immediately", async () => {
+  const creatorId = randomUUID();
+  const fundedMemberId = randomUUID();
+  await Promise.all([
+    db.RdmProfile.create({ userId: creatorId, walletBalance: 100 }),
+    db.RdmProfile.create({ userId: fundedMemberId, walletBalance: 100 }),
+  ]);
+  const creator = caller(creatorId);
+  const group = await creator.rdm.groups.create(testGroupInput({ rewardStructure: "winner_takes_all" }));
+
+  for (let index = 0; index < 49; index += 1) {
+    const unfundedMember = caller(randomUUID());
+    await assert.rejects(() => unfundedMember.rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 }));
+  }
+
+  const joined = await caller(fundedMemberId).rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 });
+  assert.equal(joined.members.length, 2);
+  assert.equal(joined.rewardPool, 20);
+});
+
+test("a pending member cannot read member-only group details", async () => {
+  const creatorId = randomUUID();
+  const pendingMemberId = randomUUID();
+  await db.RdmProfile.create({ userId: creatorId, walletBalance: 100 });
+  const creator = caller(creatorId);
+  const group = await creator.rdm.groups.create(testGroupInput({ rewardStructure: "winner_takes_all" }));
+  await db.GoalGroup.updateOne({ _id: group.id }, {
+    $push: {
+      members: {
+        userId: pendingMemberId,
+        name: "Pending member",
+        initials: "PM",
+        contribution: 0,
+        pledgeAmount: 10,
+        pledgeOperationId: `group-stake:${group.id}:${pendingMemberId}`,
+        fundingStatus: "pending",
+        award: 0,
+      },
+    },
+  });
+
+  await assert.rejects(() => caller(pendingMemberId).rdm.groups.detail({ id: group.id }), { code: "NOT_FOUND" });
+});
+
+test("invite preview reports when an active group has reached member capacity", async () => {
+  const creatorId = randomUUID();
+  await db.RdmProfile.create({ userId: creatorId, walletBalance: 100 });
+  const creator = caller(creatorId);
+  const group = await creator.rdm.groups.create(testGroupInput({ rewardStructure: "winner_takes_all" }));
+  await db.GoalGroup.updateOne({ _id: group.id }, {
+    $push: {
+      members: {
+        $each: Array.from({ length: 49 }, (_, index) => ({
+          userId: randomUUID(),
+          name: `Capacity member ${index + 1}`,
+          initials: "CM",
+          contribution: 0,
+          pledgeAmount: 10,
+          pledgeOperationId: `capacity-member-${index + 1}`,
+          fundingStatus: "funded",
+          award: 0,
+        })),
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => caller(randomUUID()).rdm.groups.preview({ inviteCode: group.inviteCode }),
+    { code: "CONFLICT", message: "This group already has 50 members" },
+  );
+});
+
+test("stale unbacked join reservations are removed before capacity is checked", async () => {
+  const creatorId = randomUUID();
+  const fundedMemberId = randomUUID();
+  await Promise.all([
+    db.RdmProfile.create({ userId: creatorId, walletBalance: 100 }),
+    db.RdmProfile.create({ userId: fundedMemberId, walletBalance: 100 }),
+  ]);
+  const creator = caller(creatorId);
+  const group = await creator.rdm.groups.create(testGroupInput({ rewardStructure: "winner_takes_all" }));
+  await db.GoalGroup.updateOne({ _id: group.id }, {
+    $push: {
+      members: {
+        $each: Array.from({ length: 49 }, (_, index) => ({
+          userId: randomUUID(),
+          name: `Interrupted member ${index + 1}`,
+          initials: "IM",
+          contribution: 0,
+          pledgeAmount: 10,
+          pledgeOperationId: `interrupted-member-${index + 1}`,
+          fundingStatus: "pending",
+          joinedAt: new Date(Date.now() - 10 * 60_000),
+          award: 0,
+        })),
+      },
+    },
+  });
+
+  const preview = await caller(fundedMemberId).rdm.groups.preview({ inviteCode: group.inviteCode });
+  assert.equal(preview.group.members.length, 1);
+  const joined = await caller(fundedMemberId).rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 });
+  assert.equal(joined.members.length, 2);
+});
+
+test("a debit arriving after stale reservation cleanup is refunded while the group remains open", async () => {
+  const creatorId = randomUUID();
+  const interruptedMemberId = randomUUID();
+  await Promise.all([
+    db.RdmProfile.create({ userId: creatorId, walletBalance: 100 }),
+    db.RdmProfile.create({ userId: interruptedMemberId, walletBalance: 100 }),
+  ]);
+  const creator = caller(creatorId);
+  const group = await creator.rdm.groups.create(testGroupInput({ rewardStructure: "winner_takes_all" }));
+  const operationId = `group-stake:${group.id}:${interruptedMemberId}`;
+  await db.GoalGroup.updateOne({ _id: group.id }, {
+    $push: {
+      members: {
+        userId: interruptedMemberId,
+        name: "Interrupted member",
+        initials: "IM",
+        contribution: 0,
+        pledgeAmount: 10,
+        pledgeOperationId: operationId,
+        fundingStatus: "pending",
+        joinedAt: new Date(Date.now() - 10 * 60_000),
+        award: 0,
+      },
+    },
+  });
+  await caller(randomUUID()).rdm.groups.preview({ inviteCode: group.inviteCode });
+  await db.RdmProfile.updateOne({ userId: interruptedMemberId }, {
+    $set: { walletBalance: 90 },
+    $addToSet: { creditedOperations: operationId },
+    $push: { transactions: { title: "Group pledge locked — Reading together", kind: "stake", amount: -10, operationId, createdAt: new Date() } },
+  });
+
+  assert.equal((await caller(interruptedMemberId).rdm.wallet.summary()).wallet.base, 100);
+  const profile = await db.RdmProfile.findOne({ userId: interruptedMemberId });
+  assert.ok(profile?.creditedOperations.includes(`group-refund:${group.id}:${interruptedMemberId}`));
+  assert.equal((await creator.rdm.groups.detail({ id: group.id })).status, "active");
 });
 
 test("a late join debit after pending-slot cleanup is refunded from its receipt exactly once", async () => {
@@ -318,6 +464,27 @@ test("a refunded expired creator attempt cannot reuse its original debit receipt
   await assert.rejects(() => creator.rdm.groups.create(input), { code: "CONFLICT" });
   assert.equal(await db.GoalGroup.countDocuments({ creatorId, creationId: input.creationId }), 1);
   assert.equal((await creator.rdm.wallet.summary()).wallet.base, 100);
+});
+
+test("group idempotency keys reject a different creation or join pledge", async () => {
+  const creatorId = randomUUID();
+  const memberId = randomUUID();
+  await Promise.all([creatorId, memberId].map((userId) => db.RdmProfile.create({ userId, walletBalance: 100 })));
+  const creator = caller(creatorId);
+  const member = caller(memberId);
+  const input = testGroupInput({ rewardStructure: "winner_takes_all" });
+  const group = await creator.rdm.groups.create(input);
+
+  await assert.rejects(
+    () => creator.rdm.groups.create({ ...input, name: "A different group" }),
+    { code: "CONFLICT", message: "This creation request was already used for a different group" },
+  );
+  await member.rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 });
+  await assert.rejects(
+    () => member.rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 11 }),
+    { code: "CONFLICT", message: "This join request already has a different pledge" },
+  );
+  assert.equal((await member.rdm.wallet.summary()).wallet.base, 90);
 });
 
 test("a selected-weekday habit charges only scheduled days and keeps missed history after finishing", async () => {
@@ -466,6 +633,22 @@ test("three real group participants join, contribute and receive the saved award
   await assert.rejects(() => caller(randomUUID()).rdm.groups.detail({ id: group.id }));
 });
 
+test("top-three groups complete smoothly without rewarding non-contributors", async () => {
+  const ids = [randomUUID(), randomUUID(), randomUUID()];
+  await Promise.all(ids.map((userId) => db.RdmProfile.create({ userId, walletBalance: 100 })));
+  const [creatorId, secondId, thirdId] = ids;
+  assert.ok(creatorId && secondId && thirdId);
+  const creator = caller(creatorId);
+  const group = await creator.rdm.groups.create(testGroupInput({ target: 10 }));
+  await caller(secondId).rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 });
+  await caller(thirdId).rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 });
+
+  const completed = await creator.rdm.groups.logContribution({ id: group.id, operationId: randomUUID(), amount: 10 });
+  assert.equal(completed.targetHit, true);
+  const preview = await creator.rdm.groups.awardPreview({ id: group.id });
+  assert.deepEqual(preview.amounts, [30, 0, 0]);
+});
+
 test("a contribution note is saved for that member only and defaults to empty", async () => {
   const ids = [randomUUID(), randomUUID()];
   await Promise.all(ids.map((userId) => db.RdmProfile.create({ userId, walletBalance: 100 })));
@@ -508,6 +691,94 @@ test("an unfinished group expires and refunds each member's original pledge once
   await assert.rejects(() => creator.rdm.groups.award({ id: group.id }));
 });
 
+test("a completed group automatically distributes its backed pool at the deadline", async () => {
+  const creatorId = randomUUID();
+  const memberId = randomUUID();
+  await Promise.all([creatorId, memberId].map((userId) => db.RdmProfile.create({ userId, walletBalance: 100 })));
+  const creator = caller(creatorId);
+  const member = caller(memberId);
+  const group = await creator.rdm.groups.create(testGroupInput({
+    rewardStructure: "winner_takes_all",
+    target: 10,
+  }));
+  await member.rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 });
+  await creator.rdm.groups.logContribution({ id: group.id, operationId: randomUUID(), amount: 10 });
+  await db.GoalGroup.updateOne({ _id: group.id }, { $set: { endDayKey: today() } });
+
+  const completed = await member.rdm.groups.detail({ id: group.id });
+  assert.equal(completed.status, "completed");
+  assert.equal(completed.awarded, true);
+  assert.deepEqual(completed.members.map((entry) => entry.award), [20, 0]);
+  assert.equal((await creator.rdm.wallet.summary()).wallet.peer, 20);
+  assert.equal((await member.rdm.wallet.summary()).wallet.peer, 0);
+
+  await Promise.all([creator.rdm.groups.detail({ id: group.id }), member.rdm.groups.detail({ id: group.id })]);
+  assert.equal((await creator.rdm.wallet.summary()).wallet.peer, 20);
+});
+
+test("the serverless settlement sweep completes due groups without a member request", async () => {
+  const creatorId = randomUUID();
+  await db.RdmProfile.create({ userId: creatorId, walletBalance: 100 });
+  const creator = caller(creatorId);
+  const group = await creator.rdm.groups.create(testGroupInput({
+    rewardStructure: "winner_takes_all",
+    target: 10,
+  }));
+  await creator.rdm.groups.logContribution({ id: group.id, operationId: randomUUID(), amount: 10 });
+  await db.GoalGroup.updateOne({ _id: group.id }, { $set: { endDayKey: today() } });
+
+  const result = await reconcileDueGroupGoalsBatch();
+  assert.ok(result.processed >= 1);
+  const completed = await db.GoalGroup.findById(group.id);
+  assert.equal(completed?.status, "completed");
+  assert.equal(completed?.awarded, true);
+  assert.equal((await creator.rdm.wallet.summary()).wallet.peer, 10);
+});
+
+test("the serverless sweep retries completed groups whose wallet awards were interrupted", async () => {
+  const creatorId = randomUUID();
+  await db.RdmProfile.create({ userId: creatorId, walletBalance: 100 });
+  const creator = caller(creatorId);
+  const group = await creator.rdm.groups.create(testGroupInput({
+    rewardStructure: "winner_takes_all",
+    target: 10,
+  }));
+  await creator.rdm.groups.logContribution({ id: group.id, operationId: randomUUID(), amount: 10 });
+  await db.GoalGroup.updateOne({ _id: group.id }, {
+    $set: { awarded: true, "members.0.award": 10, status: "completed" },
+  });
+  assert.equal((await creator.rdm.wallet.summary()).wallet.peer, 0);
+
+  await reconcileDueGroupGoalsBatch();
+  assert.equal((await creator.rdm.wallet.summary()).wallet.peer, 10);
+  const settled = await db.GoalGroup.findById(group.id);
+  assert.ok(settled?.awardsSettledAt instanceof Date);
+});
+
+test("automatic settlement releases legacy completed top-three groups", async () => {
+  const ids = [randomUUID(), randomUUID(), randomUUID()];
+  await Promise.all(ids.map((userId) => db.RdmProfile.create({ userId, walletBalance: 100 })));
+  const [creatorId, secondId, thirdId] = ids;
+  assert.ok(creatorId && secondId && thirdId);
+  const creator = caller(creatorId);
+  const group = await creator.rdm.groups.create(testGroupInput({ target: 10 }));
+  await caller(secondId).rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 });
+  await caller(thirdId).rdm.groups.join({ inviteCode: group.inviteCode, pledgeAmount: 10 });
+  await db.GoalGroup.updateOne({ _id: group.id }, {
+    $set: {
+      current: 10,
+      endDayKey: today(),
+      "members.0.contribution": 10,
+      targetHit: true,
+    },
+  });
+
+  const completed = await caller(secondId).rdm.groups.detail({ id: group.id });
+  assert.equal(completed.status, "completed");
+  assert.deepEqual(completed.members.map((member) => member.award), [30, 0, 0]);
+  assert.equal((await creator.rdm.wallet.summary()).wallet.peer, 30);
+});
+
 test("failed habit, goal and group funding attempts never charge later wallet reads without an explicit retry", async () => {
   const habitUserId = randomUUID();
   const goalUserId = randomUUID();
@@ -534,7 +805,7 @@ test("failed habit, goal and group funding attempts never charge later wallet re
   }
   assert.equal((await habitApi.rdm.habits.list()).length, 0);
   assert.equal((await goalApi.rdm.goals.list()).length, 0);
-  assert.equal((await groupApi.rdm.groups.list()).some((group) => group.status === "active"), false);
+  assert.deepEqual(await groupApi.rdm.groups.list(), []);
   await habitApi.rdm.habits.create(habitInput);
   await goalApi.rdm.goals.create(goalInput);
   await groupApi.rdm.groups.create(groupInput);

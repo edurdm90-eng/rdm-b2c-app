@@ -92,7 +92,11 @@ export default function GroupDashboardScreen() {
       />
       <GroupSurfaceCard style={styles.poolCard}>
         <View style={styles.poolHero}><View style={styles.poolIcon}><MaterialCommunityIcons color={colors.plum} name="run" size={27} /></View><View><Text style={styles.poolName}>{data.name}</Text><Text style={styles.progressCopy}>{data.status === "active" && !data.targetHit ? `Day ${dayNumber} of ${data.durationDays}` : `${data.daysRemaining} days remaining`}</Text></View></View>
-        <View style={styles.metrics}><View><Text style={styles.metricValue}>{data.current} / {data.target}</Text><Text style={styles.metricLabel}>Total {data.unit}</Text></View><View><Text style={styles.metricValue}>{Math.round((data.current / data.target) * 100)}%</Text><Text style={styles.metricLabel}>completed</Text></View><View><Text style={styles.metricValue}>{formatRdm(data.rewardPool)} RDM</Text><Text style={styles.metricLabel}>Group pool</Text></View></View>
+        <View style={styles.metrics}>
+          <View style={styles.metric}><Text numberOfLines={1} style={styles.metricValue}>{data.current} / {data.target}</Text><Text numberOfLines={2} style={styles.metricLabel}>Total {data.unit}</Text></View>
+          <View style={styles.metric}><Text numberOfLines={1} style={styles.metricValue}>{Math.round((data.current / data.target) * 100)}%</Text><Text style={styles.metricLabel}>completed</Text></View>
+          <View style={styles.metric}><Text numberOfLines={1} style={styles.metricValue}>{formatRdm(data.rewardPool)} RDM</Text><Text style={styles.metricLabel}>Group pool</Text></View>
+        </View>
         <ProgressBar color={data.targetHit ? colors.gold : colors.plum} progress={data.current / data.target} />
         <View style={styles.poolFooter}>
           <Text style={styles.poolMeta}>{data.daysRemaining} days left · {data.cadence} check-in</Text>
@@ -158,7 +162,7 @@ export default function GroupDashboardScreen() {
             <GroupPrimaryButton color={colors.gold} icon="trophy-outline" label="Choose winners" onPress={() => router.push({ pathname: "/(app)/group/[id]/winners", params: { id } })} />
           ) : null}
           {data.targetHit && !data.canAward && !data.awarded ? (
-            <GroupSurfaceCard style={styles.waitingCard}><Text style={styles.waitingTitle}>Target reached</Text><Text style={styles.helper}>The group creator will announce the awards.</Text></GroupSurfaceCard>
+            <GroupSurfaceCard style={styles.waitingCard}><Text style={styles.waitingTitle}>Target reached</Text><Text style={styles.helper}>The creator can announce awards now. If they do not, awards are distributed automatically after the group deadline.</Text></GroupSurfaceCard>
           ) : null}
           {data.awarded ? (
             <GroupPrimaryButton color={colors.gold} icon="trophy" label="View group results" onPress={() => router.push({ pathname: "/(app)/group/[id]/result", params: { id } })} />
@@ -175,6 +179,7 @@ export default function GroupDashboardScreen() {
                 <View style={styles.memberCopy}>
                   <Text style={styles.memberName}>{member.currentUser ? "You" : member.name}</Text>
                   <Text style={styles.memberProgress}>{member.contribution} {data.unit} logged</Text>
+                  {member.lastNote ? <Text numberOfLines={2} style={styles.memberNote}>“{member.lastNote}”</Text> : null}
                 </View>
                 <Text style={styles.memberPledge}>{formatRdm(member.pledgeAmount)} RDM</Text>
               </View>
@@ -200,8 +205,9 @@ const styles = StyleSheet.create({
   poolName: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 17 },
   progressCopy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
   metrics: { borderBottomColor: colors.line, borderBottomWidth: 1, borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingVertical: 11 },
+  metric: { flex: 1, minWidth: 0, paddingHorizontal: 3 },
   metricValue: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 14, textAlign: "center" },
-  metricLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, lineHeight: 14, marginTop: 3, textAlign: "center" },
+  metricLabel: { color: colors.inkSoft, flexShrink: 1, fontFamily: fonts.body, fontSize: 10, lineHeight: 14, marginTop: 3, textAlign: "center" },
   poolFooter: { flexDirection: "row", justifyContent: "space-between", width: "100%" },
   poolMeta: { color: colors.inkSoft, ...typography.compactMeta },
   tabRow: { backgroundColor: colors.panelRaised, borderColor: colors.line, borderRadius: 9, borderWidth: 1, flexDirection: "row", padding: 3 },
@@ -219,6 +225,7 @@ const styles = StyleSheet.create({
   memberCopy: { flex: 1 },
   memberName: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12 },
   memberProgress: { color: colors.inkSoft, marginTop: 2, ...typography.compactMeta },
+  memberNote: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, fontStyle: "italic", lineHeight: 14, marginTop: 3 },
   memberPledge: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 11 },
   inviteRow: { alignItems: "center", flexDirection: "row", gap: 10, minHeight: 52 },
   inviteIcon: { alignItems: "center", backgroundColor: colors.plumTint, borderRadius: 15, height: 30, justifyContent: "center", width: 30 },

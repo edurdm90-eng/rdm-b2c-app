@@ -7,6 +7,7 @@ const server = {
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.url(),
   CORS_ORIGIN: z.url(),
+  CRON_SECRET: z.string().min(32).optional(),
   GOOGLE_CLIENT_ID: z.string().trim().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().trim().min(1).optional(),
   LEGACY_FOCUS_TAP_CUTOFF: z.coerce.date().default(new Date("2026-10-25T00:00:00.000Z")),
@@ -18,9 +19,15 @@ const server = {
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 };
 
-export const env = createEnv<undefined, typeof server>({
+const parsedEnv = createEnv<undefined, typeof server>({
   server,
   runtimeEnv: process.env,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,
 });
+
+if (parsedEnv.NODE_ENV === "production" && !parsedEnv.CRON_SECRET) {
+  throw new Error("CRON_SECRET is required in production so scheduled settlements cannot be disabled or called publicly.");
+}
+
+export const env = parsedEnv;

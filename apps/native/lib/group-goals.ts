@@ -65,7 +65,7 @@ export const groupGoalActivities: Record<GroupGoalCategory, ReadonlyArray<GroupG
 
 const rewardStructurePresentation: Record<GroupGoalRewardStructure, { title: string; description: string }> = {
   winner_takes_all: { title: "Winner takes all", description: "Entire pool to highest contributor." },
-  top_3: { title: "Top 3 finishers", description: "Split pool among top 3." },
+  top_3: { title: "Top contributors", description: "Up to three contributors share the pool; zero-progress members receive nothing." },
   win_as_group: { title: "Win as a group", description: "Everyone shares the pool in proportion to their contribution." },
 };
 

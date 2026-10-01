@@ -72,10 +72,19 @@ export function groupAwardAmounts({
   }
 
   if (structure === "top_3") {
-    if (contributions.length < 3) return null;
-    amounts[rankedIndexes[0] ?? 0] = Math.floor(pool * 0.6);
-    amounts[rankedIndexes[1] ?? 1] = Math.floor(pool * 0.3);
-    amounts[rankedIndexes[2] ?? 2] = pool - amounts.reduce((total, amount) => total + amount, 0);
+    const rankedContributors = rankedIndexes.filter((index) => (contributions[index] ?? 0) > 0);
+    if (rankedContributors.length === 0) return null;
+    if (rankedContributors.length === 1) {
+      amounts[rankedContributors[0] ?? 0] = pool;
+      return amounts;
+    }
+    amounts[rankedContributors[0] ?? 0] = Math.floor(pool * 0.6);
+    if (rankedContributors.length === 2) {
+      amounts[rankedContributors[1] ?? 1] = pool - amounts.reduce((total, amount) => total + amount, 0);
+      return amounts;
+    }
+    amounts[rankedContributors[1] ?? 1] = Math.floor(pool * 0.3);
+    amounts[rankedContributors[2] ?? 2] = pool - amounts.reduce((total, amount) => total + amount, 0);
     return amounts;
   }
 

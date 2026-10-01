@@ -4,6 +4,9 @@
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist",
+  "crons": [
+    { "path": "/api/cron/settlements", "schedule": "0 0 * * *" }
+  ],
   "rewrites": [
     { "source": "/", "destination": "/api" },
     { "source": "/trpc/:path*", "destination": "/api/trpc/:path*" }

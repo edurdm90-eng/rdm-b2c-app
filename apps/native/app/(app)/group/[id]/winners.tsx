@@ -67,7 +67,7 @@ export default function GroupWinnersScreen() {
         <Text style={styles.heroTitle}>You reached the goal together.</Text>
         <Text style={styles.heroFraction}>{group.current} of {group.target} {group.unit} <MaterialCommunityIcons color={colors.growth} name="check-circle" size={16} /></Text>
         <ProgressBar color={colors.growth} progress={1} />
-        <Text style={styles.intro}>All group members completed their target for this cycle.</Text>
+        <Text style={styles.intro}>The shared group target is complete. Awards are based on each member&apos;s contribution.</Text>
       </View>
       <GroupSectionLabel action={<Text style={styles.ownerOnly}>OWNER ONLY</Text>}>Confirm group awards</GroupSectionLabel>
       <GroupSurfaceCard style={styles.summaryCard}>

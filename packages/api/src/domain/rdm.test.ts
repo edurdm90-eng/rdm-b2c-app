@@ -310,9 +310,13 @@ test("group reward structures distribute the complete pool by performance", () =
     groupAwardAmounts({ contributions, pool: 300, structure: "win_as_group" }),
     [92, 107, 65, 36],
   );
-  assert.equal(
+  assert.deepEqual(
     groupAwardAmounts({ contributions: [10, 5], pool: 300, structure: "top_3" }),
-    null,
+    [180, 120],
+  );
+  assert.deepEqual(
+    groupAwardAmounts({ contributions: [10, 0, 0], pool: 300, structure: "top_3" }),
+    [300, 0, 0],
   );
 });
 

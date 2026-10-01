@@ -16,6 +16,7 @@
         "MONGODB_MAX_POOL_SIZE",
         "BETTER_AUTH_URL",
         "CORS_ORIGIN",
+        "CRON_SECRET",
         "PORT",
         "NODE_ENV"
       ],

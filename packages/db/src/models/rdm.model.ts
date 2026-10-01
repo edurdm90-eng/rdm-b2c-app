@@ -328,6 +328,7 @@ const groupSchema = new Schema(
     expiredAt: { type: Date },
     targetHit: { type: Boolean, required: true, default: false },
     awarded: { type: Boolean, required: true, default: false },
+    awardsSettledAt: { type: Date },
     specialAwarded: { type: Boolean, required: true, default: false },
     specialCollectible: { type: collectibleSchema },
     loggedOperations: { type: [String], required: true, default: [] },

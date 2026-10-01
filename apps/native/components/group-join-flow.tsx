@@ -46,6 +46,12 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
   const baseBalance = preview.data?.profile.wallet.base ?? 0;
   const baseAfterJoin = baseBalance - joinMinimum;
   const joinHasFunds = joinMinimum > 0 ? baseBalance >= joinMinimum : baseBalance >= 0;
+  const commitmentCount = preview.data?.group.pledgeBasis === "per_activity"
+    ? preview.data.group.expectedActivities
+    : preview.data?.group.durationDays ?? 0;
+  const commitmentUnit = preview.data?.group.pledgeBasis === "per_activity"
+    ? commitmentCount === 1 ? "activity" : "activities"
+    : commitmentCount === 1 ? "day" : "days";
   // serializeGroup doesn't expose creatorId; the creator is always inserted first and
   // only ever appended to, so members[0] is reliably the organiser.
   const organiserName = preview.data?.group.members[0]?.name ?? "the organiser";
@@ -114,9 +120,9 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
               <View style={styles.categoryChip}><Text style={styles.categoryChipLabel}>{preview.data.group.category}</Text></View>
             </View>
             <View style={styles.previewMetrics}>
-              <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="calendar-range" size={16} /><Text style={styles.previewMeta}>{formatDayRange(preview.data.group.startDayKey, preview.data.group.endDayKey)}</Text></View>
-              <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="flag-checkered" size={16} /><Text style={styles.previewMeta}>{preview.data.group.target} {preview.data.group.unit}</Text></View>
-              <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="account-group-outline" size={16} /><Text style={styles.previewMeta}>{preview.data.group.durationDays} days</Text></View>
+              <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="calendar-range" size={16} /><Text numberOfLines={2} style={styles.previewMeta}>{formatDayRange(preview.data.group.startDayKey, preview.data.group.endDayKey)}</Text></View>
+              <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="flag-checkered" size={16} /><Text numberOfLines={2} style={styles.previewMeta}>{preview.data.group.target} {preview.data.group.unit}</Text></View>
+              <View style={styles.previewMetric}><MaterialCommunityIcons color={colors.inkSoft} name="account-group-outline" size={16} /><Text numberOfLines={2} style={styles.previewMeta}>{preview.data.group.durationDays} days</Text></View>
             </View>
             <GroupAvatars members={preview.data.group.members} />
           </GroupSurfaceCard>
@@ -128,7 +134,7 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
                   <MaterialCommunityIcons color={colors.gold} name="hand-coin-outline" size={20} />
                   <Text style={styles.commitmentTotal}>{formatRdm(joinMinimum)} RDM total</Text>
                 </View>
-                <Text style={styles.commitmentHint}>{formatRdm(preview.data.group.pledgePerUnit)} RDM per {preview.data.group.pledgeBasis === "per_day" ? "day" : "activity"} × {preview.data.group.durationDays} days</Text>
+                <Text style={styles.commitmentHint}>{formatRdm(preview.data.group.pledgePerUnit)} RDM per {preview.data.group.pledgeBasis === "per_day" ? "day" : "activity"} × {commitmentCount} {commitmentUnit}</Text>
               </GroupSurfaceCard>
               <GroupSectionLabel>Reward rule</GroupSectionLabel>
               <GroupSurfaceCard style={styles.rewardRow}>
@@ -187,8 +193,8 @@ const styles = StyleSheet.create({
   categoryChip: { backgroundColor: colors.plumTint, borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 4 },
   categoryChipLabel: { color: colors.plum, fontFamily: fonts.bodyMedium, fontSize: 10 },
   previewMetrics: { borderBottomColor: colors.line, borderBottomWidth: 1, borderTopColor: colors.line, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingVertical: 9 },
-  previewMetric: { alignItems: "center", flexDirection: "row", gap: 5 },
-  previewMeta: { color: colors.inkSoft, ...typography.compactMeta },
+  previewMetric: { alignItems: "center", flex: 1, flexDirection: "row", gap: 5, justifyContent: "center", minWidth: 0, paddingHorizontal: 3 },
+  previewMeta: { color: colors.inkSoft, flexShrink: 1, textAlign: "center", ...typography.compactMeta },
   commitmentCard: { alignItems: "center", gap: 6 },
   commitmentRow: { alignItems: "center", flexDirection: "row", gap: 8 },
   commitmentTotal: { color: colors.gold, fontFamily: fonts.monoBold, fontSize: 22 },

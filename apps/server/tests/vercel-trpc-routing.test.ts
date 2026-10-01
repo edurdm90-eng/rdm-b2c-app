@@ -21,3 +21,17 @@ test("the Vercel deployment exposes the nested Google OAuth callback route", () 
   assert.match(source, /toWebRequest\(request\)/,
     "The Google callback handler must preserve /api/auth/callback/google for Better Auth.");
 });
+
+test("the Vercel deployment schedules an authenticated group settlement sweep", () => {
+  const cronHandler = new URL("../api/cron/settlements.ts", import.meta.url);
+  const vercelConfig = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
+
+  assert.equal(existsSync(cronHandler), true, "Serverless deployments need a settlement function instead of the long-running worker.");
+  assert.deepEqual(vercelConfig.crons, [{ path: "/api/cron/settlements", schedule: "0 0 * * *" }]);
+  const handlerSource = readFileSync(cronHandler, "utf8");
+  const appSource = readFileSync(new URL("../src/app.ts", import.meta.url), "utf8");
+  assert.match(handlerSource, /toWebRequest\(request\)/);
+  assert.match(appSource, /env\.CRON_SECRET/);
+  assert.match(appSource, /reconcileDueGroupGoalsBatch/);
+  assert.match(appSource, /authorization/iu);
+});
