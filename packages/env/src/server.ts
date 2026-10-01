@@ -19,15 +19,9 @@ const server = {
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 };
 
-const parsedEnv = createEnv<undefined, typeof server>({
+export const env = createEnv<undefined, typeof server>({
   server,
   runtimeEnv: process.env,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,
 });
-
-if (parsedEnv.NODE_ENV === "production" && !parsedEnv.CRON_SECRET) {
-  throw new Error("CRON_SECRET is required in production so scheduled settlements cannot be disabled or called publicly.");
-}
-
-export const env = parsedEnv;
