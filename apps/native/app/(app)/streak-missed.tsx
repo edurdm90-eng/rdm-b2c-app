@@ -8,7 +8,7 @@ import { FocusedButton, focusedColors as palette } from "@/components/focused-ui
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { TreeArtwork, TreePage, formatTreeDay, treeStyles as shared } from "@/components/tree-ui";
 import { fonts, formatRdm } from "@/lib/theme";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, queryClient, trpc } from "@/utils/trpc";
 
 export default function StreakMissedScreen() {
   const focused = useIsFocused();
@@ -30,7 +30,11 @@ export default function StreakMissedScreen() {
     setError("");
     try {
       await acknowledge.mutateAsync({ dayKey: missedDay.dayKey });
-      await queryClient.invalidateQueries({ queryKey: trpc.rdm.pathKey() });
+      await queryClient.invalidateQueries({ queryKey: trpc.rdm.tree.pathKey() });
+      invalidateQueriesInBackground(
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
       setResolved(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not open your tree. Please try again.");

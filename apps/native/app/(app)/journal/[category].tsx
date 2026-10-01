@@ -14,7 +14,7 @@ import { formatTreeDay, TreeNotice, TreePage } from "@/components/tree-ui";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, trpc } from "@/utils/trpc";
 
 type JournalDetail = inferRouterOutputs<AppRouter>["rdm"]["gratitude"]["byCategory"];
 type JournalEntry = NonNullable<JournalDetail["todayEntry"]>;
@@ -44,7 +44,12 @@ function JournalForm({ detail, onRefresh }: { detail: JournalDetail; onRefresh: 
       setBody(result.entry.body);
       setConfirmation({ reward: result.reward, alreadySaved: result.alreadySaved,
         message: result.profile.tree.pledgedAt ? "Your gratitude entry watered your tree." : "Your gratitude is saved. Plant your tree to start recording its growth." });
-      void queryClient.invalidateQueries();
+      invalidateQueriesInBackground(
+        trpc.rdm.gratitude.pathKey(),
+        trpc.rdm.tree.pathKey(),
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     },
     onError: (failure) => { setError(failure.message); onRefresh(); },
     onSettled: () => { submitting.current = false; },

@@ -12,7 +12,7 @@ import { formatTreeDay, TreePage } from "@/components/tree-ui";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, trpc } from "@/utils/trpc";
 
 export default function GoodDeedsScreen() {
   const [timeZone] = useState(getDeviceTimeZone);
@@ -29,7 +29,12 @@ export default function GoodDeedsScreen() {
       setSelectedDayKey(null);
       setConfirmation({ reward: result.reward, completedCount: result.completedCount,
         message: result.profile.tree.pledgedAt ? "Your good deeds added sunlight to your tree." : "Your good deeds are saved. Plant your tree to start recording its growth." });
-      void queryClient.invalidateQueries();
+      invalidateQueriesInBackground(
+        trpc.rdm.goodDeeds.pathKey(),
+        trpc.rdm.tree.pathKey(),
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     },
     onError: (failure) => { setError(failure.message); void goodDeeds.refetch(); },
     onSettled: () => { submitting.current = false; },

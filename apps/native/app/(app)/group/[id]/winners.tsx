@@ -19,7 +19,7 @@ import {
 import { groupRewardStructureTitle } from "@/lib/group-goals";
 import { LIVE_REFRESH_MS } from "@/lib/query-policy";
 import { colors, fonts, formatRdm, radii, typography } from "@/lib/theme";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, trpc } from "@/utils/trpc";
 
 export default function GroupWinnersScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
@@ -34,9 +34,13 @@ export default function GroupWinnersScreen() {
     refetchIntervalInBackground: false,
   });
   const award = useMutation(trpc.rdm.groups.award.mutationOptions({
-    onSuccess: async () => {
-      await queryClient.invalidateQueries();
+    onSuccess: () => {
       router.replace({ pathname: "/(app)/group/[id]/result", params: { id } });
+      invalidateQueriesInBackground(
+        trpc.rdm.groups.pathKey(),
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     },
     onError: (error) => Alert.alert("Could not announce winners", error.message),
   }));

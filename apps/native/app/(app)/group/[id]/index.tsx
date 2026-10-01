@@ -22,7 +22,7 @@ import { formatDayKey } from "@/lib/date";
 import { groupRewardStructureTitle, singularizeUnit } from "@/lib/group-goals";
 import { LIVE_REFRESH_MS } from "@/lib/query-policy";
 import { colors, fonts, formatRdm, radii, typography } from "@/lib/theme";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, queryClient, trpc } from "@/utils/trpc";
 
 type DashboardTab = "progress" | "members";
 
@@ -42,11 +42,15 @@ export default function GroupDashboardScreen() {
     refetchIntervalInBackground: false,
   });
   const logContribution = useMutation(trpc.rdm.groups.logContribution.mutationOptions({
-    onSuccess: async () => {
+    onSuccess: (updated) => {
+      queryClient.setQueryData(trpc.rdm.groups.detail.queryOptions({ id }).queryKey, updated);
       setOperationId(Crypto.randomUUID());
       setAmount(1);
       setNote("");
-      await queryClient.invalidateQueries();
+      invalidateQueriesInBackground(
+        trpc.rdm.groups.list.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     },
     onError: (error) => Alert.alert("Could not log progress", error.message),
   }));

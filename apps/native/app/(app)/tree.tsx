@@ -9,7 +9,7 @@ import { TreeArtwork, TreeNotice, TreePage, treeStyles as ui } from "@/component
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, queryClient, trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
@@ -45,7 +45,10 @@ export default function TreeScreen() {
     try {
       const result = await pledge.mutateAsync({ amount: parsedAmount, timeZone });
       queryClient.setQueryData(trpc.rdm.tree.overview.queryKey({ timeZone }), { profile: result, missedDay: null });
-      await queryClient.invalidateQueries({ queryKey: trpc.rdm.pathKey() });
+      invalidateQueriesInBackground(
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     } catch (failure) {
       setNotice(failure instanceof Error ? failure.message : "Your tree could not be confirmed. Check your balance and retry.");
       await overview.refetch();

@@ -17,7 +17,7 @@ import { formatDayRange } from "@/lib/date";
 import { groupRewardStructureDescription, groupRewardStructureTitle } from "@/lib/group-goals";
 import { LIVE_REFRESH_MS } from "@/lib/query-policy";
 import { colors, fonts, formatRdm, radii, typography } from "@/lib/theme";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, trpc } from "@/utils/trpc";
 
 export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
   const focused = useIsFocused();
@@ -32,9 +32,13 @@ export function GroupJoinFlow({ initialCode }: { initialCode?: string }) {
     refetchIntervalInBackground: false,
   });
   const joinGroup = useMutation(trpc.rdm.groups.join.mutationOptions({
-    onSuccess: async (group) => {
-      await queryClient.invalidateQueries();
+    onSuccess: (group) => {
       router.replace({ pathname: "/(app)/group/[id]", params: { id: group.id } });
+      invalidateQueriesInBackground(
+        trpc.rdm.groups.pathKey(),
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     },
     onError: (mutationError) => setError(mutationError.message),
   }));

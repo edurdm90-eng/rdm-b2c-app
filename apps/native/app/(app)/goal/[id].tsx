@@ -14,7 +14,7 @@ import { formatDayKey } from "@/lib/date";
 import { canSubmitGoalReflection, getGoalPresentation, type Goal } from "@/lib/goal-presentation";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, queryClient, trpc } from "@/utils/trpc";
 
 type GoalAction = "progress" | "complete" | "miss";
 type Confirmation = { action: GoalAction; dayKey: string; version: number; remaining: number };
@@ -61,16 +61,20 @@ export default function GoalDetailScreen() {
   }, [id, requestedView]);
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [view, tab]);
 
-  async function accept(saved: Goal) {
+  function accept(saved: Goal) {
     queryClient.setQueryData(trpc.rdm.goals.byId.queryOptions({ id }).queryKey, saved);
-    await queryClient.invalidateQueries();
+    invalidateQueriesInBackground(
+      trpc.rdm.goals.list.queryKey(),
+      trpc.rdm.wallet.summary.queryKey(),
+      trpc.rdm.dashboard.queryKey(),
+    );
   }
   async function failed(problem: { message: string }) {
     setError(problem.message);
     await goal.refetch();
   }
   const updateGoal = useMutation(trpc.rdm.goals.update.mutationOptions({
-    onSuccess: async (saved) => {
+    onSuccess: (saved) => {
       const action = confirmation?.action;
       setConfirmation(null); setNote(""); attempt.current = null;
       setNotice(action === "progress" ? "Target progress saved. Daily RDM is unchanged."
@@ -78,15 +82,15 @@ export default function GoalDetailScreen() {
           ? saved.status === "completed" ? "Goal completed. All daily RDM was already allocated; no extra payout was made."
             : "Goal ended. Remaining allocations moved to Remorse; previous Reward is unchanged."
           : formatRdm(saved.pledgeAmount) + " RDM moved to " + (saved.status === "completed" ? "Reward." : "Remorse."));
-      await accept(saved);
+      accept(saved);
     },
     onError: failed, onSettled: () => { inFlight.current = false; },
   }));
   const reflectGoal = useMutation(trpc.rdm.goals.reflect.mutationOptions({
-    onSuccess: async (saved) => {
+    onSuccess: (saved) => {
       setReflection(""); reflectionAttempt.current = null; reflectionDay.current = null; setView("overview"); setTab("overview");
       setNotice("Reflection saved. " + formatRdm(saved.pledgePerDay ?? 0) + " RDM moved to Reward from your pledge.");
-      await accept(saved);
+      accept(saved);
     },
     onError: failed, onSettled: () => { inFlight.current = false; },
   }));

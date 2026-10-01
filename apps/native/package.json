@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "expo start --clear",
     "check-types": "tsc --noEmit",
-    "test": "tsx --test lib/session-transition.test.ts",
+    "test": "tsx --test lib/*.test.ts",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",

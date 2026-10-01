@@ -11,7 +11,7 @@ import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/compon
 import { HabitDateField } from "@/components/habit-date-field";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 const categoryIcons: Record<GoalCategory, IconName> = {
@@ -55,9 +55,13 @@ export default function NewGoalScreen() {
   const minimumEndDayKey = goalDurationWindow(startDayKey, 1)?.endDayKey ?? todayDayKey;
 
   const createGoal = useMutation(trpc.rdm.goals.create.mutationOptions({
-    onSuccess: async (goal) => {
-      await queryClient.invalidateQueries();
+    onSuccess: (goal) => {
       setCreatedGoalId(goal.id);
+      invalidateQueriesInBackground(
+        trpc.rdm.goals.list.queryKey(),
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     },
     onError: (mutationError) => {
       setError(mutationError.message);

@@ -14,7 +14,7 @@ import { getHabitDetailPresentation, type HabitDetail } from "@/lib/habit-detail
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { goBackToJapaneseWisdom } from "@/lib/wisdom-navigation";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, queryClient, trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 const steps = ["Pledge", "Act", "Reflect", "Reward"];
@@ -127,16 +127,21 @@ export default function HabitDetailScreen() {
     setMissDayKey(null);
   }, [id]);
 
-  async function refresh(updated: HabitDetail) {
+  function refresh(updated: HabitDetail) {
     queryClient.setQueryData(trpc.rdm.habits.byId.queryOptions({ id }).queryKey, updated);
-    await queryClient.invalidateQueries();
+    invalidateQueriesInBackground(
+      trpc.rdm.habits.list.queryKey(),
+      trpc.rdm.wallet.summary.queryKey(),
+      trpc.rdm.dashboard.queryKey(),
+      trpc.rdm.tree.pathKey(),
+    );
   }
   function mutationError(problem: { message: string }) { setError(problem.message); }
   function settled() { inFlight.current = false; }
   const logAction = useMutation(trpc.rdm.habits.logAction.mutationOptions({ onSuccess: refresh, onError: mutationError, onSettled: settled }));
   const reflect = useMutation(trpc.rdm.habits.reflect.mutationOptions({ onSuccess: (result) => refresh(result.habit), onError: mutationError, onSettled: settled }));
   const miss = useMutation(trpc.rdm.habits.miss.mutationOptions({
-    onSuccess: async (result) => { setMissDayKey(null); setHistoryOpen(false); await refresh(result.habit); },
+    onSuccess: (result) => { setMissDayKey(null); setHistoryOpen(false); refresh(result.habit); },
     onError: mutationError, onSettled: settled,
   }));
   const startNext = useMutation(trpc.rdm.habits.startNextCycle.mutationOptions({ onSuccess: refresh, onError: mutationError, onSettled: settled }));

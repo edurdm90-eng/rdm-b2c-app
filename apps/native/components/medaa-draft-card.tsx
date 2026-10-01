@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FocusedButton, focusedColors as palette } from "@/components/focused-ui";
 import { HabitDateField } from "@/components/habit-date-field";
 import { fonts, formatRdm } from "@/lib/theme";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, queryClient, trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 const categoryIcons: Record<MedaaDraftContent["category"], IconName> = {
@@ -216,7 +216,11 @@ export function MedaaDraftCard({ conversationId, timeZone, draft, disabled, init
     try {
       const result = await set.mutateAsync({ conversationId, draftId: draft.id, reviewId: draft.review.id, confirmElapsedDates });
       onConversation(result);
-      await queryClient.invalidateQueries({ queryKey: trpc.rdm.pathKey() });
+      invalidateQueriesInBackground(
+        isHabit ? trpc.rdm.habits.list.queryKey() : trpc.rdm.goals.list.queryKey(),
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Creation could not be confirmed. Retry the same reviewed commitment.");
       await reloadConversation();

@@ -234,9 +234,9 @@ export function ProgressBar({ progress, color = colors.growth }: { progress: num
 
 export function LoadingState({ label = "Growing your dashboard…" }: { label?: string }) {
   return (
-    <View style={styles.centerState}>
-      <RdmLogo width={132} height={64} />
-      <ActivityIndicator color={colors.growth} size="large" />
+    <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.centerState}>
+      <RdmLogo width={96} height={46} />
+      <ActivityIndicator color={colors.growth} size="small" />
       <Text style={styles.stateLabel}>{label}</Text>
     </View>
   );
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.72 },
   progressTrack: { height: 8, borderRadius: 5, backgroundColor: "#2A2F3A", overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 5 },
-  centerState: { flex: 1, minHeight: 420, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 28 },
+  centerState: { flex: 1, minHeight: 300, alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 28 },
   stateLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, textAlign: "center" },
   errorTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 18, textAlign: "center" },
   dialogOverlay: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5, 7, 10, 0.76)", padding: 24 },

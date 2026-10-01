@@ -12,15 +12,16 @@ import * as Crypto from "expo-crypto";
 import { router, useLocalSearchParams } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { HabitDateField } from "@/components/habit-date-field";
+import { confirmationSheetHeight } from "@/lib/habit-confirmation-layout";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
 import { goBackToJapaneseWisdom } from "@/lib/wisdom-navigation";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 const categoryIcons: Record<HabitCategory, IconName> = {
@@ -73,6 +74,7 @@ export default function NewHabitScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const submissionInFlight = useRef(false);
   const insets = useSafeAreaInsets();
+  const { height: viewportHeight } = useWindowDimensions();
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions());
   const numericDailyPledge = Number(dailyRdm);
   const pledgeSchedule = useMemo(() => habitPledgeSchedule({
@@ -84,9 +86,14 @@ export default function NewHabitScreen() {
   const icon = (wisdomPractice?.icon ?? template?.icon ?? categoryIcons[category]) as IconName;
 
   const createHabit = useMutation(trpc.rdm.habits.create.mutationOptions({
-    onSuccess: async (habit) => {
-      await queryClient.invalidateQueries();
+    onSuccess: (habit) => {
+      setConfirmOpen(false);
       setCreatedHabitId(habit.id);
+      invalidateQueriesInBackground(
+        trpc.rdm.habits.list.queryKey(),
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     },
     onError: (mutationError) => setError(mutationError.message),
     onSettled: () => { submissionInFlight.current = false; },
@@ -330,7 +337,7 @@ export default function NewHabitScreen() {
         <Modal animationType="slide" transparent visible={confirmOpen} onRequestClose={() => { if (!createHabit.isPending) setConfirmOpen(false); }}>
           <View style={styles.modalBackdrop}>
             <Pressable accessibilityLabel="Go back to schedule" accessibilityRole="button" disabled={createHabit.isPending} onPress={() => setConfirmOpen(false)} style={StyleSheet.absoluteFill} />
-            <View accessibilityViewIsModal role="dialog" aria-modal style={styles.confirmSheet}>
+            <View accessibilityViewIsModal role="dialog" aria-modal style={[styles.confirmSheet, { height: confirmationSheetHeight(viewportHeight) }]}>
               <ScrollView style={styles.flex} contentContainerStyle={[styles.confirmContent, { paddingBottom: Math.max(insets.bottom, 16) }]} keyboardShouldPersistTaps="handled">
                 <View style={styles.sheetHandle} />
                 <Text accessibilityRole="header" style={styles.confirmTitle}>Confirm {wisdomPractice.title}</Text>

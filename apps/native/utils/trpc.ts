@@ -1,17 +1,18 @@
 import type { AppRouter } from "@rdm-b2c/api/routers/index";
 import { env } from "@rdm-b2c/env/native";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, type QueryKey } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { Platform } from "react-native";
 
 import { getStoredToken } from "@/lib/auth-token";
+import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
+      staleTime: STANDARD_REFRESH_MS,
+      gcTime: 15 * 60_000,
       retry: 1,
       refetchOnReconnect: true,
     },
@@ -50,3 +51,9 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: trpcClient,
   queryClient,
 });
+
+export function invalidateQueriesInBackground(...queryKeys: QueryKey[]) {
+  void Promise.allSettled(
+    queryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+  );
+}

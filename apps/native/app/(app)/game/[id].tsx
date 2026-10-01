@@ -11,7 +11,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ErrorState } from "@/components/rdm-ui";
 import { GameSessionView, type GameStatus, type GameResult } from "@/components/game-session-view";
-import { queryClient, trpc } from "@/utils/trpc";
+import { exitToGames } from "@/lib/game-navigation";
+import { invalidateQueriesInBackground, trpc } from "@/utils/trpc";
 
 type ProgressResult = {
   accepted: boolean;
@@ -83,7 +84,7 @@ export default function GamePlayScreen() {
   }));
   const progressGame = useMutation(trpc.rdm.games.progress.mutationOptions({ retry: 2 }));
   const completeGame = useMutation(trpc.rdm.games.complete.mutationOptions({
-    onSuccess: async (completed) => {
+    onSuccess: (completed) => {
       setResult(completed);
       setScore(completed.score);
       setActionCount(completed.actionCount);
@@ -91,7 +92,13 @@ export default function GamePlayScreen() {
       setStatus("complete");
       setError(null);
       finishing.current = false;
-      await queryClient.invalidateQueries();
+      invalidateQueriesInBackground(
+        trpc.rdm.games.list.queryKey(),
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+        trpc.rdm.social.badges.queryKey(),
+        trpc.rdm.social.leaderboard.pathKey(),
+      );
     },
     onError: (mutationError) => {
       setStatus("retry");
@@ -316,7 +323,7 @@ export default function GamePlayScreen() {
     isBusy={status !== "running" || progressGame.isPending || answerTransition || secondsLeft === 0}
     pendingAction={Boolean(pendingAction.current)}
     retryDisabled={status !== "running" || progressGame.isPending}
-    begin={begin} finish={finish} back={() => router.dismissTo("/(app)/(tabs)/games")}
+    begin={begin} finish={finish} back={() => exitToGames(router)}
     leaderboard={() => router.push("/(app)/leaderboard")}
     retry={() => void retryPendingAction()} selectOption={setSelectedOption}
     submitAnswer={() => { if (selectedOption) void (game.id === "aptitude-bliss" ? answerAptitude(selectedOption) : answerSort(selectedOption)); }}

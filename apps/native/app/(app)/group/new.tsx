@@ -35,7 +35,7 @@ import {
 } from "@/lib/group-goals";
 import { colors, fonts, formatRdm, radii } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
-import { queryClient, trpc } from "@/utils/trpc";
+import { invalidateQueriesInBackground, trpc } from "@/utils/trpc";
 
 type CreateStep = 1 | 2 | 3 | 4;
 
@@ -79,9 +79,13 @@ export default function NewGroupScreen() {
   const scheduleWindow = Number.isInteger(durationDays) && durationDays > 0 ? goalDurationWindow(startDayKey, durationDays) : null;
 
   const createGroup = useMutation(trpc.rdm.groups.create.mutationOptions({
-    onSuccess: async (group) => {
-      await queryClient.invalidateQueries();
+    onSuccess: (group) => {
       router.replace({ pathname: "/(app)/group/[id]/invite", params: { id: group.id } });
+      invalidateQueriesInBackground(
+        trpc.rdm.groups.list.queryKey(),
+        trpc.rdm.wallet.summary.queryKey(),
+        trpc.rdm.dashboard.queryKey(),
+      );
     },
     onError: (mutationError) => setError(mutationError.message),
   }));
