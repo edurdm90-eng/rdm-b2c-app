@@ -55,7 +55,7 @@ export default function TreeScreen() {
     } finally { submitting.current = false; setWorking(false); }
   }
 
-  return <TreePage title="Grow Every Day" busy={working} onBack={() => router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)")}
+  return <TreePage title="Grow Every Day" busy={working} footerInline={!planted} onBack={() => router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)")}
     footer={profile && !missedDayKey ? planted ? <>
       <Text style={[ui.small, styles.center]}>Care your way. Every positive action helps.</Text>
       <Pressable accessibilityRole="button" onPress={() => router.push("./tree-history")} style={ui.textButton}><Text style={ui.link}>View care history →</Text></Pressable>

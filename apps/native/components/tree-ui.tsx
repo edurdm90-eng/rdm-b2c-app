@@ -8,10 +8,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FocusedScreen, focusedColors as palette, focusedTypography } from "@/components/focused-ui";
 import { fonts } from "@/lib/theme";
 
-export function TreePage({ title, children, footer, onBack, busy = false }: {
+export function TreePage({ title, children, footer, footerInline = false, onBack, busy = false }: {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  footerInline?: boolean;
   onBack?: () => void;
   busy?: boolean;
 }) {
@@ -33,8 +34,9 @@ export function TreePage({ title, children, footer, onBack, busy = false }: {
       </View>
       <ScrollView style={styles.flex} contentContainerStyle={[styles.content, !footer && { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {children}
+        {footer && footerInline ? <View style={[styles.inlineFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>{footer}</View> : null}
       </ScrollView>
-      {footer ? <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>{footer}</View> : null}
+      {footer && !footerInline ? <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>{footer}</View> : null}
     </KeyboardAvoidingView>
   </FocusedScreen>;
 }
@@ -79,6 +81,7 @@ const styles = StyleSheet.create({
   title: { flex: 1, color: palette.text, fontFamily: fonts.bodyBold, fontSize: 19, lineHeight: 25 },
   content: { flexGrow: 1, paddingHorizontal: 18, paddingTop: 10, paddingBottom: 18, gap: 16 },
   footer: { paddingHorizontal: 18, paddingTop: 10, gap: 9, backgroundColor: palette.background },
+  inlineFooter: { gap: 9 },
   notice: { padding: 14, borderWidth: 1, borderColor: palette.line, borderRadius: 9, backgroundColor: palette.panel, flexDirection: "row", alignItems: "flex-start", gap: 12 },
   noticeText: { flex: 1, color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
 });
