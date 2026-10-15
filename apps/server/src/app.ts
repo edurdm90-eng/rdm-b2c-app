@@ -8,12 +8,14 @@ import {
   reconcileDueGroupGoalsBatch,
 } from "@rdm-b2c/api/routers/rdm";
 import { auth } from "@rdm-b2c/auth";
+import { PRODUCTION_AUTH_ORIGIN } from "@rdm-b2c/auth/branding";
 import { client } from "@rdm-b2c/db";
 import { env } from "@rdm-b2c/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
+import { canonicalAuthRedirect } from "./auth-origin";
 import { cronAuthorizationStatus } from "./cron-auth";
 import {
   advancePersistedSettlementSweep,
@@ -133,6 +135,7 @@ app.use(
     origin: (origin) => {
       const allowedOrigins = new Set([
         env.CORS_ORIGIN,
+        PRODUCTION_AUTH_ORIGIN,
         "http://localhost:8081",
         "http://127.0.0.1:8081",
         "http://localhost:8082",
@@ -146,6 +149,11 @@ app.use(
     credentials: true,
   }),
 );
+app.use("/api/auth/*", async (c, next) => {
+  const redirect = canonicalAuthRedirect(c.req.raw, env.NODE_ENV);
+  if (redirect) return redirect;
+  await next();
+});
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 

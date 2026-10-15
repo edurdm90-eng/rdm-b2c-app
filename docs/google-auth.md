@@ -27,6 +27,30 @@ native server URL, Better Auth URL, and Google redirect origin must remain the
 same. A mismatch can cause `redirect_uri_mismatch` or a rejected OAuth state
 after Google sends the user back.
 
+Production also pins Better Auth's public application name to `RDM` and its
+OAuth callback host to `www.rdmtoken.org`. Production auth requests that reach
+a Vercel preview or stale deployment URL are redirected to the branded public
+domain before Better Auth creates its host-bound OAuth state cookie. This keeps
+the provider hostname out of Google's account chooser without causing an OAuth
+state mismatch.
+
+## Google account chooser branding
+
+The name and logo shown by Google's account chooser are controlled by the
+Google Cloud project, not by Better Auth or the Expo app. In **Google Auth
+Platform → Branding**, configure:
+
+- App name: `RDM`
+- Authorized domain: `rdmtoken.org`
+- Homepage, privacy policy, and terms URLs hosted on `rdmtoken.org`
+- The RDM logo and a monitored company support email
+
+For a public production app, verify and publish the branding after saving it.
+Unverified branding can cause Google to show only the callback domain instead
+of the RDM product name. Keep the OAuth client's production redirect URI set to
+`https://www.rdmtoken.org/api/auth/callback/google`; do not register or retain a
+`vercel.app` redirect for production.
+
 Google is the native app's only sign-in method, so its button is always visible.
 Every runnable server requires both Google variables, preventing an environment
 that looks healthy while its only native login method is unavailable. Automated

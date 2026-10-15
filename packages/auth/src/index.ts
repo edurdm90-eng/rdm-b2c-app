@@ -6,6 +6,11 @@ import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { bearer } from "better-auth/plugins";
 import { ObjectId } from "mongodb";
 
+import {
+  AUTH_APPLICATION_NAME,
+  PRODUCTION_AUTH_ORIGIN,
+  authBaseURLConfig,
+} from "./branding";
 import { googleAccountLinkingConfig, googleProviderConfig } from "./google";
 import { grantSignupAirdrop } from "./signup-airdrop";
 
@@ -21,9 +26,11 @@ export function createAuth() {
     required: env.NODE_ENV !== "test",
   });
   return betterAuth({
+    appName: AUTH_APPLICATION_NAME,
     database: mongodbAdapter(client),
     trustedOrigins: [
       env.CORS_ORIGIN,
+      PRODUCTION_AUTH_ORIGIN,
       "rdm-b2c://",
       "exp://",
       "http://localhost:8081",
@@ -89,7 +96,7 @@ export function createAuth() {
       },
     },
     secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
+    baseURL: authBaseURLConfig(env.BETTER_AUTH_URL, env.NODE_ENV),
     advanced: {
       database: {
         // The Mongoose-owned MongoDB driver can return ObjectId instances

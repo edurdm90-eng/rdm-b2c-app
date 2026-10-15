@@ -1,8 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import {
+  AUTH_APPLICATION_NAME,
+  authBaseURLConfig,
+} from "@rdm-b2c/auth/branding";
 import { googleAccountLinkingConfig, googleProviderConfig } from "@rdm-b2c/auth/google";
 import { sessionTokenFromCookie } from "../../native/lib/bearer-session";
+
+test("auth presents the RDM product identity", () => {
+  assert.equal(AUTH_APPLICATION_NAME, "RDM");
+});
+
+test("production OAuth callbacks stay on the branded public domain", () => {
+  assert.equal(
+    authBaseURLConfig("https://rdm-b2c-app-xi.vercel.app", "production"),
+    "https://www.rdmtoken.org",
+  );
+});
+
+test("local auth keeps the configured development origin", () => {
+  assert.equal(
+    authBaseURLConfig("http://localhost:3000", "development"),
+    "http://localhost:3000",
+  );
+});
 
 test("Google OAuth is disabled unless both server credentials are configured", () => {
   assert.equal(googleProviderConfig({}), undefined);
