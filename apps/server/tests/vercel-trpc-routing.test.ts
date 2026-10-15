@@ -22,7 +22,7 @@ test("the Vercel deployment exposes the nested Google OAuth callback route", () 
     "The Google callback handler must preserve /api/auth/callback/google for Better Auth.");
 });
 
-test("the Vercel deployment schedules an authenticated group settlement sweep", () => {
+test("the Vercel deployment schedules an authenticated, durable settlement sweep", () => {
   const cronHandler = new URL("../api/cron/settlements.ts", import.meta.url);
   const vercelConfig = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
 
@@ -35,6 +35,8 @@ test("the Vercel deployment schedules an authenticated group settlement sweep", 
   assert.match(appSource, /reconcileCommitmentsBatch/,
     "Vercel has no long-running worker, so its cron must also settle habits and personal goals.");
   assert.match(appSource, /reconcileDueGroupGoalsBatch/);
+  assert.match(appSource, /advancePersistedSettlementSweep/,
+    "A timed-out serverless sweep must resume instead of restarting from the first record.");
   assert.match(appSource, /authorization/iu);
 });
 

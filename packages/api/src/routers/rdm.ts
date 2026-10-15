@@ -1950,19 +1950,30 @@ async function ensureUserData(userId: string, _userName: string) {
 
 // A bounded sweep also settles commitments when the user leaves the app closed.
 // Individual settlement operations are replay-safe, including across server processes.
+async function reconcileCommitmentProfile(profile: any) {
+  const userId = String(profile.userId);
+  await ensureUserData(userId, "");
+  await reconcileTreeMissedDay(userId, String(profile.treeTimeZone));
+  const groups = await GoalGroup.find({ creatorId: userId, creationId: { $type: "string" } });
+  for (const group of groups) await reconcileGroupLifecycle(group);
+}
+
+export async function reconcileCommitmentById(profileId: string) {
+  const profile = await RdmProfile.findById(profileId).select("userId treeTimeZone");
+  if (profile) await reconcileCommitmentProfile(profile);
+}
+
 export async function reconcileCommitmentsBatch(afterId?: string) {
   const profiles = await RdmProfile.find(afterId ? { _id: { $gt: afterId } } : {})
     .sort({ _id: 1 }).limit(50).select("userId treeTimeZone");
   let failed = 0;
+  const failedIds: string[] = [];
   for (const profile of profiles) {
     try {
-      const userId = String(profile.userId);
-      await ensureUserData(userId, "");
-      await reconcileTreeMissedDay(userId, String(profile.treeTimeZone));
-      const groups = await GoalGroup.find({ creatorId: userId, creationId: { $type: "string" } });
-      for (const group of groups) await reconcileGroupLifecycle(group);
+      await reconcileCommitmentProfile(profile);
     } catch (error) {
       failed += 1;
+      failedIds.push(String(profile._id));
       console.error("Commitment settlement failed; it will be retried", {
         profileId: String(profile._id),
         message: error instanceof Error ? error.message : "Unknown settlement failure",
@@ -1972,8 +1983,15 @@ export async function reconcileCommitmentsBatch(afterId?: string) {
   return {
     processed: profiles.length,
     failed,
+    failedIds,
+    recordIds: profiles.map((profile) => String(profile._id)),
     nextCursor: profiles.length === 50 ? String(profiles.at(-1)!._id) : undefined,
   };
+}
+
+export async function reconcileDueGroupGoalById(groupId: string) {
+  const group = await GoalGroup.findById(groupId);
+  if (group) await reconcileGroupLifecycle(group);
 }
 
 export async function reconcileDueGroupGoalsBatch(afterId?: string) {
@@ -1990,11 +2008,13 @@ export async function reconcileDueGroupGoalsBatch(afterId?: string) {
     ],
   }).sort({ _id: 1 }).limit(100);
   let failed = 0;
+  const failedIds: string[] = [];
   for (const group of groups) {
     try {
       await reconcileGroupLifecycle(group);
     } catch (error) {
       failed += 1;
+      failedIds.push(String(group._id));
       console.error("Group settlement failed; it will be retried", {
         groupId: String(group._id),
         message: error instanceof Error ? error.message : "Unknown settlement failure",
@@ -2004,6 +2024,8 @@ export async function reconcileDueGroupGoalsBatch(afterId?: string) {
   return {
     processed: groups.length,
     failed,
+    failedIds,
+    recordIds: groups.map((group) => String(group._id)),
     nextCursor: groups.length === 100 ? String(groups.at(-1)!._id) : undefined,
   };
 }
