@@ -6,14 +6,15 @@ import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { Platform } from "react-native";
 
 import { getStoredToken } from "@/lib/auth-token";
-import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
+import { fetchWithTimeout } from "@/lib/network";
+import { shouldRetryQuery, STANDARD_REFRESH_MS } from "@/lib/query-policy";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: STANDARD_REFRESH_MS,
       gcTime: 15 * 60_000,
-      retry: 1,
+      retry: shouldRetryQuery,
       refetchOnReconnect: true,
     },
     mutations: {
@@ -28,7 +29,7 @@ export const trpcClient = createTRPCClient<AppRouter>({
     httpBatchLink({
       url: `${serverUrl}/trpc`,
       fetch: function (url, options) {
-        return fetch(url, {
+        return fetchWithTimeout(url, {
           ...options,
           credentials: Platform.OS === "web" ? "include" : "omit",
         });

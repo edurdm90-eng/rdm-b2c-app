@@ -3,6 +3,10 @@ packages:
   - packages/*
 allowBuilds:
   esbuild: true
+packageExtensions:
+  "@react-native-community/datetimepicker@9.1.0":
+    dependencies:
+      "@expo/config-plugins": "57.0.10"
 catalog:
   dotenv: ^17.4.2
   zod: ^4.4.3

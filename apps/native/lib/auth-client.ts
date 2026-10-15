@@ -7,6 +7,7 @@ import { Platform } from "react-native";
 
 import { getStoredToken, setStoredToken } from "@/lib/auth-token";
 import { sessionTokenFromCookie } from "@/lib/bearer-session";
+import { DEFAULT_REQUEST_TIMEOUT_MS } from "@/lib/network";
 
 // Captures the `set-auth-token` header the server's bearer() plugin returns
 // on every response and persists it. Unlike Set-Cookie, this is a plain
@@ -41,6 +42,7 @@ const bearerTokenCapture = {
 const baseAuthClient = createAuthClient({
   baseURL: `${env.EXPO_PUBLIC_SERVER_URL.replace(/\/$/, "")}/api/auth`,
   fetchOptions: {
+    timeout: DEFAULT_REQUEST_TIMEOUT_MS,
     auth:
       Platform.OS === "web"
         ? undefined

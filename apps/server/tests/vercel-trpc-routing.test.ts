@@ -32,6 +32,17 @@ test("the Vercel deployment schedules an authenticated group settlement sweep", 
   const appSource = readFileSync(new URL("../src/app.ts", import.meta.url), "utf8");
   assert.match(handlerSource, /toWebRequest\(request\)/);
   assert.match(appSource, /env\.CRON_SECRET/);
+  assert.match(appSource, /reconcileCommitmentsBatch/,
+    "Vercel has no long-running worker, so its cron must also settle habits and personal goals.");
   assert.match(appSource, /reconcileDueGroupGoalsBatch/);
   assert.match(appSource, /authorization/iu);
+});
+
+test("the Vercel root health check loads the real application", () => {
+  const source = readFileSync(new URL("../api/index.ts", import.meta.url), "utf8");
+
+  assert.doesNotMatch(source, /response\.end\("OK"\)/,
+    "A static adapter response can stay green while the real app fails to import.");
+  assert.match(source, /import\("\.\.\/dist\/vercel\.mjs"\)/);
+  assert.match(source, /app\.fetch/);
 });

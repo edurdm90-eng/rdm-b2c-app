@@ -18,11 +18,14 @@ Register these exact authorized redirect URIs in Google Cloud:
 
 ```text
 http://localhost:3000/api/auth/callback/google
-https://rdm-b2c-server-rho.vercel.app/api/auth/callback/google
+https://www.rdmtoken.org/api/auth/callback/google
 ```
 
-`BETTER_AUTH_URL` must match the active server origin. Better Auth derives the
-callback URL from it, so a mismatched value causes `redirect_uri_mismatch`.
+Production must use `BETTER_AUTH_URL=https://www.rdmtoken.org`. Better Auth
+derives the callback URL and OAuth state-cookie host from this value, so the
+native server URL, Better Auth URL, and Google redirect origin must remain the
+same. A mismatch can cause `redirect_uri_mismatch` or a rejected OAuth state
+after Google sends the user back.
 
 Google is the native app's only sign-in method, so its button is always visible.
 Every runnable server requires both Google variables, preventing an environment

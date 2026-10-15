@@ -1,7 +1,10 @@
 import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@rdm-b2c/api/context";
 import { appRouter } from "@rdm-b2c/api/routers/index";
-import { reconcileDueGroupGoalsBatch } from "@rdm-b2c/api/routers/rdm";
+import {
+  reconcileCommitmentsBatch,
+  reconcileDueGroupGoalsBatch,
+} from "@rdm-b2c/api/routers/rdm";
 import { auth } from "@rdm-b2c/auth";
 import { env } from "@rdm-b2c/env/server";
 import { Hono } from "hono";
@@ -40,16 +43,48 @@ app.get("/api/cron/settlements", async (c) => {
   if (authorizationStatus === 503) return c.json({ error: "Settlement cron is not configured" }, 503);
   if (authorizationStatus === 401) return c.json({ error: "Unauthorized" }, 401);
   const stopAt = Date.now() + 240_000;
-  let cursor: string | undefined;
-  let failed = 0;
-  let processed = 0;
+  let commitmentCursor: string | undefined;
+  let groupCursor: string | undefined;
+  let commitmentsComplete = false;
+  let groupsComplete = false;
+  let commitmentFailed = 0;
+  let commitmentProcessed = 0;
+  let groupFailed = 0;
+  let groupProcessed = 0;
+
   do {
-    const result = await reconcileDueGroupGoalsBatch(cursor);
-    processed += result.processed;
-    failed += result.failed;
-    cursor = result.nextCursor;
-  } while (cursor && Date.now() < stopAt);
-  return c.json({ complete: !cursor, failed, processed });
+    if (!commitmentsComplete) {
+      const result = await reconcileCommitmentsBatch(commitmentCursor);
+      commitmentProcessed += result.processed;
+      commitmentFailed += result.failed;
+      commitmentCursor = result.nextCursor;
+      commitmentsComplete = !commitmentCursor;
+    }
+
+    if (!groupsComplete && Date.now() < stopAt) {
+      const result = await reconcileDueGroupGoalsBatch(groupCursor);
+      groupProcessed += result.processed;
+      groupFailed += result.failed;
+      groupCursor = result.nextCursor;
+      groupsComplete = !groupCursor;
+    }
+  } while ((!commitmentsComplete || !groupsComplete) && Date.now() < stopAt);
+
+  return c.json({
+    complete: commitmentsComplete && groupsComplete,
+    failed: commitmentFailed + groupFailed,
+    processed: commitmentProcessed + groupProcessed,
+    commitments: {
+      complete: commitmentsComplete,
+      failed: commitmentFailed,
+      processed: commitmentProcessed,
+    },
+    groups: {
+      complete: groupsComplete,
+      failed: groupFailed,
+      processed: groupProcessed,
+    },
+  });
 });
 
 app.use(
