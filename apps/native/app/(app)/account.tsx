@@ -7,6 +7,7 @@ import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { ActionDialog, ErrorState, LoadingState } from "@/components/rdm-ui";
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { authClient } from "@/lib/auth-client";
+import { subscriptionController } from "@/lib/subscription";
 import { fonts, formatRdm } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -43,6 +44,7 @@ export default function AccountScreen() {
     try {
       const result = await authClient.signOut();
       if (result.error) throw new Error(result.error.message ?? "Please try signing out again.");
+      subscriptionController.setUser(null);
       queryClient.clear();
       router.replace("/login");
     } catch (signOutError) {
@@ -84,6 +86,11 @@ export default function AccountScreen() {
 
       <Text style={styles.sectionTitle}>Explore</Text>
       <View style={styles.menuCard}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Membership" onPress={() => router.push("./membership")} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+          <View style={[styles.menuIcon, { backgroundColor: `${palette.purple}22` }]}><MaterialCommunityIcons name="crown-outline" size={21} color={palette.purple} /></View>
+          <View style={styles.menuCopy}><Text style={styles.menuLabel}>Membership</Text><Text style={styles.menuHint}>Plans, status and purchases</Text></View>
+          <MaterialCommunityIcons name="chevron-right" size={21} color={palette.muted} />
+        </Pressable>
         {menuItems.map((item) => <Pressable key={item.label} accessibilityRole="button" onPress={() => router.push(item.route)} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
           <View style={[styles.menuIcon, { backgroundColor: `${item.color}22` }]}><MaterialCommunityIcons name={item.icon} size={21} color={item.color} /></View>
           <View style={styles.menuCopy}><Text style={styles.menuLabel}>{item.label}</Text><Text style={styles.menuHint}>{item.hint}</Text></View>
