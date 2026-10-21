@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
 import { router, useIsFocused } from "expo-router";
-import { useState } from "react";
+import { useEffect } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { ProgressCircle } from "react-native-progress/Circle";
 
@@ -9,7 +9,7 @@ import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
-import { trpc } from "@/utils/trpc";
+import { seedWalletSummaryFromDashboard, trpc } from "@/utils/trpc";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 function openCommitment(item: { id: string; kind: "habit" | "goal" }) {
@@ -30,6 +30,11 @@ export default function HomeScreen() {
     refetchInterval: focused ? STANDARD_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
+
+  useEffect(() => {
+    if (!dashboard.data) return;
+    seedWalletSummaryFromDashboard(dashboard.data.profile);
+  }, [dashboard.data]);
 
   if (dashboard.isLoading) return <LoadingState />;
   if (dashboard.error || !dashboard.data) {

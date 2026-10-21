@@ -2,12 +2,15 @@ import type { AppRouter } from "@rdm-b2c/api/routers/index";
 import { env } from "@rdm-b2c/env/native";
 import { QueryClient, type QueryKey } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import type { inferRouterOutputs } from "@trpc/server";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { Platform } from "react-native";
 
 import { getStoredToken } from "@/lib/auth-token";
 import { fetchWithTimeout } from "@/lib/network";
 import { shouldRetryQuery, STANDARD_REFRESH_MS } from "@/lib/query-policy";
+
+type RdmOutputs = inferRouterOutputs<AppRouter>["rdm"];
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,4 +60,11 @@ export function invalidateQueriesInBackground(...queryKeys: QueryKey[]) {
   void Promise.allSettled(
     queryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
   );
+}
+
+export function seedWalletSummaryFromDashboard(profile: RdmOutputs["dashboard"]["profile"]) {
+  const walletKey = trpc.rdm.wallet.summary.queryKey();
+  if (queryClient.getQueryData(walletKey) === undefined) {
+    queryClient.setQueryData(walletKey, profile);
+  }
 }

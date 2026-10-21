@@ -1,4 +1,4 @@
-import { grantSignupAirdrop } from "@rdm-b2c/auth/signup-airdrop";
+import { grantSignupAirdrop, signupAirdropOperationId } from "@rdm-b2c/auth/signup-airdrop";
 import {
   GameSession,
   Goal,
@@ -25,6 +25,7 @@ import { savedLeaderboard } from "../services/leaderboard";
 import { hasMedaaCommitmentApproval } from "../services/medaa-commitment-approval";
 import { dailyGoalView, reconcileDailyGoal, reflectDailyGoal } from "../services/daily-goals";
 import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitment-input";
+import { mapWithConcurrency } from "../domain/concurrency";
 import { wisdomHabitView, wisdomDisabledBonusPolicy } from "../domain/wisdom";
 import { dailyFocus } from "../domain/daily-focus";
 import { walletActivity } from "../domain/wallet-activity";
@@ -81,6 +82,7 @@ import { personalGoalTransition, type PersonalGoalCommand, type PersonalGoalStat
 
 const nowIso = () => new Date().toISOString();
 const GROUP_FUNDING_RESERVATION_MS = 5 * 60_000;
+type RdmProfileDocument = NonNullable<Awaited<ReturnType<typeof RdmProfile.findOne>>>;
 const numberArray = (value: unknown) => Array.isArray(value) ? value.map(Number) : [];
 const mongoId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
 const dayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
@@ -1930,22 +1932,30 @@ async function reconcilePendingGroupFunding(userId: string) {
   }
 }
 
-async function ensureUserData(userId: string, _userName: string) {
-  let profile = await getProfile(userId);
+type EnsureUserDataOptions = {
+  habitScope?: "active" | "all";
+};
+
+async function ensureUserData(
+  userId: string,
+  _userName: string,
+  options: EnsureUserDataOptions = {},
+) {
+  await getProfile(userId);
   await reconcilePendingHabitFunding(userId);
   await reconcilePersonalGoals(userId);
   await reconcilePendingGroupFunding(userId);
 
-  let habits = await Habit.find({ userId, active: true }).sort({ createdAt: 1 });
+  let habits = options.habitScope === "all"
+    ? await Habit.find({ userId, rdmPledgeFundingStatus: { $ne: "pending" as const } })
+      .sort({ active: -1, createdAt: -1 })
+    : await Habit.find({ userId, active: true }).sort({ createdAt: 1 });
   for (let index = 0; index < habits.length; index += 1) {
     const habit = habits[index];
     if (habit) habits[index] = await reconcileHabitOutcome(habit, userId);
   }
-  profile = await getProfile(userId);
-
-  const groups = await GoalGroup.find({ creatorId: userId, creationId: { $type: "string" } }).sort({ createdAt: 1 });
-
-  return { profile, habits, groups };
+  const profile = await getProfile(userId);
+  return { profile, habits };
 }
 
 // A bounded sweep also settles commitments when the user leaves the app closed.
@@ -2030,23 +2040,31 @@ export async function reconcileDueGroupGoalsBatch(afterId?: string) {
   };
 }
 
-async function getProfile(userId: string) {
-  try {
-    await grantSignupAirdrop(userId);
-  } catch {
-    console.error("Signup airdrop is pending and will be retried on the next profile access.");
+async function getProfile(userId: string): Promise<RdmProfileDocument> {
+  let profile = await RdmProfile.findOne({ userId });
+  const airdropOperationId = signupAirdropOperationId(userId);
+  if (!profile?.creditedOperations.includes(airdropOperationId)) {
+    try {
+      await grantSignupAirdrop(userId);
+      profile = await RdmProfile.findOne({ userId });
+    } catch {
+      console.error("Signup airdrop is pending and will be retried on the next profile access.");
+    }
   }
-  let profile = await RdmProfile.findOneAndUpdate(
+  profile ??= await RdmProfile.findOneAndUpdate(
     { userId },
     { $setOnInsert: { userId, unlockedBadges: initialBadgeIds } },
     { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
   );
+  if (!profile) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Profile could not be initialized" });
+  }
   profile = await resetWeeklyInvites(profile);
   await ensureReferralCode(profile);
   return profile;
 }
 
-async function resetWeeklyInvites(profile: any) {
+async function resetWeeklyInvites(profile: RdmProfileDocument): Promise<RdmProfileDocument> {
   const currentWeek = inviteWeekKey();
   if (profile.inviteWeek === currentWeek) return profile;
   return await RdmProfile.findOneAndUpdate(
@@ -2056,7 +2074,7 @@ async function resetWeeklyInvites(profile: any) {
   ) ?? await RdmProfile.findById(profile._id) ?? profile;
 }
 
-async function ensureReferralCode(profile: any) {
+async function ensureReferralCode(profile: RdmProfileDocument) {
   if (profile.referralCode) return;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     profile.referralCode = createInviteCode();
@@ -2072,23 +2090,25 @@ async function ensureReferralCode(profile: any) {
 
 export const rdmRouter = router({
   dashboard: protectedProcedure.query(async ({ ctx }) => {
-    const { profile: currentProfile, habits, groups } = await ensureUserData(
+    const { profile: currentProfile, habits } = await ensureUserData(
       ctx.session.user.id,
       ctx.session.user.name,
+      { habitScope: "all" },
     );
-    const { profile } = await reconcileTreeMissedDay(
-      ctx.session.user.id,
-      String(currentProfile.treeTimeZone ?? "Asia/Kolkata"),
-    );
-    const [focusHabits, focusGoals] = await Promise.all([
-      Habit.find({ userId: ctx.session.user.id, rdmPledgeFundingStatus: { $ne: "pending" } }),
+    const groups = await GoalGroup.find({ creatorId: ctx.session.user.id, creationId: { $type: "string" } })
+      .sort({ createdAt: 1 });
+    const [{ profile }, focusGoals] = await Promise.all([
+      reconcileTreeMissedDay(
+        ctx.session.user.id,
+        String(currentProfile.treeTimeZone ?? "Asia/Kolkata"),
+      ),
       Goal.find({ userId: ctx.session.user.id, fundingStatus: "funded" }),
     ]);
     return {
       user: { name: ctx.session.user.name, email: ctx.session.user.email },
       profile: await serializeProfile(profile),
-      habits: habits.map(serializeHabit),
-      today: dailyFocus(focusHabits.map(serializeHabit), focusGoals.map(serializeGoal), new Date()),
+      habits: habits.filter((habit) => habit.active).map(serializeHabit),
+      today: dailyFocus(habits.map(serializeHabit), focusGoals.map(serializeGoal), new Date()),
       groups: groups.map((group) => serializeGroup(group, ctx.session.user.id)),
       games: gameCatalog,
       serverTime: nowIso(),
@@ -2537,16 +2557,12 @@ export const rdmRouter = router({
 
   habits: router({
     list: protectedProcedure.query(async ({ ctx }) => {
-      await ensureUserData(ctx.session.user.id, ctx.session.user.name);
-      const habits = await Habit.find({
-        userId: ctx.session.user.id,
-        rdmPledgeFundingStatus: { $ne: "pending" },
-      }).sort({ active: -1, createdAt: -1 });
-      const reconciled = [];
-      for (const habit of habits) {
-        reconciled.push(await reconcileHabitOutcome(habit, ctx.session.user.id));
-      }
-      return reconciled.map(serializeHabit);
+      const { habits } = await ensureUserData(
+        ctx.session.user.id,
+        ctx.session.user.name,
+        { habitScope: "all" },
+      );
+      return habits.map(serializeHabit);
     }),
     byId: protectedProcedure
       .input(z.object({ id: mongoId }))
@@ -3285,7 +3301,6 @@ export const rdmRouter = router({
   groups: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       await ensureUserData(ctx.session.user.id, ctx.session.user.name);
-      await reconcilePendingGroupFunding(ctx.session.user.id);
       const groups = await GoalGroup.find({
         creationId: { $type: "string" },
         $or: [
@@ -3293,8 +3308,11 @@ export const rdmRouter = router({
           { "members.userId": ctx.session.user.id },
         ],
       }).sort({ createdAt: -1 });
-      const currentGroups = [];
-      for (const group of groups) currentGroups.push(await reconcileGroupLifecycle(group));
+      const currentGroups = await mapWithConcurrency(
+        groups,
+        4,
+        (group) => reconcileGroupLifecycle(group),
+      );
       return currentGroups
         .filter((group) => (
           group.status !== "pending"
@@ -3742,8 +3760,7 @@ export const rdmRouter = router({
         return { currentUserName: ctx.session.user.name, scope: input.scope, period: "all-time" as const, entries };
       }),
     badges: protectedProcedure.query(async ({ ctx }) => {
-      await ensureUserData(ctx.session.user.id, ctx.session.user.name);
-      const profile = await getProfile(ctx.session.user.id);
+      const { profile } = await ensureUserData(ctx.session.user.id, ctx.session.user.name);
       return {
         unlockedCount: profile.unlockedBadges.length,
         badges: badgeCatalog.map((badge) => ({
@@ -3825,8 +3842,8 @@ export const rdmRouter = router({
 
   wallet: router({
     summary: protectedProcedure.query(async ({ ctx }) => {
-      await ensureUserData(ctx.session.user.id, ctx.session.user.name);
-      return serializeProfile(await getProfile(ctx.session.user.id));
+      const { profile } = await ensureUserData(ctx.session.user.id, ctx.session.user.name);
+      return serializeProfile(profile);
     }),
     donate: protectedProcedure
       .input(z.object({ charity: z.enum(["Plant a Tree Trust", "Rural Education Fund"]), amount: z.number().int().min(1).max(1000) }))

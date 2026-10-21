@@ -3,9 +3,11 @@ import type { ObjectId } from "mongodb";
 
 import { signupAirdropUserFilter } from "./signup-airdrop-id";
 
+export const signupAirdropOperationId = (userId: string) => `signup-airdrop:${userId}`;
+
 /** Credits only accounts marked eligible by the server when they were created. */
 export async function grantSignupAirdrop(userId: string): Promise<void> {
-  const operationId = `signup-airdrop:${userId}`;
+  const operationId = signupAirdropOperationId(userId);
   if (await RdmProfile.exists({ userId, creditedOperations: operationId })) return;
   const user = await client.collection<{ _id: string | ObjectId; signupAirdropEligible?: boolean }>("user").findOne(
     signupAirdropUserFilter(userId),
