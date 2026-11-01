@@ -4,7 +4,13 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { FocusedButton, focusedColors as c, focusedStyles as f } from "@/components/focused-ui";
 import { GameArt, GameIcon, GamesFrame, GamesNote, GamesOutlineButton, GamesProgress, gameBlue, gamesStyles as g, type GameIconName } from "@/components/games-ui";
-import { focusFlowCellSize } from "@/lib/focus-flow-layout";
+import {
+  FOCUS_FLOW_COLUMNS,
+  FOCUS_FLOW_GAP,
+  FOCUS_FLOW_ROWS,
+  focusFlowCellSize,
+  focusFlowTargetRingSize,
+} from "@/lib/focus-flow-layout";
 import { fonts } from "@/lib/theme";
 
 export type GameStatus = "idle" | "starting" | "running" | "saving" | "retry" | "complete";
@@ -44,28 +50,51 @@ function Stat({ value, label, clock = false }: { value: string; label: string; c
 function FocusFlowGrid({ isBusy, onTap, targetIndex }: { isBusy: boolean; onTap: () => void; targetIndex: number }) {
   const [gridWidth, setGridWidth] = useState(0);
   const cellSize = focusFlowCellSize(gridWidth);
+  const ringSize = focusFlowTargetRingSize(cellSize);
+  const iconSize = ringSize > 0 ? Math.max(22, Math.floor(ringSize * 0.68)) : 48;
 
   return (
     <View
-      onLayout={({ nativeEvent }) => setGridWidth(Math.round(nativeEvent.layout.width))}
+      onLayout={({ nativeEvent }) => setGridWidth(Math.floor(nativeEvent.layout.width))}
       style={s.focusGrid}
     >
-      {Array.from({ length: FOCUS_FLOW_CELL_COUNT }, (_, index) => (
-        <View
-          key={index}
-          style={[s.focusCell, cellSize > 0 ? { height: cellSize, width: cellSize } : s.focusCellFallback]}
-        >
-          {index === targetIndex ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Focus target in cell ${index + 1}`}
-              disabled={isBusy}
-              onPress={onTap}
-              style={s.target}
-            >
-              <View style={s.targetRing}><GameIcon name="bullseye" size={48} color={gameBlue} /></View>
-            </Pressable>
-          ) : null}
+      {Array.from({ length: FOCUS_FLOW_ROWS }, (_, row) => (
+        <View key={row} style={s.focusRow}>
+          {Array.from({ length: FOCUS_FLOW_COLUMNS }, (_, column) => {
+            const index = row * FOCUS_FLOW_COLUMNS + column;
+            return (
+              <View
+                key={index}
+                style={[
+                  s.focusCell,
+                  cellSize > 0
+                    ? { height: cellSize, width: cellSize }
+                    : s.focusCellFallback,
+                ]}
+              >
+                {index === targetIndex ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Focus target in cell ${index + 1}`}
+                    disabled={isBusy}
+                    onPress={onTap}
+                    style={s.target}
+                  >
+                    <View
+                      style={[
+                        s.targetRing,
+                        ringSize > 0
+                          ? { width: ringSize, height: ringSize, borderRadius: ringSize / 2 }
+                          : null,
+                      ]}
+                    >
+                      <GameIcon name="bullseye" size={iconSize} color={gameBlue} />
+                    </View>
+                  </Pressable>
+                ) : null}
+              </View>
+            );
+          })}
         </View>
       ))}
     </View>
@@ -195,9 +224,10 @@ const s = StyleSheet.create({
   inputRow: { flexDirection: "row", borderWidth: 1.5, borderColor: gameBlue, borderRadius: 9, backgroundColor: c.panel },
   input: { flex: 1, minWidth: 0, minHeight: 59, paddingHorizontal: 16, color: c.text, fontFamily: fonts.bodyBold, fontSize: 23 },
   clear: { width: 44, justifyContent: "center", alignItems: "center" },
-  focusGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginVertical: 4 },
-  focusCell: { flexGrow: 0, flexShrink: 0, borderRadius: 10, borderWidth: 1, borderColor: c.line, backgroundColor: "#192229", alignItems: "center", justifyContent: "center" },
-  focusCellFallback: { width: "31%", aspectRatio: 1 },
+  focusGrid: { width: "100%", gap: FOCUS_FLOW_GAP, marginVertical: 4, alignSelf: "stretch" },
+  focusRow: { flexDirection: "row", gap: FOCUS_FLOW_GAP, justifyContent: "flex-start" },
+  focusCell: { flexGrow: 0, flexShrink: 0, borderRadius: 10, borderWidth: 1, borderColor: c.line, backgroundColor: "#192229", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  focusCellFallback: { flex: 1, aspectRatio: 1 },
   focusHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   roundLabel: { color: gameBlue, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
   target: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
