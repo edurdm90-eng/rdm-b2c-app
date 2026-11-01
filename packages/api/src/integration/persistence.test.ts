@@ -868,13 +868,17 @@ test("finishing an empty game immediately or repeatedly grants no RDM, XP or bad
 });
 
 test("a real wrong-answer game session reloads and banks its participation reward exactly once", async () => {
+  const { aptitudeById } = await import("../domain/game-content");
   const id = randomUUID();
   const api = caller(id);
   const started = await api.rdm.games.start({ gameId: "aptitude-bliss" });
   assert.equal(started.actionCount, 0);
   assert.equal(started.score, 0);
   assert.equal(started.prompt?.kind, "aptitude");
-  const command = { sessionId: started.sessionId, operationId: randomUUID(), action: { type: "answer" as const, value: "A" } };
+  const session = await db.GameSession.findById(started.sessionId).lean();
+  const correct = aptitudeById(String(session?.deckItemIds?.[0]))?.correctOption ?? "A";
+  const wrong = (["A", "B", "C", "D"] as const).find((option) => option !== correct) ?? "B";
+  const command = { sessionId: started.sessionId, operationId: randomUUID(), action: { type: "answer" as const, value: wrong } };
   await assert.rejects(() => caller(randomUUID()).rdm.games.progress(command));
   await assert.rejects(() => caller(randomUUID()).rdm.games.complete({ sessionId: started.sessionId }));
   const [answered, replayed] = await Promise.all([api.rdm.games.progress(command), api.rdm.games.progress(command)]);
@@ -967,4 +971,84 @@ test("content-game decks stay stable for a day, score from the deck, and avoid r
     false,
   );
   assert.notDeepEqual(nextDay.prompt, started.prompt);
+});
+
+test("every catalog game can start, accept one valid action, and settle once", async () => {
+  const {
+    aptitudeById,
+    unscrambleById,
+    sortById,
+  } = await import("../domain/game-content");
+  const { focusTargetForSeed, memoryBoardForSeed } = await import("../domain/game-rules");
+  const { gameCatalog } = await import("../domain/rdm");
+  assert.equal(gameCatalog.length, 7);
+
+  for (const game of gameCatalog) {
+    const userId = randomUUID();
+    const api = caller(userId);
+    const started = await api.rdm.games.start({ gameId: game.id });
+    assert.ok(started.sessionId, `${game.id} must start`);
+    assert.ok(started.secondsRemaining > 0, `${game.id} must have time remaining`);
+    const session = await db.GameSession.findById(started.sessionId).lean();
+    assert.ok(session, `${game.id} must persist a session`);
+
+    if (game.id === "aptitude-bliss" || game.id === "unscramble-word" || game.id === "sort-sprint") {
+      assert.ok((session.deckItemIds?.length ?? 0) > 0, `${game.id} must store a daily deck`);
+      assert.ok(started.prompt, `${game.id} must return a prompt`);
+    } else {
+      assert.deepEqual(session.deckItemIds ?? [], [], `${game.id} should not invent a content deck`);
+    }
+
+    let action:
+      | { type: "answer"; value: string }
+      | { type: "breath_cycle" }
+      | { type: "focus_tap"; targetIndex: number }
+      | { type: "gratitude_tap"; value: string }
+      | { type: "memory_pair"; first: number; second: number };
+
+    if (game.id === "focus-flow") {
+      action = { type: "focus_tap", targetIndex: focusTargetForSeed(started.sessionId, 0) };
+    } else if (game.id === "aptitude-bliss") {
+      const item = aptitudeById(String(session.deckItemIds?.[0]));
+      assert.ok(item);
+      action = { type: "answer", value: item.correctOption };
+    } else if (game.id === "memory-match") {
+      const board = started.memoryBoard ?? memoryBoardForSeed(started.sessionId);
+      const first = 0;
+      const second = board.findIndex((icon, index) => index > 0 && icon === board[first]);
+      assert.ok(second > 0, "memory board must contain a matching pair");
+      action = { type: "memory_pair", first, second };
+    } else if (game.id === "unscramble-word") {
+      const item = unscrambleById(String(session.deckItemIds?.[0]));
+      assert.ok(item);
+      action = { type: "answer", value: item.answer };
+    } else if (game.id === "gratitude-tap") {
+      action = { type: "gratitude_tap", value: "family" };
+    } else if (game.id === "box-breathing") {
+      await db.GameSession.updateOne({ _id: started.sessionId }, {
+        $set: {
+          startedAt: new Date(Date.now() - 17_000),
+          expiresAt: new Date(Date.now() + 43_000),
+        },
+      });
+      action = { type: "breath_cycle" };
+    } else {
+      const item = sortById(String(session.deckItemIds?.[0]));
+      assert.ok(item);
+      action = { type: "answer", value: item.answer };
+    }
+
+    const progressed = await api.rdm.games.progress({
+      sessionId: started.sessionId,
+      operationId: randomUUID(),
+      action,
+    });
+    assert.equal(progressed.accepted, true, `${game.id} must accept a valid first action`);
+    assert.ok(progressed.actionCount >= 1 || progressed.moves >= 1 || progressed.score > 0, `${game.id} must record progress`);
+
+    const completed = await api.rdm.games.complete({ sessionId: started.sessionId });
+    assert.equal(completed.locked, true, `${game.id} must lock after complete`);
+    assert.ok(completed.reward >= 0, `${game.id} must settle a non-negative reward`);
+    await assert.rejects(() => api.rdm.games.start({ gameId: game.id }), /locked/i);
+  }
 });
