@@ -929,3 +929,42 @@ test("breathing game progress enforces elapsed cycles and persists the accepted 
   assert.equal((await api.rdm.games.complete({ sessionId: started.sessionId })).reward, 2);
   assert.equal((await caller(id).rdm.wallet.summary()).wallet.reward, 2);
 });
+
+test("content-game decks stay stable for a day, score from the deck, and avoid recent items next day", async () => {
+  const { aptitudeById } = await import("../domain/game-content");
+  const id = randomUUID();
+  const api = caller(id);
+  const started = await api.rdm.games.start({ gameId: "aptitude-bliss" });
+  const resumed = await caller(id).rdm.games.start({ gameId: "aptitude-bliss" });
+  assert.equal(resumed.sessionId, started.sessionId);
+  assert.deepEqual(resumed.prompt, started.prompt);
+  assert.equal(started.prompt?.kind, "aptitude");
+  assert.equal(started.prompt?.kind === "aptitude" ? started.prompt.totalQuestions : null, 10);
+
+  const session = await db.GameSession.findById(started.sessionId).lean();
+  assert.ok(session);
+  assert.equal(session.deckItemIds?.length, 10);
+  const firstItemId = String(session.deckItemIds?.[0]);
+  const correct = aptitudeById(firstItemId)?.correctOption;
+  assert.ok(correct);
+  const answered = await api.rdm.games.progress({
+    sessionId: started.sessionId,
+    operationId: randomUUID(),
+    action: { type: "answer", value: correct },
+  });
+  assert.equal(answered.correct, true);
+  assert.equal(answered.score, 20);
+  assert.equal(answered.prompt?.kind === "aptitude" ? answered.prompt.questionNumber : null, 2);
+  await api.rdm.games.complete({ sessionId: started.sessionId });
+
+  await db.GameSession.updateOne({ _id: started.sessionId }, { $set: { dayKey: "2020-01-01" } });
+  const nextDay = await api.rdm.games.start({ gameId: "aptitude-bliss" });
+  const nextSession = await db.GameSession.findById(nextDay.sessionId).lean();
+  assert.ok(nextSession);
+  assert.equal(nextSession.deckItemIds?.length, 10);
+  assert.equal(
+    (nextSession.deckItemIds ?? []).some((itemId) => (session.deckItemIds ?? []).map(String).includes(String(itemId))),
+    false,
+  );
+  assert.notDeepEqual(nextDay.prompt, started.prompt);
+});

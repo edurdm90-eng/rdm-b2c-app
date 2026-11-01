@@ -374,6 +374,7 @@ const gameSessionSchema = new Schema(
     matchedIndexes: { type: [Number], required: true, default: [] },
     revision: { type: Number, required: true, default: 0 },
     actionReceipts: { type: [gameActionReceiptSchema], required: true, default: [] },
+    deckItemIds: { type: [String], required: true, default: [] },
     lastActionAt: { type: Date },
     reward: { type: Number, required: true, default: 0 },
   },

@@ -39,6 +39,12 @@ import {
   treeGrowthFor,
 } from "./rdm";
 import {
+  aptitudeBank,
+  sortBank,
+  unscrambleBank,
+} from "./game-content";
+import {
+  buildDailyGameDeck,
   evaluateGameAction,
   FOCUS_FLOW_CELL_COUNT,
   focusTargetForSeed,
@@ -94,8 +100,69 @@ test("aptitude answers are scored from server-owned question rules", () => {
   }).scoreDelta, 0);
 });
 
-test("aptitude prompts expose all ten reference questions without their answers", () => {
-  assert.deepEqual(gamePromptFor("aptitude-bliss", 9), {
+test("legacy aptitude prompts keep bank order and never expose answers", () => {
+  assert.equal(aptitudeBank.length >= 80, true);
+  assert.deepEqual(gamePromptFor("aptitude-bliss", 0), {
+    kind: "aptitude",
+    options: [
+      { label: "A", text: "10 seconds" },
+      { label: "B", text: "12 seconds" },
+      { label: "C", text: "14 seconds" },
+      { label: "D", text: "16 seconds" },
+    ],
+    question: "A train 180 m long is running at 54 km/h. In how many seconds will it cross a pole?",
+    questionNumber: 1,
+    totalQuestions: aptitudeBank.length,
+  });
+  assert.equal(gamePromptFor("aptitude-bliss", aptitudeBank.length), null);
+});
+
+test("daily aptitude decks are deterministic and exclude recently seen items", () => {
+  const first = buildDailyGameDeck({
+    gameId: "aptitude-bliss",
+    userId: "user-a",
+    dayKey: "2026-11-01",
+    recentItemIds: [],
+  });
+  const sameDay = buildDailyGameDeck({
+    gameId: "aptitude-bliss",
+    userId: "user-a",
+    dayKey: "2026-11-01",
+    recentItemIds: [],
+  });
+  const otherUser = buildDailyGameDeck({
+    gameId: "aptitude-bliss",
+    userId: "user-b",
+    dayKey: "2026-11-01",
+    recentItemIds: [],
+  });
+  assert.equal(first.length, 10);
+  assert.deepEqual(first, sameDay);
+  assert.notDeepEqual(first, otherUser);
+  assert.equal(new Set(first).size, 10);
+
+  const nextDay = buildDailyGameDeck({
+    gameId: "aptitude-bliss",
+    userId: "user-a",
+    dayKey: "2026-11-02",
+    recentItemIds: first,
+  });
+  assert.equal(nextDay.length, 10);
+  assert.equal(nextDay.some((id) => first.includes(id)), false);
+
+  const exhausted = buildDailyGameDeck({
+    gameId: "aptitude-bliss",
+    userId: "user-a",
+    dayKey: "2026-11-03",
+    recentItemIds: aptitudeBank.map((item) => item.id),
+  });
+  assert.equal(exhausted.length, 10);
+  assert.equal(exhausted.every((id) => aptitudeBank.some((item) => item.id === id)), true);
+});
+
+test("deck-aware aptitude prompts and scoring follow the persisted daily order", () => {
+  const deck = ["apt-pattern-powers", "apt-train-pole"];
+  assert.deepEqual(gamePromptFor("aptitude-bliss", 0, deck), {
     kind: "aptitude",
     options: [
       { label: "A", text: "162" },
@@ -104,13 +171,28 @@ test("aptitude prompts expose all ten reference questions without their answers"
       { label: "D", text: "324" },
     ],
     question: "Which number completes the pattern? 3, 9, 27, 81, ...",
-    questionNumber: 10,
-    totalQuestions: 10,
+    questionNumber: 1,
+    totalQuestions: 2,
   });
-  assert.equal(gamePromptFor("aptitude-bliss", 10), null);
+  assert.equal(evaluateGameAction({
+    action: { type: "answer", value: "C" },
+    actionCount: 0,
+    deckItemIds: deck,
+    gameId: "aptitude-bliss",
+    matchedIndexes: [],
+  }).scoreDelta, 20);
+  assert.equal(evaluateGameAction({
+    action: { type: "answer", value: "B" },
+    actionCount: 1,
+    deckItemIds: deck,
+    gameId: "aptitude-bliss",
+    matchedIndexes: [],
+  }).scoreDelta, 20);
+  assert.equal(gamePromptFor("aptitude-bliss", 2, deck), null);
 });
 
 test("word answers are normalized and only correct words advance the sprint", () => {
+  assert.equal(unscrambleBank.length >= 80, true);
   assert.deepEqual(gamePromptFor("unscramble-word", 0), {
     kind: "unscramble",
     scrambled: "TIBAH",
@@ -135,6 +217,40 @@ test("word answers are normalized and only correct words advance the sprint", ()
     movesDelta: 0,
     scoreDelta: 0,
   });
+});
+
+test("daily unscramble and sort decks stay unique for the day and wrap within the deck", () => {
+  const unscramble = buildDailyGameDeck({
+    gameId: "unscramble-word",
+    userId: "user-a",
+    dayKey: "2026-11-01",
+    recentItemIds: [],
+  });
+  const sort = buildDailyGameDeck({
+    gameId: "sort-sprint",
+    userId: "user-a",
+    dayKey: "2026-11-01",
+    recentItemIds: [],
+  });
+  assert.equal(unscramble.length, 12);
+  assert.equal(sort.length, 10);
+  assert.equal(new Set(unscramble).size, 12);
+  assert.equal(new Set(sort).size, 10);
+  assert.equal(sortBank.length >= 60, true);
+
+  const wrapPrompt = gamePromptFor("unscramble-word", unscramble.length, unscramble);
+  const firstPrompt = gamePromptFor("unscramble-word", 0, unscramble);
+  assert.equal(wrapPrompt?.kind, "unscramble");
+  assert.equal(firstPrompt?.kind, "unscramble");
+  assert.equal(wrapPrompt?.kind === "unscramble" ? wrapPrompt.scrambled : null, firstPrompt?.kind === "unscramble" ? firstPrompt.scrambled : null);
+  assert.equal(wrapPrompt?.kind === "unscramble" ? wrapPrompt.wordNumber : null, unscramble.length + 1);
+  assert.equal(evaluateGameAction({
+    action: { type: "answer", value: unscrambleBank.find((item) => item.id === unscramble[0])!.answer },
+    actionCount: unscramble.length,
+    deckItemIds: unscramble,
+    gameId: "unscramble-word",
+    matchedIndexes: [],
+  }).scoreDelta, 10);
 });
 
 test("focus flow visits every cell once per round without repeating at the boundary", () => {
@@ -217,6 +333,20 @@ test("sort sprint prompts never expose their server-owned answer", () => {
   assert.equal(evaluateGameAction({
     action: { type: "answer", value: "Food" },
     actionCount: 0,
+    gameId: "sort-sprint",
+    matchedIndexes: [],
+  }).scoreDelta, 15);
+  const deck = buildDailyGameDeck({
+    gameId: "sort-sprint",
+    userId: "user-sort",
+    dayKey: "2026-11-01",
+    recentItemIds: ["sort-apple"],
+  });
+  assert.equal(deck.includes("sort-apple"), false);
+  assert.equal(evaluateGameAction({
+    action: { type: "answer", value: sortBank.find((item) => item.id === deck[0])!.answer },
+    actionCount: 0,
+    deckItemIds: deck,
     gameId: "sort-sprint",
     matchedIndexes: [],
   }).scoreDelta, 15);

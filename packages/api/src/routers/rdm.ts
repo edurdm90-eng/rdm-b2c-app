@@ -76,7 +76,15 @@ import {
   type GameId,
   type WalletBalances,
 } from "../domain/rdm";
-import { evaluateGameAction, FOCUS_FLOW_CELL_COUNT, gamePromptFor, memoryBoardForSeed } from "../domain/game-rules";
+import {
+  buildDailyGameDeck,
+  evaluateGameAction,
+  FOCUS_FLOW_CELL_COUNT,
+  GAME_DECK_RECENT_LOOKBACK,
+  gamePromptFor,
+  isContentGameId,
+  memoryBoardForSeed,
+} from "../domain/game-rules";
 import { availableTreePenalty, treeCareProgress } from "../domain/tree-progress";
 import { personalGoalTransition, type PersonalGoalCommand, type PersonalGoalStatus } from "../domain/goal-lifecycle";
 
@@ -546,6 +554,12 @@ async function creditProfile({
   return normalizeProfileLevel(profile);
 }
 
+function sessionDeckItemIds(session: { deckItemIds?: unknown }) {
+  return Array.isArray(session.deckItemIds)
+    ? session.deckItemIds.map((id) => String(id)).filter(Boolean)
+    : [];
+}
+
 function serializeGameProgressReceipt(session: any, gameId: GameId, operationId: string) {
   const receipt = (session.actionReceipts as Array<any>).find(
     (item) => item.operationId === operationId,
@@ -557,9 +571,23 @@ function serializeGameProgressReceipt(session: any, gameId: GameId, operationId:
     correct: receipt.correct,
     matchedIndexes: numberArray(receipt.matchedIndexes),
     moves: receipt.moves,
-    prompt: gamePromptFor(gameId, receipt.actionCount),
+    prompt: gamePromptFor(gameId, receipt.actionCount, sessionDeckItemIds(session)),
     score: receipt.score,
   };
+}
+
+async function recentGameDeckItemIds(userId: string, gameId: string) {
+  const recent = await GameSession.find({
+    userId,
+    gameId,
+    status: "complete",
+    "deckItemIds.0": { $exists: true },
+  })
+    .sort({ dayKey: -1, completedAt: -1 })
+    .limit(GAME_DECK_RECENT_LOOKBACK)
+    .select("deckItemIds")
+    .lean();
+  return recent.flatMap((session) => sessionDeckItemIds(session));
 }
 
 function rewardForRecordedGame(session: any, minutes: number) {
@@ -3129,6 +3157,14 @@ export const rdmRouter = router({
         const startedAt = new Date();
         const expiresAt = new Date(startedAt.getTime() + game.durationSeconds * 1_000);
         const dayKey = gameDayKey(startedAt);
+        const deckItemIds = isContentGameId(game.id)
+          ? buildDailyGameDeck({
+            gameId: game.id,
+            userId: ctx.session.user.id,
+            dayKey,
+            recentItemIds: await recentGameDeckItemIds(ctx.session.user.id, game.id),
+          })
+          : [];
         let session = await GameSession.findOne({
           userId: ctx.session.user.id,
           gameId: game.id,
@@ -3137,7 +3173,17 @@ export const rdmRouter = router({
         }).sort({ startedAt: -1 });
         session ??= await GameSession.findOneAndUpdate(
           { userId: ctx.session.user.id, gameId: game.id, dayKey },
-          { $setOnInsert: { userId: ctx.session.user.id, gameId: game.id, dayKey, startedAt, expiresAt, status: "running" } },
+          {
+            $setOnInsert: {
+              userId: ctx.session.user.id,
+              gameId: game.id,
+              dayKey,
+              startedAt,
+              expiresAt,
+              status: "running",
+              deckItemIds,
+            },
+          },
           { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
         );
         if (!session) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Game session could not be started" });
@@ -3147,6 +3193,7 @@ export const rdmRouter = router({
           }
           throw new TRPCError({ code: "CONFLICT", message: "This game is locked after today's completed session" });
         }
+        const activeDeck = sessionDeckItemIds(session);
         return {
           sessionId: String(session._id),
           expiresAt: session.expiresAt.toISOString(),
@@ -3156,7 +3203,7 @@ export const rdmRouter = router({
           moves: session.moves ?? 0,
           matchedIndexes: numberArray(session.matchedIndexes),
           memoryBoard: game.id === "memory-match" ? memoryBoardForSeed(String(session._id)) : null,
-          prompt: gamePromptFor(game.id, session.actionCount),
+          prompt: gamePromptFor(game.id, session.actionCount, activeDeck),
         };
       }),
     progress: protectedProcedure
@@ -3197,10 +3244,12 @@ export const rdmRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "Complete the full breathing cycle first" });
         }
         const memoryBoard = game.id === "memory-match" ? memoryBoardForSeed(String(current._id)) : undefined;
+        const deckItemIds = sessionDeckItemIds(current);
         const result = evaluateGameAction({
           action: input.action,
           actionCount: current.actionCount,
           allowLegacyFocusTap: actionAt < env.LEGACY_FOCUS_TAP_CUTOFF,
+          deckItemIds,
           focusSeed: String(current._id),
           gameId: game.id,
           matchedIndexes: numberArray(current.matchedIndexes),

@@ -1,129 +1,25 @@
 import type { GameAction, GameId, GamePrompt } from "./rdm";
+import {
+  aptitudeBank,
+  aptitudeById,
+  contentBankIds,
+  GAME_DECK_SIZES,
+  sortBank,
+  sortById,
+  type ContentGameId,
+  unscrambleBank,
+  unscrambleById,
+} from "./game-content";
 
-const aptitudeQuestions = [
-  {
-    question: "A train 180 m long is running at 54 km/h. In how many seconds will it cross a pole?",
-    options: [
-      { label: "A", text: "10 seconds" },
-      { label: "B", text: "12 seconds" },
-      { label: "C", text: "14 seconds" },
-      { label: "D", text: "16 seconds" },
-    ],
-    correctOption: "B",
-  },
-  {
-    question: "If 5 machines take 5 minutes to make 5 widgets, how long would 100 machines take to make 100 widgets?",
-    options: [
-      { label: "A", text: "100 minutes" },
-      { label: "B", text: "5 minutes" },
-      { label: "C", text: "50 minutes" },
-      { label: "D", text: "1 minute" },
-    ],
-    correctOption: "B",
-  },
-  {
-    question: "A bat and a ball cost $1.10 total. The bat costs $1 more than the ball. How much is the ball?",
-    options: [
-      { label: "A", text: "$0.10" },
-      { label: "B", text: "$0.05" },
-      { label: "C", text: "$0.15" },
-      { label: "D", text: "$0.50" },
-    ],
-    correctOption: "B",
-  },
-  {
-    question: "What is the next number in the sequence: 2, 6, 12, 20, 30, ...?",
-    options: [
-      { label: "A", text: "40" },
-      { label: "B", text: "42" },
-      { label: "C", text: "44" },
-      { label: "D", text: "46" },
-    ],
-    correctOption: "B",
-  },
-  {
-    question: "If you rearrange the letters CIFAIC, you would have the name of a(n):",
-    options: [
-      { label: "A", text: "City" },
-      { label: "B", text: "Animal" },
-      { label: "C", text: "Ocean" },
-      { label: "D", text: "River" },
-    ],
-    correctOption: "C",
-  },
-  {
-    question: "A clock shows 3:15. What is the angle between the hour and minute hands?",
-    options: [
-      { label: "A", text: "0 degrees" },
-      { label: "B", text: "7.5 degrees" },
-      { label: "C", text: "15 degrees" },
-      { label: "D", text: "22.5 degrees" },
-    ],
-    correctOption: "B",
-  },
-  {
-    question: "Which of the following is an odd number?",
-    options: [
-      { label: "A", text: "24" },
-      { label: "B", text: "36" },
-      { label: "C", text: "47" },
-      { label: "D", text: "58" },
-    ],
-    correctOption: "C",
-  },
-  {
-    question: "If all bloops are razzies and all razzies are lazzies, are all bloops definitely lazzies?",
-    options: [
-      { label: "A", text: "Yes" },
-      { label: "B", text: "No" },
-      { label: "C", text: "Cannot be determined" },
-      { label: "D", text: "Only some" },
-    ],
-    correctOption: "A",
-  },
-  {
-    question: "An item originally costs $50 and is discounted by 20%. What is the final price?",
-    options: [
-      { label: "A", text: "$35" },
-      { label: "B", text: "$40" },
-      { label: "C", text: "$42" },
-      { label: "D", text: "$45" },
-    ],
-    correctOption: "B",
-  },
-  {
-    question: "Which number completes the pattern? 3, 9, 27, 81, ...",
-    options: [
-      { label: "A", text: "162" },
-      { label: "B", text: "213" },
-      { label: "C", text: "243" },
-      { label: "D", text: "324" },
-    ],
-    correctOption: "C",
-  },
-] as const;
-
-const unscrambleWords = [
-  { answer: "HABIT", scrambled: "TIBAH" },
-  { answer: "FOCUS", scrambled: "CUSFO" },
-  { answer: "HEALTH", scrambled: "THLAEH" },
-  { answer: "WEALTH", scrambled: "THWELA" },
-  { answer: "NATURE", scrambled: "RUTENA" },
-  { answer: "PLANT", scrambled: "TNALP" },
-  { answer: "GROWTH", scrambled: "WTHGOR" },
-  { answer: "STREAK", scrambled: "KAREST" },
-  { answer: "REWARD", scrambled: "WARDRE" },
-  { answer: "ACHIEVE", scrambled: "VEHACIE" },
-] as const;
-
-const sortRounds = [
-  { item: "Apple", options: ["Food", "Animal", "Object"], answer: "Food" },
-  { item: "Dolphin", options: ["Plant", "Animal", "Tool"], answer: "Animal" },
-  { item: "Hammer", options: ["Tool", "Food", "Place"], answer: "Tool" },
-  { item: "Rose", options: ["Vehicle", "Plant", "Animal"], answer: "Plant" },
-  { item: "Bicycle", options: ["Vehicle", "Clothing", "Food"], answer: "Vehicle" },
-  { item: "Jacket", options: ["Place", "Tool", "Clothing"], answer: "Clothing" },
-] as const;
+export {
+  aptitudeBank,
+  GAME_DECK_RECENT_LOOKBACK,
+  GAME_DECK_SIZES,
+  isContentGameId,
+  sortBank,
+  unscrambleBank,
+} from "./game-content";
+export type { ContentGameId } from "./game-content";
 
 const gratitudeValues = new Set(["family", "friends", "health", "home", "nature", "learning"]);
 const memoryIcons = ["🌿", "⭐", "🍎", "⚽", "🚀", "💎", "🎵", "🎈"] as const;
@@ -142,6 +38,25 @@ function shuffledValues<Value>(values: readonly Value[], seed: string) {
     [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex]!, shuffled[index]!];
   }
   return shuffled;
+}
+
+export function buildDailyGameDeck({
+  gameId,
+  userId,
+  dayKey,
+  recentItemIds,
+}: {
+  gameId: ContentGameId;
+  userId: string;
+  dayKey: string;
+  recentItemIds: readonly string[];
+}) {
+  const deckSize = GAME_DECK_SIZES[gameId];
+  const bankIds = contentBankIds(gameId);
+  const recent = new Set(recentItemIds);
+  const available = bankIds.filter((id) => !recent.has(id));
+  const pool = available.length >= deckSize ? available : [...bankIds];
+  return shuffledValues(pool, `${userId}:${gameId}:${dayKey}`).slice(0, deckSize);
 }
 
 export function focusTargetForSeed(seed: string, actionCount: number) {
@@ -165,20 +80,57 @@ export function memoryBoardForSeed(seed: string) {
   return shuffledValues([...memoryIcons, ...memoryIcons], seed);
 }
 
-export function gamePromptFor(gameId: GameId, actionCount: number): GamePrompt | null {
+function normalizeDeck(deckItemIds?: readonly string[] | null) {
+  if (!deckItemIds || deckItemIds.length === 0) return null;
+  return deckItemIds;
+}
+
+function aptitudeItemAt(actionCount: number, deckItemIds?: readonly string[] | null) {
+  const deck = normalizeDeck(deckItemIds);
+  if (deck) {
+    const id = deck[actionCount];
+    return id ? aptitudeById(id) : null;
+  }
+  return aptitudeBank[actionCount] ?? null;
+}
+
+function unscrambleItemAt(actionCount: number, deckItemIds?: readonly string[] | null) {
+  const deck = normalizeDeck(deckItemIds);
+  if (deck) {
+    const id = deck[actionCount % deck.length];
+    return id ? unscrambleById(id) : null;
+  }
+  return unscrambleBank[actionCount % unscrambleBank.length] ?? null;
+}
+
+function sortItemAt(actionCount: number, deckItemIds?: readonly string[] | null) {
+  const deck = normalizeDeck(deckItemIds);
+  if (deck) {
+    const id = deck[actionCount % deck.length];
+    return id ? sortById(id) : null;
+  }
+  return sortBank[actionCount % sortBank.length] ?? null;
+}
+
+export function gamePromptFor(
+  gameId: GameId,
+  actionCount: number,
+  deckItemIds?: readonly string[] | null,
+): GamePrompt | null {
   if (gameId === "aptitude-bliss") {
-    const question = aptitudeQuestions[actionCount];
+    const question = aptitudeItemAt(actionCount, deckItemIds);
     if (!question) return null;
+    const deck = normalizeDeck(deckItemIds);
     return {
       kind: "aptitude",
       options: question.options.map(({ label, text }) => ({ label, text })),
       question: question.question,
       questionNumber: actionCount + 1,
-      totalQuestions: aptitudeQuestions.length,
+      totalQuestions: deck?.length ?? aptitudeBank.length,
     };
   }
   if (gameId === "unscramble-word") {
-    const word = unscrambleWords[actionCount % unscrambleWords.length];
+    const word = unscrambleItemAt(actionCount, deckItemIds);
     if (!word) return null;
     return {
       kind: "unscramble",
@@ -187,7 +139,7 @@ export function gamePromptFor(gameId: GameId, actionCount: number): GamePrompt |
     };
   }
   if (gameId === "sort-sprint") {
-    const round = sortRounds[actionCount % sortRounds.length];
+    const round = sortItemAt(actionCount, deckItemIds);
     if (!round) return null;
     return {
       kind: "sort",
@@ -203,6 +155,7 @@ export function evaluateGameAction({
   action,
   actionCount,
   allowLegacyFocusTap = false,
+  deckItemIds,
   focusSeed,
   gameId,
   matchedIndexes,
@@ -211,6 +164,7 @@ export function evaluateGameAction({
   action: GameAction;
   actionCount: number;
   allowLegacyFocusTap?: boolean;
+  deckItemIds?: readonly string[] | null;
   focusSeed?: string;
   gameId: GameId;
   matchedIndexes: number[];
@@ -230,14 +184,14 @@ export function evaluateGameAction({
     return acceptedResult(true, matchedIndexes, 25);
   }
   if (gameId === "aptitude-bliss" && action.type === "answer") {
-    const question = aptitudeQuestions[actionCount];
+    const question = aptitudeItemAt(actionCount, deckItemIds);
     const correct = question?.correctOption === action.value.trim().toUpperCase();
     return question
       ? acceptedResult(correct, matchedIndexes, correct ? 20 : 0)
       : rejectedResult(matchedIndexes);
   }
   if (gameId === "unscramble-word" && action.type === "answer") {
-    const word = unscrambleWords[actionCount % unscrambleWords.length];
+    const word = unscrambleItemAt(actionCount, deckItemIds);
     const correct = word?.answer === action.value.trim().toUpperCase();
     if (!word) return rejectedResult(matchedIndexes);
     return {
@@ -246,7 +200,7 @@ export function evaluateGameAction({
     };
   }
   if (gameId === "sort-sprint" && action.type === "answer") {
-    const round = sortRounds[actionCount % sortRounds.length];
+    const round = sortItemAt(actionCount, deckItemIds);
     const correct = round?.answer === action.value.trim();
     return round
       ? acceptedResult(correct, matchedIndexes, correct ? 15 : 0)
