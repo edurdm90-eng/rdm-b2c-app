@@ -4,15 +4,26 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
+import {
+  FREE_FEATURES,
+  PREMIUM_FEATURES,
+  PREMIUM_FREE_UNTIL_LABEL,
+  PREMIUM_MONTHLY_INR,
+  PREMIUM_YEARLY_INR,
+  formatPremiumPriceInr,
+  usePremiumAccess,
+} from "@/lib/premium-access";
 import { subscriptionController } from "@/lib/subscription";
 import { useSubscription } from "@/lib/subscription-context";
 import { fonts } from "@/lib/theme";
 
 export default function MembershipScreen() {
   const state = useSubscription();
+  const premium = usePremiumAccess();
   const focused = useIsFocused();
   const [linkError, setLinkError] = useState("");
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const freeUntilLabel = PREMIUM_FREE_UNTIL_LABEL;
 
   useEffect(() => {
     if ((state.status === "active" || state.status === "inactive") && state.plansStatus === "idle") {
@@ -64,23 +75,41 @@ export default function MembershipScreen() {
 
       <View style={styles.hero}>
         <View style={styles.heroIcon}><MaterialCommunityIcons name="crown-outline" size={28} color={palette.purple} /></View>
-        <Text style={styles.title}>Your membership</Text>
-        <Text style={styles.subtitle}>A place for your subscription, separate from your RDM wallet.</Text>
+        <Text style={styles.title}>RDM Premium</Text>
+        <Text style={styles.subtitle}>
+          {formatPremiumPriceInr(PREMIUM_MONTHLY_INR)}/month · {formatPremiumPriceInr(PREMIUM_YEARLY_INR)}/year. Separate from your RDM wallet — membership never sells or mints RDM.
+        </Text>
       </View>
 
       <View style={styles.statusCard} accessible accessibilityLabel={`Membership status: ${statusLabel}`}>
-        <View style={[styles.statusDot, state.status === "active" && styles.activeDot]} />
+        <View style={[styles.statusDot, (state.status === "active" || premium.inFreePeriod) && styles.activeDot]} />
         <View style={styles.statusCopy}>
           <Text style={styles.cardEyebrow}>CURRENT STATUS</Text>
           <Text style={styles.statusTitle}>{statusLabel}</Text>
+          {premium.inFreePeriod ? (
+            <Text style={styles.statusHint}>Premium content is free for everyone until {freeUntilLabel}.</Text>
+          ) : null}
         </View>
         {state.status === "loading" ? <ActivityIndicator color={palette.purple} accessibilityLabel="Checking membership" /> : null}
+      </View>
+
+      <View style={styles.benefitCard}>
+        <MaterialCommunityIcons name="crown-outline" size={21} color={palette.purple} />
+        <View style={styles.benefitCopy}>
+          <Text style={styles.benefitTitle}>What Premium unlocks</Text>
+          {PREMIUM_FEATURES.map((feature) => (
+            <Text key={feature.id} style={styles.benefitHint}>· {feature.title}</Text>
+          ))}
+          <Text style={[styles.benefitHint, { marginTop: 6 }]}>Always free: {FREE_FEATURES.map((feature) => feature.title).join(", ")}.</Text>
+        </View>
       </View>
 
       {unavailable ? (
         <View style={styles.infoCard}>
           <MaterialCommunityIcons name="clock-outline" size={21} color={palette.link} />
-          <Text style={styles.infoText}>Subscriptions are not configured yet. All current free features remain available.</Text>
+          <Text style={styles.infoText}>
+            Store billing is not configured for this build yet (missing public RevenueCat keys). Rebuild a native Dev Client after keys are set — Expo Go cannot complete purchases. Premium surfaces stay open until {freeUntilLabel}.
+          </Text>
         </View>
       ) : null}
 
@@ -88,10 +117,23 @@ export default function MembershipScreen() {
 
       {showPlans ? (
         <>
-          <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Available plans</Text><Text style={styles.sectionHint}>Prices shown by your app store</Text></View>
+          <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Available plans</Text><Text style={styles.sectionHint}>List prices ₹{PREMIUM_MONTHLY_INR}/mo · ₹{PREMIUM_YEARLY_INR}/yr · store shows localized checkout</Text></View>
           {state.plansStatus === "loading" ? <View style={styles.inlineLoading}><ActivityIndicator color={palette.purple} /><Text style={styles.muted}>Loading plans…</Text></View> : null}
+          {state.plansStatus === "error" ? (
+            <View style={styles.infoCard}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={21} color={palette.link} />
+              <Text style={styles.infoText}>Plans could not be loaded. Check your connection, then retry. If this keeps failing, the RevenueCat offering may be misconfigured.</Text>
+            </View>
+          ) : null}
           {state.plansStatus === "error" ? <Pressable accessibilityRole="button" onPress={() => void subscriptionController.loadPlans()} style={styles.outlineButton}><Text style={styles.outlineLabel}>Retry loading plans</Text></Pressable> : null}
-          {state.plansStatus === "ready" && state.plans.length === 0 ? <View style={styles.infoCard}><MaterialCommunityIcons name="information-outline" size={21} color={palette.link} /><Text style={styles.infoText}>Plans are coming soon. You can still restore an existing purchase.</Text></View> : null}
+          {state.plansStatus === "ready" && state.plans.length === 0 ? (
+            <View style={styles.infoCard}>
+              <MaterialCommunityIcons name="information-outline" size={21} color={palette.link} />
+              <Text style={styles.infoText}>
+                No packages are on the current RevenueCat offering yet. You can still restore an existing purchase. After packages are attached and marked Current, reload this screen.
+              </Text>
+            </View>
+          ) : null}
           {state.plans.map((plan) => <View key={plan.id} style={styles.planCard}>
             <View style={styles.planHeader}><Text style={styles.planTitle}>{plan.title}</Text><Text style={styles.planPrice}>{plan.price}</Text></View>
             {plan.description ? <Text style={styles.planDescription}>{plan.description}</Text> : null}
@@ -111,7 +153,9 @@ export default function MembershipScreen() {
 
       {state.message ? <Text accessibilityRole="alert" style={styles.message}>{state.message}</Text> : null}
       {linkError ? <Text accessibilityRole="alert" style={styles.message}>{linkError}</Text> : null}
-      <Text style={styles.footnote}>Premium benefits have not been finalized. No existing screens or RDM balances are changed by membership.</Text>
+      <Text style={styles.footnote}>
+        Premium unlocks Grow Your Tree, AI Goal Setting, Games, and Wisdom. Habits, Goals, and Group goals stay free. Membership never changes Base, Reward, Remorse, or Peer balances.
+      </Text>
     </FocusedScreen>
   );
 }
@@ -131,8 +175,13 @@ const styles = StyleSheet.create({
   statusCopy: { flex: 1, gap: 4 },
   cardEyebrow: { color: palette.muted, fontFamily: fonts.mono, fontSize: 10, letterSpacing: 0.6 },
   statusTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 21 },
+  statusHint: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17, marginTop: 2 },
   infoCard: { alignItems: "flex-start", backgroundColor: "rgba(102,199,255,0.08)", borderColor: "rgba(102,199,255,0.24)", borderRadius: 11, borderWidth: 1, flexDirection: "row", gap: 10, padding: 14 },
   infoText: { color: palette.muted, fontFamily: fonts.body, fontSize: 12.5, lineHeight: 19, flex: 1 },
+  benefitCard: { alignItems: "flex-start", backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 11, borderWidth: 1, flexDirection: "row", gap: 10, padding: 14 },
+  benefitCopy: { flex: 1, gap: 4 },
+  benefitTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 19 },
+  benefitHint: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
   sectionHead: { gap: 2, marginTop: 7 },
   sectionTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 16 },
   sectionHint: { color: palette.muted, fontFamily: fonts.body, fontSize: 11 },

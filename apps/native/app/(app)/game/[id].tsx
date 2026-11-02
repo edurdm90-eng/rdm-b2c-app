@@ -9,9 +9,11 @@ import * as Crypto from "expo-crypto";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { PremiumPaywall } from "@/components/premium-gate";
 import { ErrorState } from "@/components/rdm-ui";
 import { GameSessionView, type GameStatus, type GameResult } from "@/components/game-session-view";
 import { exitToGames } from "@/lib/game-navigation";
+import { usePremiumAccess } from "@/lib/premium-access";
 import { invalidateQueriesInBackground, trpc } from "@/utils/trpc";
 
 type ProgressResult = {
@@ -26,6 +28,7 @@ type ProgressResult = {
 type PendingAction = { action: GameAction; operationId: string };
 
 export default function GamePlayScreen() {
+  const premium = usePremiumAccess();
   const { id = "" } = useLocalSearchParams<{ id: string }>();
   const game = gameCatalog.find((item) => item.id === id);
   const duration = game?.durationSeconds ?? 60;
@@ -311,8 +314,8 @@ export default function GamePlayScreen() {
     return () => clearInterval(interval);
   }, [expiresAtMs, finish, status]);
 
+  if (!premium.allowed) return <PremiumPaywall title="Games" />;
   if (!game) return <ErrorState message="That game could not be found." />;
-
 
   return <GameSessionView
     game={game} status={status} secondsLeft={secondsLeft} score={score} actionCount={actionCount} moves={moves}

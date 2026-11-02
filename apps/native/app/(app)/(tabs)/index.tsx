@@ -1,12 +1,13 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
-import { router, useIsFocused } from "expo-router";
+import { type Href, router, useIsFocused } from "expo-router";
 import { useEffect } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { ProgressCircle } from "react-native-progress/Circle";
 
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { usePremiumAccess } from "@/lib/premium-access";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { seedWalletSummaryFromDashboard, trpc } from "@/utils/trpc";
@@ -30,6 +31,11 @@ export default function HomeScreen() {
     refetchInterval: focused ? STANDARD_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
+  const premium = usePremiumAccess(dashboard.data?.premium);
+  function openPremium(path: "/(app)/tree" | "/(app)/ai-coach" | "/(app)/(tabs)/japanese-wisdom") {
+    if (premium.allowed) router.push(path);
+    else router.push("/(app)/membership" as Href);
+  }
 
   useEffect(() => {
     if (!dashboard.data) return;
@@ -112,11 +118,11 @@ export default function HomeScreen() {
         {today.items.length > 3 ? <Text style={styles.moreDue}>{today.items.length - 3} more to continue in Habits and Goals</Text> : null}
       </View>
 
-      <Pressable accessibilityRole="button" accessibilityLabel={profile.tree.pledgedAt ? "Tend your tree" : "Plant your tree"} onPress={() => router.push("/(app)/tree")} style={({ pressed }) => [styles.treeCard, pressed && styles.pressed]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={profile.tree.pledgedAt ? "Tend your tree" : "Plant your tree"} onPress={() => openPremium("/(app)/tree")} style={({ pressed }) => [styles.treeCard, pressed && styles.pressed]}>
         <MaterialCommunityIcons name="tree-outline" size={32} color={palette.green} />
         <View style={styles.itemCopy}>
           <Text style={styles.cardTitle}>{profile.tree.pledgedAt ? `Your tree · Day ${profile.tree.dayNumber}` : "Grow your tree"}</Text>
-          <Text style={styles.caption}>{profile.tree.pledgedAt ? "A brighter you grows here." : "Start with one promise to yourself."}</Text>
+          <Text style={styles.caption}>{profile.tree.pledgedAt ? "A brighter you grows here." : premium.allowed ? "Start with one promise to yourself." : "Premium · membership unlocks Grow Your Tree."}</Text>
         </View>
         <View style={styles.treeAction}><Text style={styles.treeActionLabel}>{profile.tree.pledgedAt ? "Tend" : "Plant"}</Text></View>
       </Pressable>
@@ -125,12 +131,12 @@ export default function HomeScreen() {
         <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/framework")} style={styles.link}>
           <Text style={styles.linkLabel}>Browse habits</Text><MaterialCommunityIcons name="arrow-right" size={20} color={palette.link} />
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/ai-coach")} style={styles.link}>
+        <Pressable accessibilityRole="button" onPress={() => openPremium("/(app)/ai-coach")} style={styles.link}>
           <Text style={styles.linkLabel}>Medaa Ai</Text><MaterialCommunityIcons name="arrow-right" size={20} color={palette.link} />
         </Pressable>
       </View>
 
-      <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/(tabs)/japanese-wisdom")} style={({ pressed }) => [styles.wisdomCard, pressed && styles.pressed]}>
+      <Pressable accessibilityRole="button" onPress={() => openPremium("/(app)/(tabs)/japanese-wisdom")} style={({ pressed }) => [styles.wisdomCard, pressed && styles.pressed]}>
         <MaterialCommunityIcons name="bowl-mix-outline" size={24} color={palette.purple} />
         <View style={styles.itemCopy}><Text style={styles.cardTitle}>Japanese Wisdom</Text><Text style={styles.caption}>Hara Hachi Bu · a mindful daily moment</Text></View>
         <MaterialCommunityIcons name="chevron-right" size={22} color={palette.muted} />

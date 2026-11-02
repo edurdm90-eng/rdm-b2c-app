@@ -5,6 +5,7 @@ export const env = createEnv({
   clientPrefix: "EXPO_PUBLIC_",
   client: {
     EXPO_PUBLIC_SERVER_URL: z.url(),
+    // Public SDK keys only. Entitlement id should be `premium` (app defaults to that when a key is set).
     EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: z.string().trim().min(1).optional(),
     EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: z.string().trim().min(1).optional(),
     EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: z.string().trim().min(1).optional(),

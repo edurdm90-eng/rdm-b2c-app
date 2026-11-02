@@ -7,8 +7,10 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FocusedButton, FocusedScreen, focusedColors as palette, focusedTypography } from "@/components/focused-ui";
+import { PremiumPaywall } from "@/components/premium-gate";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { WisdomProgress } from "@/components/wisdom-progress";
+import { usePremiumAccess } from "@/lib/premium-access";
 import { fonts } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -49,8 +51,10 @@ function CommitmentCard({ habit }: { habit: Habit }) {
 }
 
 export default function JapaneseWisdomScreen() {
-  const habits = useQuery(trpc.rdm.habits.list.queryOptions());
+  const premium = usePremiumAccess();
+  const habits = useQuery({ ...trpc.rdm.habits.list.queryOptions(), enabled: premium.allowed });
 
+  if (!premium.allowed) return <PremiumPaywall title="Wisdom (Japanese Habits)" />;
   if (habits.isLoading) return <LoadingState label="Opening Japanese Wisdom…" />;
   if (habits.error || !habits.data) return <ErrorState message={habits.error?.message ?? "Your practices are unavailable."} onRetry={() => void habits.refetch()} />;
 

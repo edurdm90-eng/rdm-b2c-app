@@ -56,6 +56,9 @@ before(async () => {
   process.env.NODE_ENV = "test";
   process.env.OPENAI_API_KEY = "";
   process.env.MEDAA_DAILY_REQUEST_LIMIT = "30";
+  // Integration suites freeze Date in 2030 (after the free period). Grant premium
+  // so Tree / Medaa / Games / Wisdom regressions still exercise paid mutations.
+  process.env.RDM_TEST_PREMIUM_ACTIVE = "1";
   db = await import("@rdm-b2c/db");
   ({ appRouter } = await import("../routers/index"));
   ({ reconcileDueGroupGoalsBatch } = await import("../routers/rdm"));

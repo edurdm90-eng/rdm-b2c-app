@@ -10,6 +10,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
+    "setup:revenuecat": "bash scripts/setup-revenuecat.sh",
     "web": "expo start --web"
   },
   "dependencies": {

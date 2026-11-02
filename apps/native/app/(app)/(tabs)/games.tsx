@@ -4,16 +4,21 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FocusedScreen, focusedColors as c, focusedStyles as f } from "@/components/focused-ui";
 import { GameArt, GameIcon, GamesNote, GamesTabs, gameOrder, gamesStyles as g } from "@/components/games-ui";
+import { PremiumPaywall } from "@/components/premium-gate";
 import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { usePremiumAccess } from "@/lib/premium-access";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
 export default function GamesScreen() {
   const focused = useIsFocused();
-  const games = useQuery({ ...trpc.rdm.games.list.queryOptions(), enabled: focused, refetchInterval: focused ? STANDARD_REFRESH_MS : false });
+  const premium = usePremiumAccess();
+  const games = useQuery({ ...trpc.rdm.games.list.queryOptions(), enabled: focused && premium.allowed, refetchInterval: focused && premium.allowed ? STANDARD_REFRESH_MS : false });
   const [filter, setFilter] = useState<number | "all">("all");
   const visible = [...(games.data ?? [])].filter((game) => game.id !== "gratitude-tap" && (filter === "all" || game.filterMinutes === filter)).sort((a, b) => gameOrder.indexOf(a.id) - gameOrder.indexOf(b.id));
+
+  if (!premium.allowed) return <PremiumPaywall title="Games" />;
 
   return <FocusedScreen contentStyle={[g.screen, { gap: 12 }]}>
     <View style={s.heading}><Text style={f.title}>Games</Text><Pressable accessibilityRole="button" onPress={() => router.push("/(app)/badges")} style={s.badges}><GameIcon name="medal-outline" color={c.gold} size={21} /><Text style={s.badgeLabel}>Badges</Text></Pressable></View>

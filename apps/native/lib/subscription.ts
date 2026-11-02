@@ -46,8 +46,12 @@ async function createAdapter(): Promise<SubscriptionAdapter> {
   };
 }
 
+// Locked go-live default: entitlement id `premium` when a public SDK key exists.
+const entitlementId = env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID
+  ?? (apiKey ? "premium" : undefined);
+
 export const subscriptionController = new SubscriptionController({
   apiKey,
-  entitlementId: env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID,
+  entitlementId,
   createAdapter,
 });

@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { FocusedButton, focusedColors as palette } from "@/components/focused-ui";
+import { PremiumPaywall } from "@/components/premium-gate";
 import { TreeArtwork, TreeNotice, TreePage, treeStyles as ui } from "@/components/tree-ui";
+import { usePremiumAccess } from "@/lib/premium-access";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
@@ -25,11 +27,12 @@ function CareRow({ title, subtitle, icon, color, done, onPress }: { title: strin
 export default function TreeScreen() {
   const timeZone = getDeviceTimeZone();
   const focused = useIsFocused();
+  const premium = usePremiumAccess();
   const [amount, setAmount] = useState("10");
   const [notice, setNotice] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const submitting = useRef(false);
-  const overview = useQuery(trpc.rdm.tree.overview.queryOptions({ timeZone }, { enabled: focused, refetchInterval: focused ? STANDARD_REFRESH_MS : false }));
+  const overview = useQuery(trpc.rdm.tree.overview.queryOptions({ timeZone }, { enabled: focused && premium.allowed, refetchInterval: focused && premium.allowed ? STANDARD_REFRESH_MS : false }));
   const pledge = useMutation(trpc.rdm.tree.pledge.mutationOptions());
   const missedDayKey = overview.data?.missedDay?.dayKey;
   useEffect(() => { if (focused && missedDayKey && !working) router.replace("/(app)/streak-missed"); }, [focused, missedDayKey, working]);
@@ -38,6 +41,8 @@ export default function TreeScreen() {
   const parsedAmount = Number(amount);
   const valid = Number.isInteger(parsedAmount) && parsedAmount >= 10 && parsedAmount <= 100_000;
   const affordable = profile && valid && parsedAmount <= profile.wallet.base;
+
+  if (!premium.allowed) return <PremiumPaywall title="Grow Your Tree" />;
 
   async function plant() {
     if (submitting.current || !profile || planted || !valid || !affordable) return;

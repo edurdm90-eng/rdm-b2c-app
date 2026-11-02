@@ -28,6 +28,7 @@ import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitm
 import { mapWithConcurrency } from "../domain/concurrency";
 import { wisdomHabitView, wisdomDisabledBonusPolicy } from "../domain/wisdom";
 import { dailyFocus } from "../domain/daily-focus";
+import { getPremiumAccessForUser, assertPremiumAccess } from "../services/premium-access";
 import { walletActivity } from "../domain/wallet-activity";
 import {
   awardSplitIsValid,
@@ -2132,14 +2133,16 @@ export const rdmRouter = router({
       ),
       Goal.find({ userId: ctx.session.user.id, fundingStatus: "funded" }),
     ]);
+    const serverNow = new Date();
     return {
       user: { name: ctx.session.user.name, email: ctx.session.user.email },
       profile: await serializeProfile(profile),
       habits: habits.filter((habit) => habit.active).map(serializeHabit),
-      today: dailyFocus(habits.map(serializeHabit), focusGoals.map(serializeGoal), new Date()),
+      today: dailyFocus(habits.map(serializeHabit), focusGoals.map(serializeGoal), serverNow),
       groups: groups.map((group) => serializeGroup(group, ctx.session.user.id)),
       games: gameCatalog,
-      serverTime: nowIso(),
+      serverTime: serverNow.toISOString(),
+      premium: await getPremiumAccessForUser(ctx.session.user.id, serverNow),
     };
   }),
 
@@ -2233,6 +2236,7 @@ export const rdmRouter = router({
         timeZone: timeZoneSchema,
       }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         await ensureUserData(ctx.session.user.id, ctx.session.user.name);
         const pledgedAt = new Date();
         const previousPledgeDayKey = previousDayKeyForTimeZone(
@@ -2603,6 +2607,7 @@ export const rdmRouter = router({
     create: protectedProcedure
       .input(habitCreateInputSchema)
       .mutation(async ({ ctx, input }) => {
+        if (input.wisdomPracticeId) await assertPremiumAccess(ctx.session.user.id);
         const existingHabit = await Habit.findOne({
           userId: ctx.session.user.id,
           rdmPledgeCreationId: input.creationId,
@@ -3150,6 +3155,7 @@ export const rdmRouter = router({
     start: protectedProcedure
       .input(z.object({ gameId: gameIdSchema }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const game = gameCatalog.find((item) => item.id === input.gameId);
         if (!game) throw new TRPCError({ code: "NOT_FOUND", message: "Game not found" });
         await ensureUserData(ctx.session.user.id, ctx.session.user.name);
@@ -3213,6 +3219,7 @@ export const rdmRouter = router({
         action: gameActionSchema,
       }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const actionAt = new Date();
         const replay = await GameSession.findOne({
           _id: input.sessionId,
@@ -3321,6 +3328,7 @@ export const rdmRouter = router({
     complete: protectedProcedure
       .input(z.object({ sessionId: mongoId }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const existing = await GameSession.findOne({ _id: input.sessionId, userId: ctx.session.user.id });
         if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Game session not found" });
         const settlement = await settleGameSession(existing, ctx.session.user.id);

@@ -28,6 +28,7 @@ import { goalCreateInputSchema, habitCreateInputSchema } from "../domain/commitm
 import { dayKeyForTimeZone, goalCategories, goalDurationWindow } from "../domain/rdm";
 import { protectedProcedure, router } from "../index";
 import { medaaProvider, MedaaProviderError } from "../services/medaa-provider";
+import { assertPremiumAccess } from "../services/premium-access";
 import { rdmRouter } from "./rdm";
 
 const conversationId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid conversation");
@@ -236,6 +237,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
 
     start: protectedProcedure.input(z.object({ creationId: z.string().uuid(), timeZone: medaaTimeZoneSchema }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const userId = ctx.session.user.id;
         let stored = await MedaaConversation.findOne({ userId, creationId: input.creationId });
         if (!stored) {
@@ -255,6 +257,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
 
     setHorizon: protectedProcedure.input(revisionInput.extend({ horizonYears: z.union([z.literal(1), z.literal(2), z.literal(3)]) }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const stored = await ownedConversation(input.conversationId, ctx.session.user.id);
         const journey = requireJourney(stored, false);
         if (stored.drafts.length && journey.horizonYears !== input.horizonYears) {
@@ -267,6 +270,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
 
     defineLongTerm: protectedProcedure.input(revisionInput.extend({ longTermGoal: medaaLongTermGoalSchema, category: z.enum(goalCategories) }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const stored = await ownedConversation(input.conversationId, ctx.session.user.id);
         const journey = requireJourney(stored, false);
         if (!journey.horizonYears) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a 1-, 2-, or 3-year horizon first." });
@@ -282,6 +286,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
 
     navigate: protectedProcedure.input(revisionInput.extend({ stage: z.enum(medaaJourneyStages) }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const stored = await ownedConversation(input.conversationId, ctx.session.user.id);
         const journey = requireJourney(stored, !["horizon", "long-term"].includes(input.stage));
         if (input.stage === "long-term" && !journey.horizonYears) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a horizon first." });
@@ -294,6 +299,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
     chooseGoals: protectedProcedure.input(revisionInput.extend({ draftIds: z.array(z.string().uuid()).max(MAX_DRAFTS)
       .refine((ids) => new Set(ids).size === ids.length, "Choose each goal once"), continueToGoals: z.boolean().default(true) }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const stored = await ownedConversation(input.conversationId, ctx.session.user.id);
         const journey = requireJourney(stored);
         const selectionLimit = medaaGoalSelectionLimit(journey.selectedGoalIds, stored.drafts);
@@ -317,6 +323,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
 
     addManual: protectedProcedure.input(z.object({ conversationId, requestId: z.string().uuid(), content: medaaDraftContentSchema }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const userId = ctx.session.user.id;
         const stored = await ownedConversation(input.conversationId, userId);
         const journey = requireJourney(stored);
@@ -359,6 +366,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
       conversationId, requestId: z.string().uuid(), action: medaaAiActionSchema, regenerate: z.boolean().default(false),
       dailyPledgeRdm: z.number().int().min(1).max(100_000).optional(),
     }).strict()).mutation(async ({ ctx, input }) => {
+      await assertPremiumAccess(ctx.session.user.id);
       const userId = ctx.session.user.id;
       await viewConversation(input.conversationId, userId);
       const stored = await ownedConversation(input.conversationId, userId);
@@ -517,6 +525,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
     }),
 
     prepare: protectedProcedure.input(medaaPrepareSchema).mutation(async ({ ctx, input }) => {
+      await assertPremiumAccess(ctx.session.user.id);
       const userId = ctx.session.user.id;
       const stored = await ownedConversation(input.conversationId, userId);
       requireIdle(stored);
@@ -564,6 +573,7 @@ export function createMedaaRouter(provider: MedaaProvider = medaaProvider) {
 
     set: protectedProcedure.input(z.object({ conversationId, draftId: z.string().uuid(), reviewId: z.string().uuid(), confirmElapsedDates: z.boolean().default(false) }))
       .mutation(async ({ ctx, input }) => {
+        await assertPremiumAccess(ctx.session.user.id);
         const userId = ctx.session.user.id;
         const current = await viewConversation(input.conversationId, userId);
         const stored = await ownedConversation(input.conversationId, userId);

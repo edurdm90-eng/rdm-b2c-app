@@ -88,7 +88,7 @@ export default function AccountScreen() {
       <View style={styles.menuCard}>
         <Pressable accessibilityRole="button" accessibilityLabel="Membership" onPress={() => router.push("./membership")} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
           <View style={[styles.menuIcon, { backgroundColor: `${palette.purple}22` }]}><MaterialCommunityIcons name="crown-outline" size={21} color={palette.purple} /></View>
-          <View style={styles.menuCopy}><Text style={styles.menuLabel}>Membership</Text><Text style={styles.menuHint}>Plans, status and purchases</Text></View>
+          <View style={styles.menuCopy}><Text style={styles.menuLabel}>Membership</Text><Text style={styles.menuHint}>Premium plans · ₹99/mo · ₹849/yr</Text></View>
           <MaterialCommunityIcons name="chevron-right" size={21} color={palette.muted} />
         </Pressable>
         {menuItems.map((item) => <Pressable key={item.label} accessibilityRole="button" onPress={() => router.push(item.route)} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>

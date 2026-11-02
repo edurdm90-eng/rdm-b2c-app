@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FocusedButton, FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { MedaaDraftCard } from "@/components/medaa-draft-card";
 import { MedaaJourneyStep } from "@/components/medaa-journey";
+import { PremiumPaywall } from "@/components/premium-gate";
+import { usePremiumAccess } from "@/lib/premium-access";
 import { PENDING_REFRESH_MS, STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
 import { getDeviceTimeZone } from "@/lib/time-zone";
@@ -28,6 +30,7 @@ export default function AiCoachScreen() {
   const conversationId = typeof params.conversationId === "string" ? params.conversationId : "";
   const draftId = typeof params.draftId === "string" ? params.draftId : "";
   const focused = useIsFocused();
+  const premium = usePremiumAccess();
   const insets = useSafeAreaInsets();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,14 +42,14 @@ export default function AiCoachScreen() {
   const childOperationLock = useRef(false);
   const startId = useRef(Crypto.randomUUID());
 
-  const status = useQuery(trpc.medaa.status.queryOptions(undefined, { enabled: focused }));
-  const history = useQuery(trpc.medaa.conversations.queryOptions(undefined, { enabled: focused && historyOpen }));
-  const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions(undefined, { enabled: focused && !conversationId }));
+  const status = useQuery(trpc.medaa.status.queryOptions(undefined, { enabled: focused && premium.allowed }));
+  const history = useQuery(trpc.medaa.conversations.queryOptions(undefined, { enabled: focused && premium.allowed && historyOpen }));
+  const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions(undefined, { enabled: focused && premium.allowed && !conversationId }));
   const budget = useQuery(trpc.medaa.budget.queryOptions({ conversationId }, {
-    enabled: focused && Boolean(conversationId), refetchInterval: focused ? STANDARD_REFRESH_MS : false,
+    enabled: focused && premium.allowed && Boolean(conversationId), refetchInterval: focused && premium.allowed ? STANDARD_REFRESH_MS : false,
   }));
   const conversation = useQuery(trpc.medaa.conversation.queryOptions({ id: conversationId }, {
-    enabled: Boolean(conversationId) && focused,
+    enabled: Boolean(conversationId) && focused && premium.allowed,
     structuralSharing: (previous, incoming) => keepNewestConversation(previous as MedaaConversation | undefined, incoming as MedaaConversation),
     refetchInterval: (query) => query.state.data?.pendingRequestId ? PENDING_REFRESH_MS : false,
     refetchIntervalInBackground: false,
@@ -197,6 +200,8 @@ export default function AiCoachScreen() {
   const loadingJourney = Boolean(conversationId && conversation.isPending);
   const planBudget = budget.data ?? (!conversationId && availableBase !== undefined
     ? { baseRdm: availableBase, selectedPledgeRdm: 0, remainingBaseRdm: availableBase, maxAffordableDays: Math.min(90, availableBase) } : null);
+
+  if (!premium.allowed) return <PremiumPaywall title="AI Goal Setting" />;
 
   return (
     <FocusedScreen scroll={false} contentStyle={styles.screen}>

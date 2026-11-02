@@ -1,36 +1,49 @@
 # RevenueCat membership setup
 
-The native app includes a Membership page under Account. It does not gate any
-existing feature, alter RDM balances, or sell RDM. Until configured, it shows
-“Subscriptions coming soon.” The selected entitlement ID and the features it
-will eventually unlock are product decisions, not hard-coded business rules.
+The native app includes a Membership page under Account. Membership does **not**
+sell or mint RDM. Entitlement id is `premium`.
 
-## Configuration to supply later
+**Product (locked):** Premium = Grow Your Tree, AI Goal Setting (Medaa), Games,
+Wisdom (Japanese Habits). Always free = Habits, Goals, Group goals. List prices
+₹99/month · ₹849/year. Membership never sells or mints RDM. **Everyone keeps
+premium surfaces free through 5 Jan 2027 (Asia/Kolkata)**; from 6 Jan 2027 local
+midnight, active `premium` entitlement is required (client UI + server checks on
+paid mutations). Set `REVENUECAT_SECRET_API_KEY` on the server before that date
+so paying members keep access.
+
+## Guided setup
+
+Run the interactive wizard (opens store/RevenueCat URLs, writes public keys to
+`apps/native/.env`):
+
+```bash
+pnpm --filter native setup:revenuecat
+# or: bash apps/native/scripts/setup-revenuecat.sh
+```
+
+## Configuration checklist
 
 1. In RevenueCat, create one project with an iOS app matching
    `com.rdm.app` and an Android app matching `com.rdm.app`. Connect each to
    App Store Connect / Google Play Console as appropriate.
-2. Create the store subscription products and pricing, mirror them in
-   RevenueCat, attach them to a single entitlement, then add packages to a
-   current/default offering. Decide the entitlement identifier and the exact
-   premium benefits before any feature-gating work.
-   In RevenueCat Project settings > General, decide the restore/transfer
-   behavior before testing purchases. The default **transfers** a purchase
-   from account A to account B if B restores it. If membership must stay bound
-   to the original Better Auth account, select **Keep with original App User ID**
-   for both production and sandbox, and plan for account-recovery support.
+2. Create store subscription products (suggested: monthly + yearly), mirror them
+   in RevenueCat, attach them to entitlement **`premium`**, then add packages to
+   the **current** offering (e.g. `$rc_monthly`, `$rc_annual`).
+   In RevenueCat Project settings > General, set restore/transfer behavior to
+   **Keep with original App User ID** for production and sandbox so membership
+   stays bound to the Better Auth account that purchased it.
 3. Set these **public** values for each Expo/EAS build environment that should
-   expose subscriptions (and, optionally, in ignored `apps/native/.env` for
-   local development):
+   expose subscriptions (and in ignored `apps/native/.env` for local
+   development):
    - `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`: RevenueCat public SDK key for the
      iOS app.
    - `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`: RevenueCat public SDK key for
      the Android app.
-   - `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID`: exact entitlement identifier in
-     RevenueCat, shared by both stores.
-   A missing platform key or entitlement leaves that platform unconfigured.
-   Do not place RevenueCat secret API keys, store credentials, or service
-   account credentials in `EXPO_PUBLIC_*` variables.
+   - `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID=premium`
+   If a platform public key is set but the entitlement id env is omitted, the
+   app defaults the entitlement id to `premium`. Do not place RevenueCat
+   **secret** API keys, store credentials, or service account credentials in
+   `EXPO_PUBLIC_*` variables.
 4. Build a new native app after adding the SDK; OTA updates / Expo Go cannot
    add native billing modules to an existing APK. Expo Go's Preview API Mode
    can render the screen but cannot perform real purchases. Do not publish an
@@ -41,6 +54,16 @@ will eventually unlock are product decisions, not hard-coded business rules.
    Store Connect and test a native build / TestFlight. Verify purchase,
    cancellation, restore, expiration, restart, sign-out, and account switching
    against RevenueCat's customer dashboard on each platform.
+
+## Phase 1 acceptance (per platform)
+
+- Membership lists localized plans (not “coming soon”).
+- Purchase → status Active; kill/relaunch still Active for the same user.
+- Restore works; Manage opens `managementURL` when available.
+- Sign-out / other account does not leak Active.
+- Cancel / expire in sandbox → Inactive.
+
+## Runtime notes
 
 The mobile SDK is initialized once per process only after Better Auth provides
 `session.user.id`. Switching to a different signed-in user uses RevenueCat
