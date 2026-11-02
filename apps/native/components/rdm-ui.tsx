@@ -246,6 +246,25 @@ export function RdmLogo({ width = 48, height = 24 }: { width?: number; height?: 
   return <Image accessible={false} source={require("@/assets/rdm/rdm-logo.png")} resizeMode="contain" style={{ width, height }} />;
 }
 
+/** Square B2C mark for login cover and account menu. */
+export function RdmCoverLogo({
+  size = 96,
+  accessibilityLabel = "RDM",
+}: {
+  size?: number;
+  accessibilityLabel?: string;
+}) {
+  return (
+    <Image
+      accessibilityLabel={accessibilityLabel}
+      accessible
+      source={require("@/assets/rdm/b2c_logo.png")}
+      resizeMode="contain"
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <View style={styles.centerState}>

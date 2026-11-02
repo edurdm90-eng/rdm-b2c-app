@@ -1,9 +1,10 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { FocusedScreen, focusedColors, focusedTypography } from "@/components/focused-ui";
+import { RdmCoverLogo } from "@/components/rdm-ui";
 import {
   authClient,
   syncBearerTokenFromOAuthCallback,
@@ -121,12 +122,9 @@ export default function LoginScreen() {
     <FocusedScreen bottomSafe contentStyle={styles.screen}>
       <View style={styles.content}>
         <View style={styles.hero}>
-          <Image
-            accessibilityLabel="RDM"
-            resizeMode="contain"
-            source={require("@/assets/rdm/rdm-logo.png")}
-            style={styles.logo}
-          />
+          <View style={styles.logoWrap}>
+            <RdmCoverLogo size={148} />
+          </View>
           <View style={styles.welcomeBadge}>
             <MaterialCommunityIcons name="sprout-outline" size={18} color={focusedColors.green} />
             <Text style={styles.welcomeBadgeText}>Your focused routine</Text>
@@ -203,7 +201,7 @@ const styles = StyleSheet.create({
   screen: { justifyContent: "center", paddingHorizontal: 24, paddingVertical: 24 },
   content: { width: "100%", maxWidth: 420, minHeight: 560, alignSelf: "center", justifyContent: "space-between" },
   hero: { alignItems: "center", paddingTop: 22 },
-  logo: { width: 218, height: 106, marginBottom: 22 },
+  logoWrap: { marginBottom: 22 },
   welcomeBadge: { flexDirection: "row", alignItems: "center", gap: 7, borderWidth: 1, borderColor: focusedColors.line, borderRadius: 999, backgroundColor: focusedColors.panel, paddingHorizontal: 12, paddingVertical: 7, marginBottom: 20 },
   welcomeBadgeText: { color: focusedColors.muted, fontFamily: fonts.bodyMedium, fontSize: 12.5 },
   title: { color: focusedColors.text, fontFamily: fonts.bodyBold, ...focusedTypography.heroTitle, letterSpacing: -0.6, textAlign: "center" },

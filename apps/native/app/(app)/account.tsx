@@ -4,7 +4,7 @@ import { router, useIsFocused } from "expo-router";
 import { useState } from "react";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 
-import { ActionDialog, ErrorState, LoadingState } from "@/components/rdm-ui";
+import { ActionDialog, ErrorState, LoadingState, RdmCoverLogo } from "@/components/rdm-ui";
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { authClient } from "@/lib/auth-client";
 import { subscriptionController } from "@/lib/subscription";
@@ -27,7 +27,6 @@ export default function AccountScreen() {
   if (dashboard.error || !dashboard.data) return <ErrorState message={dashboard.error?.message ?? "Your account is unavailable."} onRetry={() => void dashboard.refetch()} />;
 
   const { user, profile } = dashboard.data;
-  const initials = user.name.trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "R";
   const invitesRemaining = profile.unlockedBadges.includes("golden-bloom") ? 0 : Math.max(0, 3 - profile.weeklyInvites);
 
   async function inviteFriend() {
@@ -58,11 +57,14 @@ export default function AccountScreen() {
         <Pressable accessibilityLabel="Go back" accessibilityRole="button" onPress={() => router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)")} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={26} color={palette.text} />
         </Pressable>
-        <View><Text style={styles.headerTitle}>Account</Text><Text style={styles.headerSubtitle}>Your RDM space</Text></View>
+        <View style={styles.headerCopy}>
+          <Text style={styles.headerTitle}>Account</Text>
+          <Text style={styles.headerSubtitle}>Your RDM space</Text>
+        </View>
       </View>
 
       <View style={styles.profileCard}>
-        <View accessibilityLabel={`${user.name} profile`} accessible style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>
+        <RdmCoverLogo size={56} accessibilityLabel="RDM" />
         <View style={styles.profileCopy}><Text numberOfLines={2} style={styles.name}>{user.name}</Text><Text numberOfLines={1} style={styles.email}>{user.email}</Text></View>
       </View>
 
@@ -110,11 +112,10 @@ const styles = StyleSheet.create({
   screenContent: { gap: 14, paddingTop: 12 },
   header: { alignItems: "center", flexDirection: "row", gap: 10, minHeight: 44 },
   backButton: { alignItems: "center", height: 40, justifyContent: "center", marginLeft: -8, width: 40 },
+  headerCopy: { flex: 1, minWidth: 0 },
   headerTitle: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 21, lineHeight: 27 },
   headerSubtitle: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
   profileCard: { alignItems: "center", backgroundColor: palette.panel, borderColor: palette.line, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 13, padding: 15 },
-  avatar: { alignItems: "center", backgroundColor: palette.green, borderRadius: 28, flexShrink: 0, height: 56, justifyContent: "center", width: 56 },
-  avatarText: { color: palette.onGreen, fontFamily: fonts.bodyBold, fontSize: 21 },
   profileCopy: { flex: 1, gap: 4, minWidth: 0 },
   name: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 18, lineHeight: 24 },
   email: { color: palette.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
