@@ -4,7 +4,7 @@
     "slug": "rdm-b2c",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/rdm-icon.png",
+    "icon": "./assets/images/app-icon.png",
     "scheme": "rdm-b2c",
     "userInterfaceStyle": "dark",
     "ios": {
@@ -14,22 +14,22 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0E1117",
-        "foregroundImage": "./assets/images/rdm-icon.png"
+        "foregroundImage": "./assets/images/app-icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.rdm.app",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/rdm-icon.png"
+      "favicon": "./assets/images/app-icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/rdm-icon.png",
+          "image": "./assets/images/splash-logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#0E1117",
