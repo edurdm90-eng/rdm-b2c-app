@@ -23,11 +23,20 @@ export function GameIcon({ name, size = 24, color = c.muted }: { name: GameIconN
   return <MaterialCommunityIcons accessible={false} name={name} size={size} color={color} />;
 }
 export function GamesFrame({ title, onBack, children, footer }: { title: string; onBack: () => void; children: ReactNode; footer: ReactNode }) {
-  return <FocusedScreen scroll={false} bottomSafe contentStyle={[gamesStyles.screen, { gap: 0, paddingBottom: 14 }]}>
-    <GamesHeader title={title} onBack={onBack} />
-    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 16, paddingTop: 12, paddingBottom: 16, flexGrow: 1 }}>{children}</ScrollView>
-    <View style={{ gap: 10, paddingTop: 12 }}>{footer}</View>
-  </FocusedScreen>;
+  return (
+    <FocusedScreen scroll={false} bottomSafe contentStyle={frameStyles.screen}>
+      <GamesHeader title={title} onBack={onBack} />
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        style={frameStyles.scroll}
+        contentContainerStyle={frameStyles.scrollContent}
+      >
+        {children}
+      </ScrollView>
+      <View style={frameStyles.footer}>{footer}</View>
+    </FocusedScreen>
+  );
 }
 export function GamesHeader({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack?: () => void }) {
   return <View style={s.header}>
@@ -45,9 +54,10 @@ export function GamesNote({ children, icon = "information-outline", color = c.mu
   return <View style={s.note}><GameIcon name={icon} size={22} color={color} /><Text style={s.noteText}>{children}</Text></View>;
 }
 export function GameArt({ id, intro = false, large = false }: { id: string; intro?: boolean; large?: boolean }) {
-  if (intro && id === "memory-match") return <Image accessible={false} source={require("@/assets/images/games-memory-intro.png")} resizeMode="contain" style={{ width: "100%", height: large ? 150 : 72 }} />;
-  if (!gameLogoSources[id]) return <View style={{ height: large ? 150 : 64, alignItems: "center", justifyContent: "center" }}><GameIcon name="gamepad-variant-outline" size={large ? 108 : 60} color={gameBlue} /></View>;
-  return <Image accessible={false} source={gameLogoSources[id]} resizeMode="contain" style={{ width: "100%", height: large ? 150 : 72 }} />;
+  const height = large ? 120 : 72;
+  if (intro && id === "memory-match") return <Image accessible={false} source={require("@/assets/images/games-memory-intro.png")} resizeMode="contain" style={{ width: "100%", height }} />;
+  if (!gameLogoSources[id]) return <View style={{ height: large ? 120 : 64, alignItems: "center", justifyContent: "center" }}><GameIcon name="gamepad-variant-outline" size={large ? 96 : 60} color={gameBlue} /></View>;
+  return <Image accessible={false} source={gameLogoSources[id]} resizeMode="contain" style={{ width: "100%", height }} />;
 }
 export function GamesProgress({ value, color = c.green }: { value: number; color?: string }) {
   const progress = Math.min(1, Math.max(0, value));
@@ -61,6 +71,12 @@ export const gamesStyles = StyleSheet.create({
   muted: { color: c.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20 },
   label: { color: c.text, fontFamily: fonts.bodyMedium, fontSize: 15, lineHeight: 22 },
   rule: { height: 1, backgroundColor: c.line },
+});
+const frameStyles = StyleSheet.create({
+  screen: { flex: 1, minHeight: 0, gap: 0, paddingTop: 8, paddingBottom: 8 },
+  scroll: { flex: 1, minHeight: 0 },
+  scrollContent: { gap: 16, paddingTop: 8, paddingBottom: 20 },
+  footer: { gap: 10, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
 });
 const s = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48, marginBottom: 6 },

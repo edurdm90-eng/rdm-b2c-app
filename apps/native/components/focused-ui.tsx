@@ -51,7 +51,7 @@ export function FocusedScreen({
         >
           {children}
         </ScrollView>
-      ) : <View style={[styles.viewport, styles.content, contentStyle]}>{children}</View>}
+      ) : <View style={[styles.viewport, styles.fixedContent, contentStyle]}>{children}</View>}
     </SafeAreaView>
   );
 }
@@ -82,6 +82,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: focusedColors.background },
   viewport: { flex: 1, width: "100%", maxWidth: 480, alignSelf: "center" },
   content: { flexGrow: 1, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 18 },
+  fixedContent: { flex: 1, minHeight: 0, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 18 },
   button: { minHeight: 44, borderRadius: 10, backgroundColor: focusedColors.green, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   buttonLabel: { color: focusedColors.onGreen, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 19, textAlign: "center" },
   disabled: { opacity: 0.48 },
