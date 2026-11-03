@@ -180,7 +180,7 @@ finish() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────
-# STAGES — RevenueCat go-live for RDM native (com.rdm.app)
+# STAGES — RevenueCat go-live for RDM native (com.rdmtoken.app)
 # ──────────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -190,9 +190,9 @@ TOTAL_STAGES=11
 banner "RDM RevenueCat go-live"
 
 stage "App Store Connect — subscription products"
-say "Create the iOS subscription products for package id com.rdm.app."
+say "Create the iOS subscription products for package id com.rdmtoken.app."
 open_url "https://appstoreconnect.apple.com/apps"
-step "Open the RDM iOS app (bundle id com.rdm.app)."
+step "Open the RDM iOS app (bundle id com.rdmtoken.app)."
 step "Go to Monetization → Subscriptions (or Features → In-App Purchases)."
 step "Create a subscription group if needed, then add two auto-renewable products:"
 note "  Suggested product ids: rdm_premium_monthly and rdm_premium_yearly"
@@ -200,9 +200,9 @@ step "Set pricing, localization, and submit for review when ready (sandbox works
 pause "Press Enter when both iOS products exist."
 
 stage "Google Play Console — subscription products"
-say "Create the Android subscription products for application id com.rdm.app."
+say "Create the Android subscription products for application id com.rdmtoken.app."
 open_url "https://play.google.com/console"
-step "Open the RDM Android app (application id com.rdm.app)."
+step "Open the RDM Android app (application id com.rdmtoken.app)."
 step "Monetize → Products → Subscriptions → Create subscription."
 step "Add matching base plans for monthly and yearly (same commercial intent as iOS)."
 note "  Suggested product ids: rdm_premium_monthly and rdm_premium_yearly"
@@ -213,8 +213,8 @@ stage "RevenueCat — apps"
 say "Connect both stores to one RevenueCat project."
 open_url "https://app.revenuecat.com"
 step "Create or open the RDM project."
-step "Add an iOS app with bundle id com.rdm.app and connect App Store Connect."
-step "Add an Android app with package name com.rdm.app and connect Google Play."
+step "Add an iOS app with bundle id com.rdmtoken.app and connect App Store Connect."
+step "Add an Android app with package name com.rdmtoken.app and connect Google Play."
 pause "Press Enter when both RevenueCat apps are connected."
 
 stage "RevenueCat — products + entitlement premium"

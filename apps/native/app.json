@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rdm.app"
+      "bundleIdentifier": "com.rdmtoken.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -17,8 +17,8 @@
         "foregroundImage": "./assets/images/app-icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.rdm.app",
-      "versionCode": 3
+      "package": "com.rdmtoken.app",
+      "versionCode": 4
     },
     "web": {
       "output": "static",

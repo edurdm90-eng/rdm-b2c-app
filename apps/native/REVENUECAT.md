@@ -24,7 +24,7 @@ pnpm --filter native setup:revenuecat
 ## Configuration checklist
 
 1. In RevenueCat, create one project with an iOS app matching
-   `com.rdm.app` and an Android app matching `com.rdm.app`. Connect each to
+   `com.rdmtoken.app` and an Android app matching `com.rdmtoken.app`. Connect each to
    App Store Connect / Google Play Console as appropriate.
 2. Create store subscription products (suggested: monthly + yearly), mirror them
    in RevenueCat, attach them to entitlement **`premium`**, then add packages to
