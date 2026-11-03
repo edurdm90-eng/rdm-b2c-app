@@ -90,8 +90,8 @@ export default function HabitsScreen() {
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const [historySelection, setHistorySelection] = useState<{ habitId: string; dayKey: string } | null>(null);
 
-  if (habits.isLoading) return <LoadingState label="Loading your habits…" />;
-  if (habits.error || !habits.data) return <ErrorState message={habits.error?.message ?? "Habits are unavailable."} onRetry={() => void habits.refetch()} />;
+  if (!habits.data && habits.isPending) return <LoadingState label="Loading your habits…" />;
+  if (!habits.data) return <ErrorState message={habits.error?.message ?? "Habits are unavailable."} onRetry={() => void habits.refetch()} />;
   if (habits.data.length === 0) return <NoHabitsYet />;
 
   const now = new Date();
@@ -165,7 +165,7 @@ export default function HabitsScreen() {
   }
 
   return (
-    <FocusedScreen contentStyle={styles.content}>
+    <FocusedScreen contentStyle={styles.content} refreshing={habits.isFetching && !habits.isPending} onRefresh={() => void habits.refetch()}>
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={styles.title}>Habits</Text>
         <Pressable accessibilityLabel="Create a habit" accessibilityRole="button" onPress={() => router.push("/(app)/framework")} style={({ pressed }) => [styles.plusButton, pressed && styles.pressed]}>

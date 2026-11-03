@@ -20,8 +20,8 @@ import { trpc } from "@/utils/trpc";
 export default function GroupTopUpScreen() {
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions());
 
-  if (wallet.isLoading) return <LoadingState label="Checking your Base Purse…" />;
-  if (wallet.error || !wallet.data) {
+  if (!wallet.data && wallet.isPending) return <LoadingState label="Checking your Base Purse…" />;
+  if (!wallet.data) {
     return <ErrorState message={wallet.error?.message ?? "Wallet is unavailable."} onRetry={() => void wallet.refetch()} />;
   }
 

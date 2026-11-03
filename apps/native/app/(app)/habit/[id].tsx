@@ -148,7 +148,7 @@ export default function HabitDetailScreen() {
   const busy = logAction.isPending || reflect.isPending || miss.isPending || startNext.isPending;
   usePreventRemove(historyOpen || busy, () => { if (!busy) setHistoryOpen(false); });
 
-  if (habit.isLoading) return <LoadingState label="Opening your habit…" />;
+  if (!habit.data && habit.isPending) return <LoadingState label="Opening your habit…" />;
   if (!habit.data) return <ErrorState message={habit.error?.message ?? "Habit not found."} onRetry={() => void habit.refetch()} />;
 
   const data = habit.data;

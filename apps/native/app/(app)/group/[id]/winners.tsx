@@ -45,8 +45,8 @@ export default function GroupWinnersScreen() {
     onError: (error) => Alert.alert("Could not announce winners", error.message),
   }));
 
-  if (preview.isLoading) return <LoadingState label="Calculating fair awards…" />;
-  if (preview.error || !preview.data) {
+  if (!preview.data && preview.isPending) return <LoadingState label="Calculating fair awards…" />;
+  if (!preview.data) {
     return <GroupErrorState message={preview.error?.message ?? "Awards are unavailable."} onBack={() => router.dismissTo("/(app)/(tabs)/groups")} onRetry={validId ? () => void preview.refetch() : undefined} />;
   }
 

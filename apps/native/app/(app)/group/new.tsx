@@ -350,8 +350,8 @@ export default function NewGroupScreen() {
     return <GroupJoinFlow initialCode={params.code} />;
   }
 
-  if (wallet.isLoading) return <LoadingState label="Checking your Base Purse…" />;
-  if (wallet.error || !wallet.data) {
+  if (!wallet.data && wallet.isPending) return <LoadingState label="Checking your Base Purse…" />;
+  if (!wallet.data) {
     return <GroupErrorState message={wallet.error?.message ?? "Your wallet is unavailable."} onBack={() => router.dismissTo("/(app)/(tabs)/groups")} onRetry={() => void wallet.refetch()} />;
   }
 

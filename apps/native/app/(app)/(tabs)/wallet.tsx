@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
 import { ErrorState, LoadingState, RdmLogo } from "@/components/rdm-ui";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
+import { shouldShowInitialQueryLoader } from "@/lib/query-ui";
 import { fonts, formatRdm, formatTransactionDate } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -38,15 +39,15 @@ export default function WalletScreen() {
     refetchIntervalInBackground: false,
   });
 
-  if (wallet.isLoading) return <LoadingState label="Counting your RDM…" />;
-  if (wallet.error || !wallet.data) return <ErrorState message={wallet.error?.message ?? "Wallet unavailable."} onRetry={() => void wallet.refetch()} />;
+  if (shouldShowInitialQueryLoader(Boolean(wallet.data), wallet.isPending)) return <LoadingState label="Counting your RDM…" />;
+  if (!wallet.data) return <ErrorState message={wallet.error?.message ?? "Wallet unavailable."} onRetry={() => void wallet.refetch()} />;
 
   const data = wallet.data;
   const purseTotal = purses.reduce((sum, purse) => sum + data.wallet[purse.id], 0);
   const focusGardenUnlocked = data.unlockedRewards.includes("focus-garden");
 
   return (
-    <FocusedScreen contentStyle={styles.screenContent}>
+    <FocusedScreen contentStyle={styles.screenContent} refreshing={wallet.isFetching && !wallet.isPending} onRefresh={() => void wallet.refetch()}>
       <Text accessibilityRole="header" style={styles.title}>Wallet</Text>
       <View style={styles.balanceSection}>
         <Text style={styles.balanceLabel}>Total RDM</Text>

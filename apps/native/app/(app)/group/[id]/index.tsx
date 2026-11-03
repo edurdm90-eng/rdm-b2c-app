@@ -55,8 +55,8 @@ export default function GroupDashboardScreen() {
     onError: (error) => Alert.alert("Could not log progress", error.message),
   }));
 
-  if (group.isLoading) return <LoadingState label="Opening group dashboard…" />;
-  if (group.error || !group.data) {
+  if (!group.data && group.isPending) return <LoadingState label="Opening group dashboard…" />;
+  if (!group.data) {
     return <GroupErrorState message={group.error?.message ?? "Group not found."} onBack={() => router.dismissTo("/(app)/(tabs)/groups")} onRetry={validId ? () => void group.refetch() : undefined} />;
   }
 
@@ -73,7 +73,7 @@ export default function GroupDashboardScreen() {
   }
 
   return (
-    <GroupScreen>
+    <GroupScreen refreshing={group.isFetching && !group.isPending} onRefresh={() => void group.refetch()}>
       <GroupPageHeader
         back
         onBack={() => router.dismissTo("/(app)/(tabs)/groups")}

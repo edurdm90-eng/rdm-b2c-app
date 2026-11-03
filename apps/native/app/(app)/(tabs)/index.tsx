@@ -9,6 +9,7 @@ import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui
 import { ErrorState, LoadingState, RdmLogo } from "@/components/rdm-ui";
 import { usePremiumAccess } from "@/lib/premium-access";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
+import { shouldShowInitialQueryLoader } from "@/lib/query-ui";
 import { fonts, formatRdm } from "@/lib/theme";
 import { seedWalletSummaryFromDashboard, trpc } from "@/utils/trpc";
 
@@ -42,8 +43,8 @@ export default function HomeScreen() {
     seedWalletSummaryFromDashboard(dashboard.data.profile);
   }, [dashboard.data]);
 
-  if (dashboard.isLoading) return <LoadingState />;
-  if (dashboard.error || !dashboard.data) {
+  if (shouldShowInitialQueryLoader(Boolean(dashboard.data), dashboard.isPending)) return <LoadingState />;
+  if (!dashboard.data) {
     return <ErrorState message={dashboard.error?.message ?? "The dashboard is unavailable."} onRetry={() => void dashboard.refetch()} />;
   }
 
@@ -54,7 +55,7 @@ export default function HomeScreen() {
   const dateLabel = new Date(serverTime).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <FocusedScreen contentStyle={styles.screenContent}>
+    <FocusedScreen contentStyle={styles.screenContent} refreshing={dashboard.isFetching && !dashboard.isPending} onRefresh={() => void dashboard.refetch()}>
       <View style={styles.headingRow}>
         <View style={styles.heading}>
           <Text style={styles.date}>{dateLabel}</Text>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { fonts } from "@/lib/theme";
@@ -24,16 +24,31 @@ export const focusedTypography = {
   pageTitle: { fontSize: 24, lineHeight: 31 },
 } as const;
 
-export function FocusedScreen({ children, scroll = true, bottomSafe = false, contentStyle }: {
+export function FocusedScreen({
+  children,
+  scroll = true,
+  bottomSafe = false,
+  contentStyle,
+  refreshing = false,
+  onRefresh,
+}: {
   children: ReactNode;
   scroll?: boolean;
   bottomSafe?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }) {
   return (
     <SafeAreaView edges={bottomSafe ? ["top", "left", "right", "bottom"] : ["top", "left", "right"]} style={styles.screen}>
       {scroll ? (
-        <ScrollView style={styles.viewport} contentContainerStyle={[styles.content, contentStyle]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.viewport}
+          contentContainerStyle={[styles.content, contentStyle]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={focusedColors.green} colors={[focusedColors.green]} progressBackgroundColor={focusedColors.panel} /> : undefined}
+        >
           {children}
         </ScrollView>
       ) : <View style={[styles.viewport, styles.content, contentStyle]}>{children}</View>}

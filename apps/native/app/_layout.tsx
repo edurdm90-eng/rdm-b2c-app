@@ -31,11 +31,22 @@ export default function RootLayout() {
   const [frauncesLoaded, frauncesError] = useFrauncesFonts({ Fraunces_600SemiBold });
   const [interLoaded, interError] = useInterFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
   const [monoLoaded, monoError] = useJetBrainsFonts({ JetBrainsMono_500Medium, JetBrainsMono_700Bold });
-  const ready = (frauncesLoaded && interLoaded && monoLoaded) || !!(frauncesError || interError || monoError);
+  // Body fonts unlock first paint; display/mono can finish without holding splash.
+  const criticalReady = interLoaded || !!interError;
+  const fontsSettled = (frauncesLoaded && interLoaded && monoLoaded) || !!(frauncesError || interError || monoError);
 
   useEffect(() => {
-    if (ready) void SplashScreen.hideAsync();
-  }, [ready]);
+    if (!criticalReady) return;
+    void SplashScreen.hideAsync();
+  }, [criticalReady]);
+
+  useEffect(() => {
+    if (fontsSettled || criticalReady) return;
+    const timeout = setTimeout(() => {
+      void SplashScreen.hideAsync();
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, [criticalReady, fontsSettled]);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -49,7 +60,7 @@ export default function RootLayout() {
     };
   }, []);
 
-  if (!ready) return null;
+  if (!criticalReady) return null;
 
   return (
     <QueryClientProvider client={queryClient}>

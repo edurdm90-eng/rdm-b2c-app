@@ -102,7 +102,7 @@ export default function GoalDetailScreen() {
     else setView("overview");
   });
 
-  if (goal.isLoading) return <LoadingState label="Opening your goal…" />;
+  if (!goal.data && goal.isPending) return <LoadingState label="Opening your goal…" />;
   if (!goal.data) return <ErrorState message={goal.error?.message ?? "Goal not found."} onRetry={() => void goal.refetch()} />;
 
   const data = goal.data;

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,11 +20,20 @@ import { colors, fonts, radii, typography } from "@/lib/theme";
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
-export function GroupScreen({ children, scroll = true, bottomSafe = true, contentStyle }: {
+export function GroupScreen({
+  children,
+  scroll = true,
+  bottomSafe = true,
+  contentStyle,
+  refreshing = false,
+  onRefresh,
+}: {
   children: ReactNode;
   scroll?: boolean;
   bottomSafe?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }) {
   return (
     <SafeAreaView edges={bottomSafe ? ["top", "left", "right", "bottom"] : ["top", "left", "right"]} style={groupStyles.safeArea}>
@@ -33,6 +43,7 @@ export function GroupScreen({ children, scroll = true, bottomSafe = true, conten
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           style={groupStyles.viewport}
+          refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={focusedColors.green} colors={[focusedColors.green]} progressBackgroundColor={focusedColors.panel} /> : undefined}
         >
           {children}
         </ScrollView>

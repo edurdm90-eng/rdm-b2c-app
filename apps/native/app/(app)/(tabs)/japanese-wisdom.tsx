@@ -55,15 +55,15 @@ export default function JapaneseWisdomScreen() {
   const habits = useQuery({ ...trpc.rdm.habits.list.queryOptions(), enabled: premium.allowed });
 
   if (!premium.allowed) return <PremiumPaywall title="Wisdom (Japanese Habits)" />;
-  if (habits.isLoading) return <LoadingState label="Opening Japanese Wisdom…" />;
-  if (habits.error || !habits.data) return <ErrorState message={habits.error?.message ?? "Your practices are unavailable."} onRetry={() => void habits.refetch()} />;
+  if (!habits.data && habits.isPending) return <LoadingState label="Opening Japanese Wisdom…" />;
+  if (!habits.data) return <ErrorState message={habits.error?.message ?? "Your practices are unavailable."} onRetry={() => void habits.refetch()} />;
 
   const commitments = habits.data.filter((habit) => habit.wisdomPracticeId === haraHachiBu.id);
   const activeCommitments = commitments.filter((habit) => habit.active && habit.rdmPledge?.status !== "finished");
   const finishedCommitments = commitments.filter((habit) => !habit.active || habit.rdmPledge?.status === "finished");
 
   return (
-    <FocusedScreen contentStyle={styles.content}>
+    <FocusedScreen contentStyle={styles.content} refreshing={habits.isFetching && !habits.isPending} onRefresh={() => void habits.refetch()}>
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={styles.title}>Japanese Wisdom</Text>
         <Text style={styles.subtitle}>Small ideas, steady growth</Text>

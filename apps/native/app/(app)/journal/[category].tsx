@@ -130,7 +130,7 @@ export default function JournalEntryScreen() {
   const params = useLocalSearchParams<{ category?: string }>();
   const categoryId = String(params.category ?? "") as GratitudeCategoryId;
   const detail = useQuery({ ...trpc.rdm.gratitude.byCategory.queryOptions({ category: categoryId, timeZone }), enabled: focused, refetchInterval: focused ? STANDARD_REFRESH_MS : false, refetchIntervalInBackground: false });
-  if (detail.isLoading) return <LoadingState label="Opening your journal…" />;
+  if (!detail.data && detail.isPending) return <LoadingState label="Opening your journal…" />;
   if (!detail.data) return <ErrorState message={detail.error?.message ?? "This journal prompt is unavailable."} onRetry={() => void detail.refetch()} />;
   return <JournalForm key={detail.data.category.id} detail={detail.data} onRefresh={() => void detail.refetch()} />;
 }

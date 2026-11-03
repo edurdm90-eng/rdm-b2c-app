@@ -31,8 +31,8 @@ export default function GroupResultScreen() {
     refetchIntervalInBackground: false,
   });
 
-  if (group.isLoading) return <LoadingState label="Opening group results…" />;
-  if (group.error || !group.data) {
+  if (!group.data && group.isPending) return <LoadingState label="Opening group results…" />;
+  if (!group.data) {
     return <GroupErrorState message={group.error?.message ?? "Results are unavailable."} onBack={() => router.dismissTo("/(app)/(tabs)/groups")} onRetry={validId ? () => void group.refetch() : undefined} />;
   }
   if (!group.data.awarded) {

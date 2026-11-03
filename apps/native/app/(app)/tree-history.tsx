@@ -17,7 +17,7 @@ export default function TreeHistoryScreen() {
   return <TreePage title="Care history">
     <Text style={shared.heading}>Small acts. Lasting growth.</Text>
     <Text style={shared.body}>Your saved reflections, gratitude and good deeds—all part of your tree&apos;s story.</Text>
-    {query.isLoading ? <LoadingState label="Loading care history…" /> : query.error ? <ErrorState message={query.error.message} onRetry={() => void query.refetch()} /> : query.data ? <>
+    {!query.data && query.isPending ? <LoadingState label="Loading care history…" /> : !query.data && query.error ? <ErrorState message={query.error.message} onRetry={() => void query.refetch()} /> : query.data ? <>
       <Text style={shared.small}>Care dates follow {query.data.timeZone}.</Text>
       {!query.data.entries.length ? <View style={shared.panel}><Text style={shared.body}>No care records here yet. Any care action after planting your tree starts its story.</Text></View> : query.data.entries.map((entry) => <View key={entry.dayKey} style={styles.day}>
         <Text style={shared.small}>{formatTreeDay(entry.dayKey, true)}</Text>

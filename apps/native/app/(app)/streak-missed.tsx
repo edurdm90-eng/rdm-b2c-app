@@ -50,7 +50,7 @@ export default function StreakMissedScreen() {
     <FocusedButton label="Tend the tree now" onPress={() => void tend()} loading={busy} />
     <Pressable accessibilityRole="button" disabled={busy} onPress={() => router.push("/(app)/(tabs)/wallet")} style={styles.secondary}><Text style={shared.section}>Open wallet</Text></Pressable>
   </> : undefined}>
-    {query.isLoading || resolved ? <LoadingState label="Checking your tree care…" /> : query.error || !missedDay ? <ErrorState message={query.error?.message ?? "Checking your latest care record."} onRetry={() => void query.refetch()} /> : <>
+    {resolved || (!query.data && query.isPending) ? <LoadingState label="Checking your tree care…" /> : query.error || !missedDay ? <ErrorState message={query.error?.message ?? "Checking your latest care record."} onRetry={() => void query.refetch()} /> : <>
       <TreeArtwork variant="resting" height={185} />
       <View style={styles.intro}><Text style={[shared.heading, styles.center]}>Missed a day?{"\n"}Start again today.</Text><Text style={shared.body}>{missedDay.missedYesterday ? "Yesterday · " : ""}{formatTreeDay(missedDay.dayKey)}</Text></View>
       <View style={[shared.panel, styles.receipt]}>

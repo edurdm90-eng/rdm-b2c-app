@@ -10,6 +10,7 @@ import { ErrorState, LoadingState } from "@/components/rdm-ui";
 import { formatDayKey } from "@/lib/date";
 import { getGoalPresentation, type Goal } from "@/lib/goal-presentation";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
+import { shouldShowInitialQueryLoader } from "@/lib/query-ui";
 import { fonts, formatRdm } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
@@ -87,7 +88,7 @@ export default function GoalsScreen() {
   });
   const [view, setView] = useState<"active" | "completed">("active");
 
-  if (goals.isLoading && !goals.data) return <LoadingState label="Loading your goals…" />;
+  if (shouldShowInitialQueryLoader(Boolean(goals.data), goals.isPending)) return <LoadingState label="Loading your goals…" />;
   if (!goals.data) return <ErrorState message={goals.error?.message ?? "Goals are unavailable."} onRetry={() => void goals.refetch()} />;
 
   const now = new Date();
@@ -97,7 +98,7 @@ export default function GoalsScreen() {
   const visibleGoals = view === "active" ? activeGoals : completedGoals;
 
   return (
-    <FocusedScreen contentStyle={styles.content}>
+    <FocusedScreen contentStyle={styles.content} refreshing={goals.isFetching && !goals.isPending} onRefresh={() => void goals.refetch()}>
       <View style={styles.header}>
         <Text accessibilityRole="header" style={styles.title}>Goals</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Create a goal" onPress={() => router.push("/(app)/goal/new")} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>

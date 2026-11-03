@@ -15,10 +15,10 @@ export default function LeaderboardScreen() {
   const leaderboard = useQuery({ ...trpc.rdm.social.leaderboard.queryOptions({ scope }), enabled: focused, refetchInterval: focused ? STANDARD_REFRESH_MS : false, refetchIntervalInBackground: false });
   const entries = leaderboard.data?.entries ?? [];
   const podium = entries.length >= 3 ? [entries[1]!, entries[0]!, entries[2]!] : entries.slice(0, 3);
-  return <FocusedScreen bottomSafe contentStyle={g.screen}>
+  return <FocusedScreen bottomSafe contentStyle={g.screen} refreshing={leaderboard.isFetching && !leaderboard.isPending} onRefresh={() => void leaderboard.refetch()}>
     <GamesHeader title="Leaderboard" subtitle="All-time XP · Top 50" />
     <GamesTabs value={scope} onChange={setScope} options={[{ value: "friends", label: "Friends" }, { value: "groups", label: "Group members" }, { value: "global", label: "Global" }]} />
-    {leaderboard.isLoading ? <LoadingState label="Loading saved rankings…" /> : leaderboard.error ? <ErrorState message={leaderboard.error.message} onRetry={() => void leaderboard.refetch()} /> : entries.length === 0 ? <View style={g.card}><Text style={f.sectionTitle}>No rankings yet</Text><Text style={f.body}>Recorded progress will appear here as members earn XP.</Text></View> : <>
+    {!leaderboard.data && leaderboard.isPending ? <LoadingState label="Loading saved rankings…" /> : !leaderboard.data && leaderboard.error ? <ErrorState message={leaderboard.error.message} onRetry={() => void leaderboard.refetch()} /> : entries.length === 0 ? <View style={g.card}><Text style={f.sectionTitle}>No rankings yet</Text><Text style={f.body}>Recorded progress will appear here as members earn XP.</Text></View> : <>
       <View style={[g.card, s.podium]}>{podium.map((entry) => {
         const medal = entry.rank === 1 ? c.gold : entry.rank === 2 ? "#B4C7DF" : "#DDA471";
         return <View key={entry.rank} style={[s.podiumItem, entry.rank === 1 && { paddingBottom: 25 }]}><GameIcon name="crown" size={29} color={medal} /><View style={[s.avatar, { backgroundColor: entry.rank === 1 ? c.purple : gameBlue }]}><Text style={s.initials}>{entry.initials}</Text></View><Text numberOfLines={1} style={s.name}>{entry.currentUser ? "You" : entry.name}</Text><Text style={g.label}>{entry.points.toLocaleString()} XP</Text><Text style={[s.medal, { color: medal, borderColor: medal } ]}>#{entry.rank}</Text></View>;

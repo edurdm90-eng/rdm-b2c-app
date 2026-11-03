@@ -27,13 +27,13 @@ export default function GroupsScreen() {
     refetchIntervalInBackground: false,
   });
 
-  if (groups.isLoading) return <LoadingState label="Loading your groups…" />;
-  if (groups.error || !groups.data) {
+  if (!groups.data && groups.isPending) return <LoadingState label="Loading your groups…" />;
+  if (!groups.data) {
     return <ErrorState message={groups.error?.message ?? "Groups are unavailable."} onRetry={() => void groups.refetch()} />;
   }
 
   return (
-    <GroupScreen bottomSafe={false}>
+    <GroupScreen bottomSafe={false} refreshing={groups.isFetching && !groups.isPending} onRefresh={() => void groups.refetch()}>
       <GroupPageHeader
         title="Groups"
         subtitle="Keep going, together."

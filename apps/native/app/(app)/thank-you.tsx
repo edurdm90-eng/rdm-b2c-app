@@ -21,8 +21,8 @@ const categoryPresentation: Record<GratitudeCategoryId, { icon: IconName; color:
 
 export default function ThankYouScreen() {
   const categories = useQuery(trpc.rdm.gratitude.categories.queryOptions());
-  if (categories.isLoading) return <LoadingState label="Loading your gratitude prompts…" />;
-  if (categories.error || !categories.data) return <ErrorState message={categories.error?.message ?? "Gratitude prompts are unavailable."} onRetry={() => void categories.refetch()} />;
+  if (!categories.data && categories.isPending) return <LoadingState label="Loading your gratitude prompts…" />;
+  if (!categories.data) return <ErrorState message={categories.error?.message ?? "Gratitude prompts are unavailable."} onRetry={() => void categories.refetch()} />;
 
   return (
     <TreePage title="Say Thank You" footer={<View style={styles.footer}><Text style={styles.footerText}>A few honest words are enough.</Text></View>}>

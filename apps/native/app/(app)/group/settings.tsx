@@ -18,8 +18,8 @@ import { trpc } from "@/utils/trpc";
 export default function GroupSettingsScreen() {
   const wallet = useQuery(trpc.rdm.wallet.summary.queryOptions());
 
-  if (wallet.isLoading) return <LoadingState label="Opening group settings…" />;
-  if (wallet.error || !wallet.data) {
+  if (!wallet.data && wallet.isPending) return <LoadingState label="Opening group settings…" />;
+  if (!wallet.data) {
     return <ErrorState message={wallet.error?.message ?? "Group settings are unavailable."} onRetry={() => void wallet.refetch()} />;
   }
 

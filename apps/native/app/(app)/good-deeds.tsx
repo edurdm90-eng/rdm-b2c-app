@@ -40,7 +40,7 @@ export default function GoodDeedsScreen() {
     onSettled: () => { submitting.current = false; },
   }));
   const busy = submitGoodDeeds.isPending;
-  if (goodDeeds.isLoading) return <LoadingState label="Opening your good deeds register…" />;
+  if (!goodDeeds.data && goodDeeds.isPending) return <LoadingState label="Opening your good deeds register…" />;
   if (!goodDeeds.data) return <ErrorState message={goodDeeds.error?.message ?? "Your good deeds register is unavailable."} onRetry={() => void goodDeeds.refetch()} />;
   const data = goodDeeds.data;
   const dayChanged = selectedDayKey !== null && selectedDayKey !== data.dayKey;

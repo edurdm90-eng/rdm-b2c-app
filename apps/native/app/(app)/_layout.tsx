@@ -1,6 +1,5 @@
 import { Redirect, Stack, useGlobalSearchParams, usePathname } from "expo-router";
 
-import { LoadingState } from "@/components/rdm-ui";
 import { authClient } from "@/lib/auth-client";
 import { groupLoginReturnParams } from "@/lib/auth-return";
 import { SubscriptionProvider } from "@/lib/subscription-context";
@@ -11,7 +10,8 @@ export default function ProtectedLayout() {
   const pathname = usePathname();
   const params = useGlobalSearchParams();
 
-  if (isPending) return <LoadingState label="Loading your RDM space…" />;
+  // Entry screen already shows the session loader — avoid stacking a second shell.
+  if (isPending) return null;
   if (!session?.user) return <Redirect href={{ pathname: "/login", params: groupLoginReturnParams(pathname, params) }} />;
 
   return (

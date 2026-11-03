@@ -23,8 +23,8 @@ export default function AccountScreen() {
   const [error, setError] = useState("");
   const dashboard = useQuery({ ...trpc.rdm.dashboard.queryOptions(), enabled: focused });
 
-  if (dashboard.isLoading) return <LoadingState label="Opening your account…" />;
-  if (dashboard.error || !dashboard.data) return <ErrorState message={dashboard.error?.message ?? "Your account is unavailable."} onRetry={() => void dashboard.refetch()} />;
+  if (!dashboard.data && dashboard.isPending) return <LoadingState label="Opening your account…" />;
+  if (!dashboard.data) return <ErrorState message={dashboard.error?.message ?? "Your account is unavailable."} onRetry={() => void dashboard.refetch()} />;
 
   const { user, profile } = dashboard.data;
   const invitesRemaining = profile.unlockedBadges.includes("golden-bloom") ? 0 : Math.max(0, 3 - profile.weeklyInvites);
@@ -52,7 +52,7 @@ export default function AccountScreen() {
   }
 
   return (
-    <FocusedScreen bottomSafe contentStyle={styles.screenContent}>
+    <FocusedScreen bottomSafe contentStyle={styles.screenContent} refreshing={dashboard.isFetching && !dashboard.isPending} onRefresh={() => void dashboard.refetch()}>
       <View style={styles.header}>
         <Pressable accessibilityLabel="Go back" accessibilityRole="button" onPress={() => router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)")} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={26} color={palette.text} />

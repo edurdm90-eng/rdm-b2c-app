@@ -14,9 +14,9 @@ export default function BadgesScreen() {
   const focused = useIsFocused();
   const badges = useQuery({ ...trpc.rdm.social.badges.queryOptions(), enabled: focused });
   const [tier, setTier] = useState<typeof tiers[number]>("Bronze");
-  return <FocusedScreen bottomSafe contentStyle={g.screen}>
+  return <FocusedScreen bottomSafe contentStyle={g.screen} refreshing={badges.isFetching && !badges.isPending} onRefresh={() => void badges.refetch()}>
     <GamesHeader title="Badges" />
-    {badges.isLoading ? <LoadingState label="Loading your badges…" /> : badges.error || !badges.data ? <ErrorState message={badges.error?.message ?? "Badges unavailable."} onRetry={() => void badges.refetch()} /> : <>
+    {!badges.data && badges.isPending ? <LoadingState label="Loading your badges…" /> : !badges.data ? <ErrorState message={badges.error?.message ?? "Badges unavailable."} onRetry={() => void badges.refetch()} /> : <>
       <View style={{ gap: 4 }}><Text style={f.body}>{badges.data.unlockedCount} of {badges.data.badges.length} unlocked</Text><Text style={[f.title, { fontSize: 25 }]}>Small wins, remembered.</Text></View>
       <GamesTabs options={tiers.map((value) => ({ value, label: value }))} value={tier} onChange={setTier} />
       <View style={s.grid}>{badges.data.badges.filter((badge) => badge.tier === tier).map((badge) => <View key={badge.id} accessible accessibilityLabel={`${badge.title}, ${tier}, ${badge.unlocked ? "unlocked" : "locked"}`} style={s.badge}>
