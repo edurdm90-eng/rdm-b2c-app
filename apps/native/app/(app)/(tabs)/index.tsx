@@ -2,11 +2,11 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useQuery } from "@tanstack/react-query";
 import { type Href, router, useIsFocused } from "expo-router";
 import { useEffect } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ProgressCircle } from "react-native-progress/Circle";
 
 import { FocusedScreen, focusedColors as palette } from "@/components/focused-ui";
-import { ErrorState, LoadingState } from "@/components/rdm-ui";
+import { ErrorState, LoadingState, RdmLogo } from "@/components/rdm-ui";
 import { usePremiumAccess } from "@/lib/premium-access";
 import { STANDARD_REFRESH_MS } from "@/lib/query-policy";
 import { fonts, formatRdm } from "@/lib/theme";
@@ -68,7 +68,7 @@ export default function HomeScreen() {
 
       <View style={styles.progressRow}>
         <View accessibilityLabel={`${today.completed} of ${today.total} daily reflections done`} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: today.total || 1, now: today.completed }} aria-valuemin={0} aria-valuemax={today.total || 1} aria-valuenow={today.completed} aria-valuetext={`${today.completed} of ${today.total} daily reflections done`} style={styles.ring}>
-          {today.total === 0 ? <Image accessible={false} source={require("@/assets/homescreen_logo/image.png")} resizeMode="contain" style={styles.emptyProgressLogo} /> : <>
+          {today.total === 0 ? <RdmLogo size={120} /> : <>
             <ProgressCircle animated={false} borderWidth={0} color={today.completed === 0 ? palette.line : palette.green} direction="clockwise" progress={today.completed / today.total} size={108} strokeCap="round" thickness={9} unfilledColor={palette.line} />
             <View pointerEvents="none" style={styles.ringCopy}>
               <Text style={styles.progressCount}>{today.completed} of {today.total}</Text>
@@ -158,7 +158,6 @@ const styles = StyleSheet.create({
   progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14, paddingVertical: 2 },
   ring: { width: 128, height: 128, alignItems: "center", justifyContent: "center" },
   ringCopy: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", gap: 2 },
-  emptyProgressLogo: { width: 120, height: 120 },
   progressCount: { color: palette.text, fontFamily: fonts.bodyBold, fontSize: 17 },
   progressLabel: { color: palette.muted, fontFamily: fonts.body, fontSize: 10.5, lineHeight: 15, textAlign: "center" },
   progressDivider: { width: 1, height: 64, backgroundColor: palette.line },

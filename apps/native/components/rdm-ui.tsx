@@ -235,21 +235,17 @@ export function ProgressBar({ progress, color = colors.growth }: { progress: num
 export function LoadingState({ label = "Growing your dashboard…" }: { label?: string }) {
   return (
     <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.centerState}>
-      <RdmLogo width={96} height={46} />
+      <RdmLogo size={72} />
       <ActivityIndicator color={colors.growth} size="small" />
       <Text style={styles.stateLabel}>{label}</Text>
     </View>
   );
 }
 
-export function RdmLogo({ width = 48, height = 24 }: { width?: number; height?: number }) {
-  return <Image accessible={false} source={require("@/assets/rdm/rdm-logo.png")} resizeMode="contain" style={{ width, height }} />;
-}
-
-/** Square B2C mark for login cover and account menu. */
-export function RdmCoverLogo({
-  size = 96,
-  accessibilityLabel = "RDM",
+/** Transparent B2C mark — single brand asset for UI and cover placements. */
+export function RdmLogo({
+  size = 48,
+  accessibilityLabel,
 }: {
   size?: number;
   accessibilityLabel?: string;
@@ -257,12 +253,22 @@ export function RdmCoverLogo({
   return (
     <Image
       accessibilityLabel={accessibilityLabel}
-      accessible
+      accessible={Boolean(accessibilityLabel)}
       source={require("@/assets/rdm/b2c_logo.png")}
       resizeMode="contain"
       style={{ width: size, height: size }}
     />
   );
+}
+
+export function RdmCoverLogo({
+  size = 96,
+  accessibilityLabel = "RDM",
+}: {
+  size?: number;
+  accessibilityLabel?: string;
+}) {
+  return <RdmLogo size={size} accessibilityLabel={accessibilityLabel} />;
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
