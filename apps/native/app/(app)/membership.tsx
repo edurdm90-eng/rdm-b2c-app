@@ -104,15 +104,6 @@ export default function MembershipScreen() {
         </View>
       </View>
 
-      {unavailable ? (
-        <View style={styles.infoCard}>
-          <MaterialCommunityIcons name="clock-outline" size={21} color={palette.link} />
-          <Text style={styles.infoText}>
-            Store billing is not configured for this build yet (missing public RevenueCat keys). Rebuild a native Dev Client after keys are set — Expo Go cannot complete purchases. Premium surfaces stay open until {freeUntilLabel}.
-          </Text>
-        </View>
-      ) : null}
-
       {state.status === "error" ? <Pressable accessibilityRole="button" onPress={() => subscriptionController.retry()} style={styles.outlineButton}><Text style={styles.outlineLabel}>Retry membership check</Text></Pressable> : null}
 
       {showPlans ? (
