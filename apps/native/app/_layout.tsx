@@ -5,7 +5,7 @@ import { focusManager, QueryClientProvider } from "@tanstack/react-query";
 import { DarkTheme, ThemeProvider } from "expo-router/react-navigation";
 import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AppState, Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -28,11 +28,12 @@ const rdmNavigationTheme = {
 };
 
 export default function RootLayout() {
+  const [forceReady, setForceReady] = useState(false);
   const [frauncesLoaded, frauncesError] = useFrauncesFonts({ Fraunces_600SemiBold });
   const [interLoaded, interError] = useInterFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
   const [monoLoaded, monoError] = useJetBrainsFonts({ JetBrainsMono_500Medium, JetBrainsMono_700Bold });
   // Body fonts unlock first paint; display/mono can finish without holding splash.
-  const criticalReady = interLoaded || !!interError;
+  const criticalReady = interLoaded || !!interError || forceReady;
   const fontsSettled = (frauncesLoaded && interLoaded && monoLoaded) || !!(frauncesError || interError || monoError);
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsSettled || criticalReady) return;
     const timeout = setTimeout(() => {
+      setForceReady(true);
       void SplashScreen.hideAsync();
     }, 1200);
     return () => clearTimeout(timeout);
