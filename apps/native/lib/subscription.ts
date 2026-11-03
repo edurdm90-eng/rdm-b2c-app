@@ -2,13 +2,16 @@ import { env } from "@rdm-b2c/env/native";
 import { Platform } from "react-native";
 import type { PurchasesPackage } from "react-native-purchases";
 
+import { resolveRevenueCatPublicApiKey } from "@/lib/revenuecat-api-key";
 import { SubscriptionController, type SubscriptionAdapter } from "@/lib/subscription-core";
 
-const apiKey = Platform.OS === "ios"
+const configuredKey = Platform.OS === "ios"
   ? env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
   : Platform.OS === "android"
     ? env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY
     : undefined;
+
+const apiKey = resolveRevenueCatPublicApiKey(configuredKey);
 
 // Import the native SDK only when a signed-in user and public platform key exist.
 // Unconfigured builds (and Expo Go without native billing) keep free features usable.
