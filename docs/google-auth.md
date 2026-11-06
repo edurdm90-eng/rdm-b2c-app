@@ -18,21 +18,20 @@ Register these exact authorized redirect URIs in Google Cloud:
 
 ```text
 http://localhost:3000/api/auth/callback/google
-https://www.rdmtoken.org/api/auth/callback/google
+https://rdm-b2c-app-xi.vercel.app/api/auth/callback/google
 ```
 
-Production must use `BETTER_AUTH_URL=https://www.rdmtoken.org`. Better Auth
-derives the callback URL and OAuth state-cookie host from this value, so the
-native server URL, Better Auth URL, and Google redirect origin must remain the
-same. A mismatch can cause `redirect_uri_mismatch` or a rejected OAuth state
-after Google sends the user back.
+Production must use `BETTER_AUTH_URL=https://rdm-b2c-app-xi.vercel.app` while
+the custom domain is unavailable. Better Auth derives the callback URL and
+OAuth state-cookie host from this value, so the native server URL, Better Auth
+URL, and Google redirect origin must remain the same. A mismatch can cause
+`redirect_uri_mismatch` or a rejected OAuth state after Google sends the user
+back.
 
 Production also pins Better Auth's public application name to `RDM` and its
-OAuth callback host to `www.rdmtoken.org`. Production auth requests that reach
-a Vercel preview or stale deployment URL are redirected to the branded public
-domain before Better Auth creates its host-bound OAuth state cookie. This keeps
-the provider hostname out of Google's account chooser without causing an OAuth
-state mismatch.
+OAuth callback host to `rdm-b2c-app-xi.vercel.app`. Production auth requests
+that reach a stale deployment URL are redirected to that public API host before
+Better Auth creates its host-bound OAuth state cookie.
 
 ## Google account chooser branding
 
@@ -41,15 +40,15 @@ Google Cloud project, not by Better Auth or the Expo app. In **Google Auth
 Platform → Branding**, configure:
 
 - App name: `RDM`
-- Authorized domain: `rdmtoken.org`
-- Homepage, privacy policy, and terms URLs hosted on `rdmtoken.org`
+- Authorized domain: `vercel.app` (or restore `rdmtoken.org` when the domain
+  returns)
+- Homepage, privacy policy, and terms URLs you can actually serve
 - The RDM logo and a monitored company support email
 
 For a public production app, verify and publish the branding after saving it.
 Unverified branding can cause Google to show only the callback domain instead
 of the RDM product name. Keep the OAuth client's production redirect URI set to
-`https://www.rdmtoken.org/api/auth/callback/google`; do not register or retain a
-`vercel.app` redirect for production.
+`https://rdm-b2c-app-xi.vercel.app/api/auth/callback/google`.
 
 Google is the native app's only sign-in method, so its button is always visible.
 Every runnable server requires both Google variables, preventing an environment

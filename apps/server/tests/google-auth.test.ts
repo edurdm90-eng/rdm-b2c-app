@@ -12,10 +12,10 @@ test("auth presents the RDM product identity", () => {
   assert.equal(AUTH_APPLICATION_NAME, "RDM");
 });
 
-test("production OAuth callbacks stay on the branded public domain", () => {
+test("production OAuth callbacks stay on the public API host", () => {
   assert.equal(
     authBaseURLConfig("https://rdm-b2c-app-xi.vercel.app", "production"),
-    "https://www.rdmtoken.org",
+    "https://rdm-b2c-app-xi.vercel.app",
   );
 });
 

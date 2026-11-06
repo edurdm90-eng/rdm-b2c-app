@@ -1,5 +1,6 @@
 export const AUTH_APPLICATION_NAME = "RDM";
-export const PRODUCTION_AUTH_ORIGIN = "https://www.rdmtoken.org";
+/** Public API / OAuth host while the custom domain is unavailable. */
+export const PRODUCTION_AUTH_ORIGIN = "https://rdm-b2c-app-xi.vercel.app";
 
 type RuntimeEnvironment = "development" | "production" | "test";
 

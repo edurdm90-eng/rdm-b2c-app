@@ -4,9 +4,9 @@ import test from "node:test";
 
 import { canonicalAuthRedirect } from "../src/auth-origin";
 
-test("production auth starts on the branded host before OAuth state is created", () => {
+test("production auth starts on the public API host before OAuth state is created", () => {
   const redirect = canonicalAuthRedirect(
-    new Request("https://rdm-b2c-app-xi.vercel.app/api/auth/sign-in/social?returnTo=home", {
+    new Request("https://stale-preview.vercel.app/api/auth/sign-in/social?returnTo=home", {
       method: "POST",
     }),
     "production",
@@ -15,14 +15,14 @@ test("production auth starts on the branded host before OAuth state is created",
   assert.equal(redirect?.status, 308);
   assert.equal(
     redirect?.headers.get("location"),
-    "https://www.rdmtoken.org/api/auth/sign-in/social?returnTo=home",
+    "https://rdm-b2c-app-xi.vercel.app/api/auth/sign-in/social?returnTo=home",
   );
 });
 
 test("canonical production and local development auth requests are not redirected", () => {
   assert.equal(
     canonicalAuthRedirect(
-      new Request("https://www.rdmtoken.org/api/auth/sign-in/social", { method: "POST" }),
+      new Request("https://rdm-b2c-app-xi.vercel.app/api/auth/sign-in/social", { method: "POST" }),
       "production",
     ),
     null,
