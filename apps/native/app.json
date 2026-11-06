@@ -16,8 +16,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0E1117",
-        "foregroundImage": "./assets/images/app-icon.png"
+        "backgroundColor": "#000000",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.rdmtoken.app",
