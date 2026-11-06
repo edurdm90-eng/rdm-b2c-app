@@ -97,13 +97,29 @@ export default function HomeScreen() {
               <Text style={styles.primaryLabel}>{firstItem.stage === "reflect" ? "Add reflection" : firstItem.stage === "act" ? "Check in & reflect" : "Update progress"}</Text>
             </Pressable>
           </View>
+        ) : allReflected ? (
+          <View style={styles.emptyCard}>
+            <MaterialCommunityIcons name="check-circle-outline" size={24} color={palette.green} />
+            <View style={styles.itemCopy}>
+              <Text style={styles.itemTitle}>{"Today's reflections are complete"}</Text>
+              <Text style={styles.caption}>Your progress is saved. Keep growing tomorrow.</Text>
+            </View>
+          </View>
         ) : (
           <View style={styles.emptyCard}>
-            <MaterialCommunityIcons name={allReflected ? "check-circle-outline" : "sprout-outline"} size={24} color={palette.green} />
+            <MaterialCommunityIcons name="chart-timeline-variant" size={24} color={palette.green} />
             <View style={styles.itemCopy}>
-              <Text style={styles.itemTitle}>{allReflected ? "Today's reflections are complete" : "Room for one small step"}</Text>
-              <Text style={styles.caption}>{allReflected ? "Your progress is saved. Keep growing tomorrow." : "No daily reflections are pending. Browse habits or plan a goal with Medaa Ai."}</Text>
+              <Text style={styles.itemTitle}>Start your transformation journey</Text>
+              <Text style={styles.caption}>Set a goal and take your first step today.</Text>
             </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Explore goals"
+              onPress={() => router.push("/(app)/(tabs)/goals")}
+              style={({ pressed }) => [styles.treeAction, pressed && styles.pressed]}
+            >
+              <Text style={styles.treeActionLabel}>Explore</Text>
+            </Pressable>
           </View>
         )}
         {today.items.slice(1, 3).map((item) => (
@@ -120,7 +136,7 @@ export default function HomeScreen() {
       </View>
 
       <Pressable accessibilityRole="button" accessibilityLabel={profile.tree.pledgedAt ? "Tend your tree" : "Plant your tree"} onPress={() => openPremium("/(app)/tree")} style={({ pressed }) => [styles.treeCard, pressed && styles.pressed]}>
-        <MaterialCommunityIcons name="tree-outline" size={32} color={palette.green} />
+        <MaterialCommunityIcons name="sprout-outline" size={32} color={palette.green} />
         <View style={styles.itemCopy}>
           <Text style={styles.cardTitle}>{profile.tree.pledgedAt ? `Your tree · Day ${profile.tree.dayNumber}` : "Grow your tree"}</Text>
           <Text style={styles.caption}>{profile.tree.pledgedAt ? "A brighter you grows here." : premium.allowed ? "Start with one promise to yourself." : "Premium · membership unlocks Grow Your Tree."}</Text>
