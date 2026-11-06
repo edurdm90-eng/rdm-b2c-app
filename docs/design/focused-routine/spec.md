@@ -8,7 +8,7 @@ Source: the user's supplied “RDM / Focused Routine — 01 Welcome, home & wall
 - Retain Japanese Wisdom even though it is absent from the reference.
 - Make Wallet's Recent activity foldable with a chevron.
 - Add “Sponsor a student's school supplies” and “Donate for lake/river cleanup”, each costing 5 RDM exclusively from Remorse.
-- Preserve real authentication, the existing 500 RDM signup airdrop, persistent records, and mobile navigation safe areas. Reference balances and names are illustrative, not application fixtures.
+- Preserve real authentication, the existing 200 RDM signup airdrop, persistent records, and mobile navigation safe areas. Reference balances and names are illustrative, not application fixtures.
 - Work on v2; do not modify master or push.
 
 ## Implemented behavior

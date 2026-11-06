@@ -1,7 +1,10 @@
 import { client, RdmProfile } from "@rdm-b2c/db";
 import type { ObjectId } from "mongodb";
 
+import { SIGNUP_AIRDROP_AMOUNT } from "./signup-airdrop-amount";
 import { signupAirdropUserFilter } from "./signup-airdrop-id";
+
+export { SIGNUP_AIRDROP_AMOUNT } from "./signup-airdrop-amount";
 
 export const signupAirdropOperationId = (userId: string) => `signup-airdrop:${userId}`;
 
@@ -21,10 +24,10 @@ export async function grantSignupAirdrop(userId: string): Promise<void> {
     if (!(error instanceof Error && "code" in error && error.code === 11000)) throw error;
   }
   await RdmProfile.updateOne({ userId, creditedOperations: { $ne: operationId } }, {
-    $inc: { walletBalance: 500 },
+    $inc: { walletBalance: SIGNUP_AIRDROP_AMOUNT },
     $addToSet: { creditedOperations: operationId },
     $push: { transactions: { $each: [{
-      title: "Welcome airdrop", amount: 500, kind: "airdrop", operationId, createdAt: new Date(),
+      title: "Welcome airdrop", amount: SIGNUP_AIRDROP_AMOUNT, kind: "airdrop", operationId, createdAt: new Date(),
     }], $position: 0 } },
   });
 }

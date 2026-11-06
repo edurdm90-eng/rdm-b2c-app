@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { SIGNUP_AIRDROP_AMOUNT } from "@rdm-b2c/auth/signup-airdrop-amount";
 import { verifySavedLeaderboard } from "./leaderboard-assertions";
 import { verifyCareRecovery } from "./care-recovery-assertions";
 import { medaaRegressionCases } from "./medaa-journey-assertions";
@@ -128,19 +129,21 @@ test("unconfigured external rewards cannot consume wallet balances", async () =>
   assert.deepEqual(afterWallet.transactions, beforeWallet.transactions);
 });
 
-test("a newly registered account receives one 500 RDM Base airdrop while other progress starts empty", async () => {
+test(`a newly registered account receives one ${SIGNUP_AIRDROP_AMOUNT} RDM Base airdrop while other progress starts empty`, async () => {
   const created = await auth.api.signUpEmail({ body: {
     email: `register-${randomUUID()}@example.test`, password: randomUUID(), name: "Real Registration Test",
   } });
   const api = caller(created.user.id);
   const state = await api.rdm.dashboard();
-  assert.deepEqual(state.profile.wallet, { balance: 500, base: 500, reward: 0, remorse: 0, peer: 0 });
+  assert.deepEqual(state.profile.wallet, {
+    balance: SIGNUP_AIRDROP_AMOUNT, base: SIGNUP_AIRDROP_AMOUNT, reward: 0, remorse: 0, peer: 0,
+  });
   assert.equal(state.profile.xp, 0);
   assert.equal(state.profile.level, 1);
   assert.equal(state.profile.streak, 0);
   assert.deepEqual(state.habits, []);
   assert.equal(state.profile.transactions.length, 1);
-  assert.equal(state.profile.transactions[0]?.amount, 500);
+  assert.equal(state.profile.transactions[0]?.amount, SIGNUP_AIRDROP_AMOUNT);
   assert.equal(state.profile.transactions[0]?.kind, "airdrop");
   assert.deepEqual(state.profile.unlockedBadges, []);
   assert.deepEqual(await api.rdm.goals.list(), []);

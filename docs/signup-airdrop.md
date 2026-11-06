@@ -1,6 +1,6 @@
 # Signup Airdrop
 
-New accounts receive **500 RDM in the Base Purse**. Reward, Remorse, and Peer balances remain zero; no habits, goals, tree, XP, or badges are seeded. The wallet records one `Welcome airdrop` transaction.
+New accounts receive **200 RDM in the Base Purse**. Reward, Remorse, and Peer balances remain zero; no habits, goals, tree, XP, or badges are seeded. The wallet records one `Welcome airdrop` transaction.
 
 Eligibility is marked by the server when the auth account is created. Clients cannot submit or update this flag, and it is omitted from public user responses. Existing accounts are not backfilled, including accounts with an empty wallet.
 

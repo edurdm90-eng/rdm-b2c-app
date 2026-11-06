@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
+import { SIGNUP_AIRDROP_AMOUNT } from "@rdm-b2c/auth/signup-airdrop-amount";
+
 import type { AppRouter } from "../routers/index";
 
 type Dependencies = {
@@ -27,9 +29,9 @@ export const signupAirdropCases: Array<{ name: string; run: (dependencies: Depen
       assert.ok(created.token);
       const api = caller(created.user.id);
       const recovered = await Promise.all([api.rdm.wallet.summary(), api.rdm.wallet.summary(), api.rdm.dashboard()]);
-      assert.deepEqual(recovered[0].wallet, { balance: 500, base: 500, reward: 0, remorse: 0, peer: 0 });
+      assert.deepEqual(recovered[0].wallet, { balance: SIGNUP_AIRDROP_AMOUNT, base: SIGNUP_AIRDROP_AMOUNT, reward: 0, remorse: 0, peer: 0 });
       const reload = await caller(created.user.id).rdm.wallet.summary();
-      assert.deepEqual(reload.wallet, { balance: 500, base: 500, reward: 0, remorse: 0, peer: 0 });
+      assert.deepEqual(reload.wallet, { balance: SIGNUP_AIRDROP_AMOUNT, base: SIGNUP_AIRDROP_AMOUNT, reward: 0, remorse: 0, peer: 0 });
       assert.equal(reload.transactions.filter((transaction) => transaction.kind === "airdrop").length, 1);
       assert.equal(reload.xp, 0);
     },
@@ -46,18 +48,18 @@ export const signupAirdropCases: Array<{ name: string; run: (dependencies: Depen
         creationId: randomUUID(), title: "Use welcome funds", category: "Focus", target: "Finish one chapter",
         durationDays: 5, startDayKey: new Date().toISOString().slice(0, 10), timeZone: "UTC", pledgeAmount: 100,
       });
-      assert.equal((await api.rdm.wallet.summary()).wallet.base, 400);
+      assert.equal((await api.rdm.wallet.summary()).wallet.base, SIGNUP_AIRDROP_AMOUNT - 100);
       const sessions = await Promise.all(Array.from({ length: 4 }, () => auth.api.signInEmail({ body: { email, password } })));
       assert.ok(sessions.every((result) => result.user.id === created.user.id));
       const afterSignIn = await caller(created.user.id).rdm.wallet.summary();
-      assert.deepEqual(afterSignIn.wallet, { balance: 400, base: 400, reward: 0, remorse: 0, peer: 0 });
+      assert.deepEqual(afterSignIn.wallet, { balance: SIGNUP_AIRDROP_AMOUNT - 100, base: SIGNUP_AIRDROP_AMOUNT - 100, reward: 0, remorse: 0, peer: 0 });
       assert.equal(afterSignIn.transactions.filter((transaction) => transaction.kind === "airdrop").length, 1);
       await api.rdm.goals.update({
         id: goal.id, requestId: randomUUID(), expectedVersion: goal.progressVersion, action: "complete", note: "Finished the chapter",
       });
       await auth.api.signInEmail({ body: { email, password } });
       const settled = await caller(created.user.id).rdm.wallet.summary();
-      assert.deepEqual(settled.wallet, { balance: 500, base: 400, reward: 100, remorse: 0, peer: 0 });
+      assert.deepEqual(settled.wallet, { balance: SIGNUP_AIRDROP_AMOUNT, base: SIGNUP_AIRDROP_AMOUNT - 100, reward: 100, remorse: 0, peer: 0 });
       assert.equal(settled.transactions.filter((transaction) => transaction.kind === "airdrop").length, 1);
     },
   },
@@ -107,7 +109,7 @@ export const signupAirdropCases: Array<{ name: string; run: (dependencies: Depen
       const created = await auth.api.signUpEmail({ body });
       assert.equal(Object.hasOwn(created.user, "signupAirdropEligible"), false);
       const state = await caller(created.user.id).rdm.wallet.summary();
-      assert.deepEqual(state.wallet, { balance: 500, base: 500, reward: 0, remorse: 0, peer: 0 });
+      assert.deepEqual(state.wallet, { balance: SIGNUP_AIRDROP_AMOUNT, base: SIGNUP_AIRDROP_AMOUNT, reward: 0, remorse: 0, peer: 0 });
       const repeatedBody = { ...body, signupAirdropEligible: true };
       await assert.rejects(() => auth.api.signUpEmail({ body: repeatedBody }));
       const unchanged = await caller(created.user.id).rdm.wallet.summary();
@@ -127,9 +129,9 @@ export const signupAirdropCases: Array<{ name: string; run: (dependencies: Depen
       const sessions = await Promise.all(Array.from({ length: 4 }, () => auth.api.signInEmail({ body: { email, password } })));
       assert.ok(sessions.every((result) => result.user.id === created.user.id));
       const state = await caller(created.user.id).rdm.wallet.summary();
-      assert.deepEqual(state.wallet, { balance: 500, base: 500, reward: 0, remorse: 0, peer: 0 });
+      assert.deepEqual(state.wallet, { balance: SIGNUP_AIRDROP_AMOUNT, base: SIGNUP_AIRDROP_AMOUNT, reward: 0, remorse: 0, peer: 0 });
       assert.equal(state.transactions.length, 1);
-      assert.equal(state.transactions[0]?.amount, 500);
+      assert.equal(state.transactions[0]?.amount, SIGNUP_AIRDROP_AMOUNT);
       assert.equal(state.transactions[0]?.kind, "airdrop");
       assert.equal(state.xp, 0);
     },
